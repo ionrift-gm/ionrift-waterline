@@ -1,0 +1,9 @@
+{
+    "TYPES": {
+        "RegionBehavior": {
+            "ionrift-waterline": {
+                "waterFX": "Ionrift: Water FX"
+            }
+        }
+    }
+}
