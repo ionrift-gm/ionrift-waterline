@@ -18,6 +18,8 @@
 
 ## Water FX
 
+I spent literal days tracing water polygons on top of maps by hand. Every river, every lake, every puddle - click, click, click, adjusting vertices for hours. Across hundreds of maps this becomes genuinely soul-destroying prep work. Waterline exists to make that go away.
+
 Click on water in your map and Waterline traces the shape automatically using flood-fill detection. It then renders a live animated overlay with Voronoi caustics, background distortion, and configurable edge fade.
 
 You can tune everything with sliders that update in real time: speed, intensity, opacity, distortion, scale, and flow direction. Built-in presets (River, Lake, Puddle, Coast, Deep Sea) set sensible defaults, and you can save your own per-world profiles.
@@ -27,6 +29,8 @@ Shift+Click adds area. Ctrl+Click subtracts. Ctrl+Z undoes the last change.
 ## Border Walls
 
 [![Watch the demo](https://img.youtube.com/vi/_zGnOfai5YA/maxresdefault.jpg)](https://youtu.be/_zGnOfai5YA)
+
+When you can see the exact edges of a map, you know the whole space. Your curiosity switches off. Even hiding those boundaries by a few pixels keeps players wondering what's around the corner or past the treeline.
 
 Procedural wall generation along the canvas boundary with noise-based variation. Set vertex count, amplitude, jitter, and inset, then generate. Straight-wall mode also available.
 
