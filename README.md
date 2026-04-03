@@ -26,6 +26,8 @@ Shift+Click adds area. Ctrl+Click subtracts. Ctrl+Z undoes the last change.
 
 ## Border Walls
 
+[![Watch the demo](https://img.youtube.com/vi/_zGnOfai5YA/maxresdefault.jpg)](https://youtu.be/_zGnOfai5YA)
+
 Procedural wall generation along the canvas boundary with noise-based variation. Set vertex count, amplitude, jitter, and inset, then generate. Straight-wall mode also available.
 
 ## Installation
