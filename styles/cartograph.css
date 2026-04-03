@@ -1,0 +1,638 @@
+/* Ionrift Cartograph */
+
+/* Glass background for water dialogs (matches ionrift-lib brand) */
+.water-config-dialog.window-app,
+.water-fx-dialog.window-app {
+    background: rgba(20, 20, 30, 0.95) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8) !important;
+    border-radius: 8px;
+}
+
+.water-config-dialog .window-content,
+.water-fx-dialog .window-content {
+    background: transparent !important;
+}
+
+.water-config-dialog .window-header,
+.water-fx-dialog .window-header {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Border dialog form */
+.ionrift-cartograph-border-form .form-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.ionrift-cartograph-border-form label {
+    flex: 0 0 140px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #1a1a1a;
+}
+
+.ionrift-cartograph-border-form input[type="range"] {
+    flex: 1;
+}
+
+.ionrift-cartograph-border-form .range-value {
+    flex: 0 0 42px;
+    text-align: center;
+    font-family: monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1a1a1a;
+    background: rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
+    padding: 2px 4px;
+}
+
+.ionrift-cartograph-border-form .notes {
+    font-size: 0.8rem;
+    color: #555;
+    font-style: italic;
+    margin-top: 4px;
+    text-align: center;
+}
+
+/* Inline action buttons */
+.cartograph-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cartograph-btn {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.15s;
+    background: rgba(255, 255, 255, 0.05);
+    color: #ccc;
+}
+
+.cartograph-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+
+.cartograph-btn i {
+    margin-right: 4px;
+}
+
+/* Border dialog: Organic (green accent) */
+.cartograph-btn-organic {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #4ade80;
+}
+
+.cartograph-btn-organic:hover {
+    background: rgba(34, 197, 94, 0.3);
+    border-color: rgba(34, 197, 94, 0.6);
+    color: #fff;
+}
+
+/* Border dialog: Straight (blue accent) */
+.cartograph-btn-straight {
+    background: rgba(42, 100, 150, 0.15);
+    border-color: rgba(42, 100, 150, 0.4);
+    color: #4a9ad9;
+}
+
+.cartograph-btn-straight:hover {
+    background: rgba(42, 100, 150, 0.3);
+    border-color: rgba(42, 100, 150, 0.6);
+    color: #fff;
+}
+
+/* Border dialog: Clear (red accent) */
+.border-btn-clear {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+}
+
+.border-btn-clear:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fff;
+}
+
+/* Border actions row */
+.border-actions {
+    gap: 6px;
+}
+
+/* ── Unified Water Config Dialog ────────────────────── */
+
+/* Glass background */
+.water-config-dialog.window-app {
+    background: rgba(20, 20, 30, 0.95) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8) !important;
+    border-radius: 8px;
+}
+
+.water-config-dialog .window-content {
+    background: transparent !important;
+}
+
+.water-config-dialog .window-header {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.water-config-form {
+    padding: 8px 10px;
+}
+
+.water-config-form .hidden {
+    display: none !important;
+}
+
+/* Section */
+.wc-section {
+    margin-bottom: 10px;
+}
+
+.wc-section h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin: 6px 0 6px;
+    padding-bottom: 5px;
+    color: #fff;
+}
+
+.wc-section h3 i {
+    margin-right: 5px;
+    color: var(--ionrift-accent, #8b5cf6);
+}
+
+/* Zone list */
+.wc-zone-list {
+    max-height: 160px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 6px;
+}
+
+.wc-zone-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    font-size: 0.83rem;
+    transition: background 0.15s;
+}
+
+.wc-zone-item:hover {
+    background: rgba(139, 92, 246, 0.15);
+}
+
+.wc-zone-item > i {
+    color: #4ade80;
+    flex-shrink: 0;
+}
+
+.wc-zone-item .zone-name {
+    font-weight: 600;
+    color: #fff;
+}
+
+.wc-zone-item .zone-meta {
+    margin-left: auto;
+    font-size: 0.78rem;
+    color: #888;
+    font-family: "Consolas", monospace;
+}
+
+.wc-zone-delete {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+}
+
+.wc-zone-delete:hover {
+    background: rgba(239, 68, 68, 0.3);
+    color: #fff;
+}
+
+.wc-empty-hint {
+    font-size: 0.8rem;
+    color: #666;
+    font-style: italic;
+    margin: 4px 0;
+}
+
+/* Form groups (sliders) */
+.water-config-form .form-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.water-config-form .form-group label {
+    flex: 0 0 72px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #ccc;
+    cursor: help;
+}
+
+.water-config-form .form-group input[type="range"] {
+    flex: 1;
+    accent-color: var(--ionrift-accent, #8b5cf6);
+}
+
+.water-config-form .form-group select {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.83rem;
+}
+
+.water-config-form .range-value {
+    flex: 0 0 40px;
+    text-align: right;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #fff;
+    font-family: "Consolas", monospace;
+}
+
+/* Pick mode button */
+.cartograph-btn-pick {
+    width: 100%;
+    margin-top: 4px;
+    padding: 7px 14px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    border-radius: 4px;
+    background: linear-gradient(to bottom, #4a4a4a, #2a2a2a);
+    border: 1px solid #000;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cartograph-btn-pick:hover {
+    background: rgba(139, 92, 246, 0.4);
+    border-color: var(--ionrift-accent, #8b5cf6);
+    box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
+}
+
+.cartograph-btn-pick.pick-active {
+    background: rgba(139, 92, 246, 0.5);
+    border-color: #a78bfa;
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
+}
+
+/* Candidate result */
+.wc-candidate {
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+.wc-candidate-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 6px;
+}
+
+.wc-candidate-header i {
+    color: #4a9ad9;
+}
+
+.wc-vert-warning {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: #facc15;
+    background: rgba(250, 204, 21, 0.08);
+    border: 1px solid rgba(250, 204, 21, 0.2);
+    border-radius: 3px;
+    padding: 4px 8px;
+    margin-bottom: 6px;
+}
+
+.wc-vert-warning i {
+    color: #facc15;
+    flex-shrink: 0;
+}
+
+.wc-candidate-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.wc-candidate-actions .cartograph-btn {
+    flex: 1;
+    padding: 5px 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cartograph-btn-accept {
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #4ade80;
+}
+
+.cartograph-btn-accept:hover {
+    background: rgba(34, 197, 94, 0.3);
+    border-color: rgba(34, 197, 94, 0.6);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.2);
+}
+
+.cartograph-btn-discard {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+}
+
+.cartograph-btn-discard:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Color picker */
+.water-config-form input[type="color"] {
+    width: 36px;
+    height: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    padding: 0;
+}
+
+.color-auto-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto !important;
+    font-size: 0.8rem;
+    color: #aaa;
+    cursor: pointer;
+}
+
+.color-auto-label input[type="checkbox"] {
+    accent-color: var(--ionrift-accent, #8b5cf6);
+}
+
+/* Layer hint */
+.wc-layer-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: #888;
+    margin: 6px 0 4px;
+}
+
+.wc-layer-hint i {
+    color: var(--ionrift-accent, #8b5cf6);
+    flex-shrink: 0;
+}
+
+.wc-layer-hint strong {
+    color: #ccc;
+}
+
+/* Footer actions */
+.wc-footer-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.wc-footer-actions .cartograph-btn {
+    flex: 1;
+    padding: 7px 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cartograph-btn-preview-layer {
+    background: rgba(42, 100, 150, 0.15);
+    border: 1px solid rgba(42, 100, 150, 0.4);
+    color: #4a9ad9;
+}
+
+.cartograph-btn-preview-layer:hover {
+    background: rgba(42, 100, 150, 0.3);
+    border-color: rgba(42, 100, 150, 0.6);
+    box-shadow: 0 0 8px rgba(42, 100, 150, 0.2);
+}
+
+.cartograph-btn-save-fx {
+    background: rgba(34, 197, 94, 0.2);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    color: #4ade80;
+}
+
+.cartograph-btn-save-fx:hover {
+    background: rgba(34, 197, 94, 0.4);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.3);
+    border-color: #4ade80;
+}
+
+/* Refine hint */
+.wc-refine-hint {
+    font-size: 0.75rem;
+    color: #8b8b9e;
+    text-align: center;
+    margin: 6px 0 0 0;
+    padding: 0;
+    line-height: 1.4;
+}
+
+.wc-refine-hint i {
+    margin-right: 3px;
+    color: rgba(139, 92, 246, 0.6);
+}
+
+.wc-refine-hint strong {
+    color: #bbb;
+}
+
+/* -- Preset Row (inline save/delete alongside dropdown) -- */
+
+.wc-preset-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.wc-preset-row label {
+    flex: 0 0 72px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #ccc;
+}
+
+.wc-preset-row select {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.83rem;
+}
+
+.wc-preset-row select optgroup {
+    background: #1a1a2e;
+    color: #aaa;
+    font-style: normal;
+    font-size: 0.78rem;
+}
+
+.wc-preset-row select option {
+    background: #1a1a2e;
+    color: #fff;
+    font-size: 0.83rem;
+}
+
+.wc-preset-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    color: #aaa;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+}
+
+.wc-preset-btn:hover {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.5);
+    color: #fff;
+}
+
+.wc-preset-btn.wc-preset-delete:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #f87171;
+}
+
+/* Save prompt (slides in below preset row) */
+.wc-preset-save-prompt {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    align-items: center;
+    padding: 6px 8px;
+    background: rgba(139, 92, 246, 0.06);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 4px;
+}
+
+.wc-preset-name {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.83rem;
+}
+
+.wc-preset-name::placeholder {
+    color: #666;
+}
+
+.wc-preset-save-prompt .cartograph-btn {
+    flex: 0 0 28px !important;
+    width: 28px;
+    height: 28px;
+    padding: 0 !important;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.wc-preset-confirm {
+    background: rgba(34, 197, 94, 0.15) !important;
+    border: 1px solid rgba(34, 197, 94, 0.4) !important;
+    color: #4ade80 !important;
+}
+
+.wc-preset-confirm:hover {
+    background: rgba(34, 197, 94, 0.3) !important;
+    color: #fff !important;
+}
+
+.wc-preset-cancel {
+    background: rgba(239, 68, 68, 0.1) !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    color: #f87171 !important;
+}
+
+.wc-preset-cancel:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #fff !important;
+}
