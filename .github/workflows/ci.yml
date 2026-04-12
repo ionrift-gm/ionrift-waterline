@@ -176,17 +176,8 @@ jobs:
     name: AI Tone Scan
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (waterline)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          path: ionrift-waterline
-
-      - name: Checkout devtools
-        uses: actions/checkout@v4
-        with:
-          repository: ionrift-gm/ionrift-devtools
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: ionrift-devtools
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -194,6 +185,4 @@ jobs:
           node-version: '20'
 
       - name: Run AI comment scanner
-        run: |
-          node ionrift-devtools/scripts/scan_ai_comments.js \
-            ionrift-waterline/scripts
+        run: node tools/scan_ai_comments.js scripts
