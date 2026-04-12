@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// CI copy: logic matches ionrift-devtools/scripts/scan_ai_comments.js.
+// CI copy: logic matches ionrift-devtools/scripts/signal_check.js.
 // When ionrift-gm/ionrift-devtools is public, workflow may switch back to checkout.
 
 const TARGET_DIR = process.argv[2] || path.resolve(__dirname, '../scripts');

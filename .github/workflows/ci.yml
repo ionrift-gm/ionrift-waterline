@@ -168,14 +168,13 @@ jobs:
           "
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # JOB 5 — AI Tone Scan
-  # Runs tools/scan_ai_comments.js against the scripts directory.
+  # JOB 5 — Signal Check
+  # Runs tools/signal_check.js against the scripts directory.
   # tools/ holds a local CI copy — authoring source is ionrift-devtools/scripts/.
-  # When scanner patterns change in devtools, copy here and commit:
-  #   "chore: sync AI tone scanner patterns"
+  # When patterns change in devtools, copy here and commit.
   # ─────────────────────────────────────────────────────────────────────────────
-  ai-tone-scan:
-    name: AI Tone Scan
+  signal-check:
+    name: Signal Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -186,5 +185,5 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Run AI comment scanner
-        run: node tools/scan_ai_comments.js scripts/
+      - name: Run signal check
+        run: node tools/signal_check.js scripts/
