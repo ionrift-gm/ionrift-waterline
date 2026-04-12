@@ -308,7 +308,7 @@ Water Tuning API:
             try {
                 bgTexture = await PIXI.Assets.load(bgPath);
                 LOG(`  Background texture loaded for distortion`);
-            } catch (err) {
+            } catch {
                 LOG(`  WARNING: Could not load bg texture`);
             }
         }

@@ -1,6 +1,5 @@
 import { BorderControls } from './border/BorderControls.js';
 import { WaterManager } from './water/WaterManager.js';
-import { WaterDetector } from './water/WaterDetector.js';
 import { WaterConfigDialog } from './water/WaterConfigDialog.js';
 
 const MODULE_ID = 'ionrift-waterline';

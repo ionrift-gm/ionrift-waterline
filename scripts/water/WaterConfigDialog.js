@@ -72,7 +72,7 @@ export class WaterConfigDialog extends Dialog {
     /** Close the dialog if open (called on scene change). */
     static closeIfOpen() {
         if (WaterConfigDialog._instance) {
-            try { WaterConfigDialog._instance.close(); } catch (_) {}
+            try { WaterConfigDialog._instance.close(); } catch {}
             WaterConfigDialog._instance = null;
         }
     }
@@ -458,14 +458,14 @@ export class WaterConfigDialog extends Dialog {
                 const s = firstBehavior.system;
                 const html = this._html;
                 if (s.waterType) html.find('select[name="waterType"]').val(s.waterType);
-                if (s.speed != null) this.#setSlider('speed', s.speed);
-                if (s.intensity != null) this.#setSlider('intensity', s.intensity);
-                if (s.opacity != null) this.#setSlider('opacity', s.opacity);
-                if (s.distortion != null) this.#setSlider('distortion', s.distortion);
-                if (s.fadeWidth != null) this.#setSlider('fadeWidth', s.fadeWidth);
-                if (s.scale != null) this.#setSlider('scale', s.scale);
-                if (s.flowAngle != null) this.#setSlider('flowAngle', s.flowAngle);
-                if (s.shoreWaves != null) this.#setSlider('shoreWaves', s.shoreWaves);
+                if (s.speed !== undefined && s.speed !== null) this.#setSlider('speed', s.speed);
+                if (s.intensity !== undefined && s.intensity !== null) this.#setSlider('intensity', s.intensity);
+                if (s.opacity !== undefined && s.opacity !== null) this.#setSlider('opacity', s.opacity);
+                if (s.distortion !== undefined && s.distortion !== null) this.#setSlider('distortion', s.distortion);
+                if (s.fadeWidth !== undefined && s.fadeWidth !== null) this.#setSlider('fadeWidth', s.fadeWidth);
+                if (s.scale !== undefined && s.scale !== null) this.#setSlider('scale', s.scale);
+                if (s.flowAngle !== undefined && s.flowAngle !== null) this.#setSlider('flowAngle', s.flowAngle);
+                if (s.shoreWaves !== undefined && s.shoreWaves !== null) this.#setSlider('shoreWaves', s.shoreWaves);
                 if (s.colorOverride) {
                     html.find('input[name="colorOverride"]').val(s.colorOverride);
                     html.find('input[name="autoColor"]').prop('checked', false);
@@ -878,14 +878,14 @@ export class WaterConfigDialog extends Dialog {
     }
 
     #applyPresetValues(preset) {
-        if (preset.speed != null) this.#setSlider('speed', preset.speed);
-        if (preset.intensity != null) this.#setSlider('intensity', preset.intensity);
-        if (preset.opacity != null) this.#setSlider('opacity', preset.opacity);
-        if (preset.distortion != null) this.#setSlider('distortion', preset.distortion);
-        if (preset.fadeWidth != null) this.#setSlider('fadeWidth', preset.fadeWidth);
-        if (preset.scale != null) this.#setSlider('scale', preset.scale);
-        if (preset.flowAngle != null) this.#setSlider('flowAngle', preset.flowAngle);
-        if (preset.shoreWaves != null) this.#setSlider('shoreWaves', preset.shoreWaves);
+        if (preset.speed !== undefined && preset.speed !== null) this.#setSlider('speed', preset.speed);
+        if (preset.intensity !== undefined && preset.intensity !== null) this.#setSlider('intensity', preset.intensity);
+        if (preset.opacity !== undefined && preset.opacity !== null) this.#setSlider('opacity', preset.opacity);
+        if (preset.distortion !== undefined && preset.distortion !== null) this.#setSlider('distortion', preset.distortion);
+        if (preset.fadeWidth !== undefined && preset.fadeWidth !== null) this.#setSlider('fadeWidth', preset.fadeWidth);
+        if (preset.scale !== undefined && preset.scale !== null) this.#setSlider('scale', preset.scale);
+        if (preset.flowAngle !== undefined && preset.flowAngle !== null) this.#setSlider('flowAngle', preset.flowAngle);
+        if (preset.shoreWaves !== undefined && preset.shoreWaves !== null) this.#setSlider('shoreWaves', preset.shoreWaves);
         this.#liveUpdateFX();
     }
 

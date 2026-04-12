@@ -21,7 +21,7 @@ export class WaterDistortionFilter extends PIXI.Filter {
 
     #tickerFn = null;
 
-    constructor(options = {}) {
+    constructor(_options = {}) {
         // Minimal: no custom uniforms, just the passthrough shader
         super(null, FRAG_PASSTHROUGH, {});
         this.padding = 0;

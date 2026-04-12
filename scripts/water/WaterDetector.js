@@ -261,7 +261,6 @@ export class WaterDetector {
 
         const imgW = WaterDetector.#cachedImgW;
         const imgH = WaterDetector.#cachedImgH;
-        const dims = canvas.dimensions;
 
         // Grid dimensions
         const cols = Math.ceil(imgW / gridStep);
