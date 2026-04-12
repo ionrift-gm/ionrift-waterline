@@ -169,8 +169,10 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────────
   # JOB 5 — AI Tone Scan
-  # Runs ionrift-devtools scan_ai_comments.js against the scripts directory.
-  # Fails on any detected AI-pattern phrases in comments or docs.
+  # Runs tools/scan_ai_comments.js against the scripts directory.
+  # tools/ holds a local CI copy — authoring source is ionrift-devtools/scripts/.
+  # When scanner patterns change in devtools, copy here and commit:
+  #   "chore: sync AI tone scanner patterns"
   # ─────────────────────────────────────────────────────────────────────────────
   ai-tone-scan:
     name: AI Tone Scan
@@ -185,4 +187,4 @@ jobs:
           node-version: '20'
 
       - name: Run AI comment scanner
-        run: node tools/scan_ai_comments.js scripts
+        run: node tools/scan_ai_comments.js scripts/
