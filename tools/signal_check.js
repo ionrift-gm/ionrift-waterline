@@ -7,8 +7,6 @@ const path = require('path');
 const TARGET_DIR = process.argv[2] || path.resolve(__dirname, '../scripts');
 const REPO_ROOT = path.resolve(__dirname, '..');
 
-// Pattern strings are encoded to avoid exposing the detection ruleset in public repos.
-// Encoding is cosmetic — decode at runtime. Source of truth: ionrift-devtools (private).
 const _d = (s) => Buffer.from(s, 'base64').toString('utf8');
 
 const AI_INDICATORS = [
