@@ -17,3 +17,12 @@ Thumbs.db
 CURSOR_TASK_*
 CURSOR_SPEC_*
 CURSOR_PLAN_*
+
+# Internal docs — never ship (see DEV_PROTOCOLS.md §22)
+*_STRATEGY.md
+*_BACKLOG.md
+docs/internal/
+
+# Test suites (see DEV_PROTOCOLS.md §31)
+scripts/tests/
+tests/
