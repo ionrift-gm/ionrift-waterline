@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0] - 2026-04-25
+
+### Token Water Wake
+- **Ripple rings.** Tokens moving through water regions emit expanding concentric ripples - visible as shader distortion on the water surface.
+- **Idle ripples.** Tokens standing still in water produce gentle ambient ripples at random intervals.
+- **Multi-token support.** Shader slots are distributed fairly when multiple tokens are in water at the same time.
+- **Per-token opt-out.** Disable ripples for individual tokens via the noRipple flag in Token Config.
+- **Elevated tokens.** Tokens with elevation above 0 (flying, climbing) skip the water wake entirely.
+- **Wake Tuning panel.** GM-only dialog with live sliders for ripple shape, timing, variance, and shader parameters. Save and load presets per world.
+
+### Changed
+- Minimum Foundry version raised to V13.
+
 ## 0.1.0 - Initial Release
 
 ### Water FX

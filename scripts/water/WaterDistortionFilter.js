@@ -25,7 +25,7 @@ export class WaterDistortionFilter extends PIXI.Filter {
         // Minimal: no custom uniforms, just the passthrough shader
         super(null, FRAG_PASSTHROUGH, {});
         this.padding = 0;
-        console.log('Waterline | WaterDistortionFilter created (passthrough test)');
+        try { if (game.settings?.get?.('ionrift-waterline', 'debug')) console.log('Waterline | WaterDistortionFilter created (passthrough test)'); } catch { /* setting not yet registered */ }
     }
 
     startAnimation() {

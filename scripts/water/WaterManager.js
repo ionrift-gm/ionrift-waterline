@@ -1,7 +1,7 @@
 import { WaterMesh } from './WaterMesh.js';
 
 const MODULE_ID = 'ionrift-waterline';
-const LOG = (...args) => console.log('Waterline |', ...args);
+const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
 
 /**
  * Water body type presets. Each maps to a set of uniform defaults.
@@ -52,6 +52,9 @@ export class WaterManager {
 
     /** @type {Map<string, WaterMesh>} */
     static #zones = new Map();
+
+    /** @type {number[][]} Flat point arrays for all active water polygons (for hit-testing) */
+    static #polygons = [];
 
     /** @type {number|null} Debounce timer for hook-triggered refreshes */
     static #refreshTimer = null;
@@ -221,20 +224,22 @@ Water Tuning API:
         });
     }
 
-    static refreshAll() {
+    static async refreshAll() {
         WaterManager.destroyAll();
         if (!canvas.scene) return;
 
         const regions = canvas.scene.regions?.contents ?? [];
         LOG(`refreshAll: scanning ${regions.length} regions`);
 
+        const tasks = [];
         for (const regionDoc of regions) {
             const config = WaterManager.#getWaterConfig(regionDoc);
             if (config) {
                 LOG(`Found water behavior on region "${regionDoc.name}"`);
-                WaterManager.#renderWater(regionDoc, config);
+                tasks.push(WaterManager.#renderWater(regionDoc, config));
             }
         }
+        await Promise.all(tasks);
 
         LOG(`refreshAll complete: ${WaterManager.#zones.size} water zones active`);
     }
@@ -247,7 +252,7 @@ Water Tuning API:
         if (WaterManager.#refreshTimer) clearTimeout(WaterManager.#refreshTimer);
         WaterManager.#refreshTimer = setTimeout(() => {
             WaterManager.#refreshTimer = null;
-            WaterManager.refreshAll();
+            void WaterManager.refreshAll();
         }, 100);
     }
 
@@ -313,7 +318,10 @@ Water Tuning API:
             }
         }
         if (!bgTexture) {
-            LOG('  No background texture, skipping water');
+            for (const points of allPoints) {
+                WaterManager.#polygons.push(points);
+            }
+            LOG('  No background texture, skipping water mesh; wake hit-test polygons only');
             return;
         }
 
@@ -341,6 +349,7 @@ Water Tuning API:
                 layer.addChild(waterMesh.mesh);
                 waterMesh.startAnimation();
                 WaterManager.#zones.set(`${regionDoc.id}-${WaterManager.#zones.size}`, waterMesh);
+                WaterManager.#polygons.push(points);
                 LOG(`  Water mesh active for "${regionDoc.name}"`);
             }
         }
@@ -501,6 +510,59 @@ Water Tuning API:
             mesh.destroy();
         }
         WaterManager.#zones.clear();
+        WaterManager.#polygons = [];
+    }
+
+    /**
+     * Test whether a world-space point is inside any active water zone.
+     * Uses ray-casting point-in-polygon on the stored flat point arrays.
+     *
+     * @param {number} px - World X
+     * @param {number} py - World Y
+     * @returns {boolean}
+     */
+    static isPointInWater(px, py) {
+        for (const pts of WaterManager.#polygons) {
+            if (WaterManager.#pointInPolygon(px, py, pts)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Push wake ripple uniforms to every active water mesh (shader refraction).
+     * @param {Float32Array} buf - 32 floats (8 vec4: cx, cy, ringR, amp)
+     * @param {number} count - Active slots 0–8
+     */
+    /**
+     * @param {Float32Array} buf
+     * @param {number} count
+     * @param {object} [tuning] - Optional wake tuning for shader globals
+     */
+    static syncWakeUniforms(buf, count, tuning) {
+        for (const mesh of WaterManager.#zones.values()) {
+            mesh.setWakeData(buf, count, tuning);
+        }
+    }
+
+    /**
+     * Ray-casting point-in-polygon test for a flat [x,y,x,y,...] array.
+     * @param {number} px
+     * @param {number} py
+     * @param {number[]} flatPoints
+     * @returns {boolean}
+     */
+    static #pointInPolygon(px, py, flatPoints) {
+        const n = flatPoints.length / 2;
+        let inside = false;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+            const xi = flatPoints[i * 2],     yi = flatPoints[i * 2 + 1];
+            const xj = flatPoints[j * 2],     yj = flatPoints[j * 2 + 1];
+            if (((yi > py) !== (yj > py)) &&
+                (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
+                inside = !inside;
+            }
+        }
+        return inside;
     }
 
     /**
@@ -524,3 +586,4 @@ Water Tuning API:
         return canvas.stage;
     }
 }
+

@@ -1,4 +1,5 @@
 const MODULE_ID = 'ionrift-waterline';
+const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
 
 /**
  * Analyses the scene background image to detect water regions
@@ -84,7 +85,7 @@ export class WaterDetector {
 
         // Find connected components
         const components = WaterDetector.#findComponents(waterMask, cols, rows);
-        console.log(`Waterline | Found ${components.length} raw components, sizes: [${components.map(c => c.length).sort((a,b) => b-a).join(', ')}]`);
+        LOG(`Waterline | Found ${components.length} raw components, sizes: [${components.map(c => c.length).sort((a,b) => b-a).join(', ')}]`);
 
         // Filter to components above minimum area
         const validComponents = components.filter(c => c.length >= minArea);
@@ -95,7 +96,7 @@ export class WaterDetector {
 
         // Sort by area descending so largest appears first
         validComponents.sort((a, b) => b.length - a.length);
-        console.log(`Waterline | ${validComponents.length} component(s) above minArea=${minArea}`);
+        LOG(`Waterline | ${validComponents.length} component(s) above minArea=${minArea}`);
 
         // Scene dimensions for mapping grid coords to scene coords
         const dims = canvas.dimensions;
@@ -107,18 +108,18 @@ export class WaterDetector {
         for (let ci = 0; ci < validComponents.length; ci++) {
             const component = validComponents[ci];
             const contour = WaterDetector.#traceContour(component, cols, rows);
-            console.log(`Waterline | Component ${ci}: area=${component.length}, contour=${contour.length/2} pts`);
+            LOG(`Waterline | Component ${ci}: area=${component.length}, contour=${contour.length/2} pts`);
 
             if (contour.length < 6) {
-                console.log(`Waterline | Component ${ci}: SKIPPED (contour too short: ${contour.length} coords)`);
+                LOG(`Waterline | Component ${ci}: SKIPPED (contour too short: ${contour.length} coords)`);
                 continue;
             }
 
             const simplified = WaterDetector.#simplifyRDP(contour, simplifyTolerance);
-            console.log(`Waterline | Component ${ci}: simplified to ${simplified.length/2} pts`);
+            LOG(`Waterline | Component ${ci}: simplified to ${simplified.length/2} pts`);
 
             if (simplified.length < 6) {
-                console.log(`Waterline | Component ${ci}: SKIPPED (simplified too short)`);
+                LOG(`Waterline | Component ${ci}: SKIPPED (simplified too short)`);
                 continue;
             }
 
@@ -273,11 +274,11 @@ export class WaterDetector {
         );
 
         if (cellCount < 10) {
-            console.log(`Waterline | Flood fill too small (${cellCount} cells)`);
+            LOG(`Waterline | Flood fill too small (${cellCount} cells)`);
             return null;
         }
 
-        console.log(`Waterline | Flood fill: ${cellCount} cells filled`);
+        LOG(`Waterline | Flood fill: ${cellCount} cells filled`);
 
         // Build candidate from the mask
         const maskData = { mask: filled, cols, rows, gridStep };
@@ -311,7 +312,7 @@ export class WaterDetector {
         );
 
         if (cellCount < 3) {
-            console.log(`Waterline | Refine fill too small (${cellCount} cells), ignoring`);
+            LOG(`Waterline | Refine fill too small (${cellCount} cells), ignoring`);
             return null;
         }
 
@@ -327,7 +328,7 @@ export class WaterDetector {
             }
         }
 
-        console.log(`Waterline | Refine (${mode}): ${cellCount} fill cells, ${changed} mask cells changed`);
+        LOG(`Waterline | Refine (${mode}): ${cellCount} fill cells, ${changed} mask cells changed`);
 
         if (changed === 0) return null;
 
@@ -546,7 +547,7 @@ export class WaterDetector {
         const seedG = pixels[seedIdx + 1];
         const seedB = pixels[seedIdx + 2];
 
-        console.log(`Waterline | Flood fill from (${imgX}, ${imgY}), seed: rgb(${seedR}, ${seedG}, ${seedB}), tol: ${tolerance}`);
+        LOG(`Waterline | Flood fill from (${imgX}, ${imgY}), seed: rgb(${seedR}, ${seedG}, ${seedB}), tol: ${tolerance}`);
 
         // Convert seed to grid coords
         const seedGX = Math.floor(imgX / gridStep);
@@ -920,7 +921,7 @@ export class WaterDetector {
         }
 
         // ── Fallback: Convex Hull ──
-        console.log(`Waterline | Grid-walk covered ${chain.length}/${boundary.length} boundary cells, falling back to convex hull`);
+        LOG(`Waterline | Grid-walk covered ${chain.length}/${boundary.length} boundary cells, falling back to convex hull`);
         const points = boundary.slice().sort((a, b) => a.x - b.x || a.y - b.y);
 
         const cross = (o, a, b) =>
@@ -994,3 +995,4 @@ export class WaterDetector {
         return simplify(0, n - 1);
     }
 }
+

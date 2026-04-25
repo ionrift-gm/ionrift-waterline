@@ -7,7 +7,7 @@
  * visible ripple/shimmer effect.
  */
 
-const LOG = (...args) => console.log('Waterline |', ...args);
+const LOG = (...args) => { try { if (game.settings?.get?.('ionrift-waterline', 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
 
 export class WaterOverlay {
 
@@ -125,3 +125,4 @@ export class WaterOverlay {
         this.container.destroy({ children: true });
     }
 }
+
