@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.1] - 2026-04-25
+
+### Fixed
+- Ripples no longer reappear at old positions when multiple tokens share the shader budget. Displaced ripples now fade out gracefully instead of vanishing and resurfacing.
+
 ## [0.2.0] - 2026-04-25
 
 ### Token Water Wake
