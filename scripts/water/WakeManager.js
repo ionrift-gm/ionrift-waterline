@@ -384,8 +384,9 @@ Token wake (client):
 
     /**
      * Fair pool eviction: remove the oldest ripple belonging to whichever token
-     * currently holds the most slots. This ensures no single token can starve
-     * the others when multiple players are in water simultaneously.
+     * currently holds the most slots. Prefers evicting ripples that have never
+     * been shown to the shader (still queued) so we don't visibly cut off a
+     * ripple that's mid-effect.
      *
      * @param {string|null} incomingTokenId - The token about to spawn a ripple
      *   (passed for logging; eviction targets the richest token regardless).
@@ -402,11 +403,16 @@ Token wake (client):
         for (const [tid, n] of counts) {
             if (n > maxCount) { maxCount = n; maxTid = tid; }
         }
-        // Evict the oldest ripple from that token
-        const idx = WakeManager.#ripples.findIndex(r => (r.tokenId ?? '__none__') === maxTid);
+
+        // Pass 1: find the oldest UNSHOWN ripple from the richest token (least disruptive)
+        let idx = WakeManager.#ripples.findIndex(r => (r.tokenId ?? '__none__') === maxTid && !r.shown);
+        // Pass 2: fall back to the oldest ripple regardless of shown state
+        if (idx < 0) idx = WakeManager.#ripples.findIndex(r => (r.tokenId ?? '__none__') === maxTid);
+
         if (idx >= 0) {
-            WakeManager.#ripples.splice(idx, 1)[0]?.destroy();
-            LOG(`Pool evict: removed oldest from token ${maxTid} (had ${maxCount}), new token: ${incomingTokenId}`);
+            const evicted = WakeManager.#ripples.splice(idx, 1)[0];
+            evicted?.destroy();
+            LOG(`Pool evict: removed ${evicted?.shown ? 'shown' : 'queued'} ripple from token ${maxTid} (had ${maxCount}), new token: ${incomingTokenId}`);
         } else {
             WakeManager.#ripples.shift()?.destroy();
         }
@@ -574,14 +580,38 @@ Token wake (client):
             }
         }
 
+        // Fading ripples (already in graceful fast-fade) get any leftover shader
+        // slots so their decay is visible in shader mode rather than vanishing.
+        // We only fill REMAINING budget -- newest ripples retain priority so
+        // current movement keeps showing without delay.
+        if (slice.length < 8) {
+            for (const r of alive) {
+                if (slice.length >= 8) break;
+                if (r.isKilling && !slice.includes(r)) slice.push(r);
+            }
+        }
+
         let n = 0;
         let allIdle = slice.length > 0;
+        const sliceSet = new Set(slice);
         for (const r of slice) {
             const v = r.getShaderWakeVec4();
             if (!v) continue;
             buf.set(v, n * 4);
             n++;
+            r.shown = true;   // sticky: once shown, stays shown until death
             if (!r.isIdle) allIdle = false;
+        }
+
+        // Gracefully retire ripples that were previously shown but lost their slot
+        // due to re-allocation (e.g. another token entering water shrank slotsPerToken).
+        // beginFastFade() ramps amplitude to zero over ~150ms, then auto-dies for
+        // normal cleanup. Without this, suppressed ripples could resurrect at old
+        // spawn positions later, producing ghost artifacts from movement history.
+        // Ripples that were never shown (still in the spawn queue) are left alive
+        // -- they get a chance next frame as slots free up.
+        for (const r of alive) {
+            if (!sliceSet.has(r) && r.shown) r.beginFastFade?.();
         }
 
         // When every visible ripple is an idle (stationary) ripple, slow the shader

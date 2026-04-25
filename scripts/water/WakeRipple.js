@@ -33,6 +33,12 @@ export class WakeRipple {
     /** @type {number} */ #elapsed = 0;
     /** @type {PIXI.Graphics|null} */ #gfx = null;
 
+    /** Fast-fade state -- when true, amplitude ramps to 0 over KILL_TIME seconds */
+    /** @type {boolean} */ #killing = false;
+    /** @type {number}  */ #killStartElapsed = 0;
+    /** @type {number}  */ #killStartEnv = 1.0;
+    static #KILL_TIME = 0.15; // seconds for full fast-fade
+
     /**
      * @param {number} x
      * @param {number} y
@@ -50,6 +56,13 @@ export class WakeRipple {
         this.tokenId = spawnOpts.tokenId ?? null;
         /** True when spawned by a stationary token (idle ambient ripple). */
         this.isIdle  = spawnOpts.idleEase ?? false;
+        /**
+         * Flips to true the first frame this ripple is packed into the shader buffer.
+         * Once shown, it must stay shown until natural death -- pack code kills any
+         * shown ripple that gets squeezed out of the visible slice (prevents ghost
+         * ripples from earlier positions reappearing when slot allocation shifts).
+         */
+        this.shown = false;
 
         const tu = WakeTuning.get();
         const rng = () => Math.random() * 2 - 1; // -1..+1
@@ -143,6 +156,34 @@ export class WakeRipple {
      * @param {number} t  Normalised lifetime 0..1
      * @param {object} p  effectiveParams
      */
+    /** True while in fast-fade -- WakeManager checks this to keep slot for graceful exit. */
+    get isKilling() { return this.#killing; }
+
+    /**
+     * Begin a fast graceful fade-out. The ripple stays alive but its amplitude
+     * decays linearly from its current value to zero over KILL_TIME seconds,
+     * after which it marks itself dead for normal cleanup. Idempotent.
+     */
+    beginFastFade() {
+        if (this.dead || this.#killing) return;
+        const t = this.#normalizedT();
+        const p = this.#effectiveParams();
+        this.#killStartEnv     = WakeRipple.#fadeEnvelope(t, p);
+        this.#killStartElapsed = this.#elapsed;
+        this.#killing          = true;
+    }
+
+    /** Returns the visible amplitude envelope, accounting for fast-fade if active. */
+    #computeEnv(t, p) {
+        if (!this.#killing) return WakeRipple.#fadeEnvelope(t, p);
+        const since = this.#elapsed - this.#killStartElapsed;
+        const k     = Math.min(1, since / WakeRipple.#KILL_TIME);
+        if (k >= 1) this.dead = true;
+        // Quadratic ease-out so the tail-end of the fade is gentle, not linear
+        const decay = 1 - k * k;
+        return this.#killStartEnv * decay;
+    }
+
     static #fadeEnvelope(t, p) {
         if (p.idleEase) {
             // Idle ripples: slow gentle rise over ~15% of life, no surge, same fade out
@@ -218,7 +259,7 @@ export class WakeRipple {
         // Use a linear t (or very mild ease) so rings keep expanding even as
         // the distortion/alpha fades to zero.
         const expand = 1 - Math.pow(1 - t, p.expandEasePower);
-        const env    = WakeRipple.#fadeEnvelope(t, p);
+        const env    = this.#computeEnv(t, p);
         const color  = WakeRipple.#hexToNumber(String(p.spriteColor));
         const rc     = Math.max(p.ringCount, 1);
 
@@ -248,7 +289,7 @@ export class WakeRipple {
         if (t >= 1.0) return null;
 
         const p = this.#effectiveParams();
-        const env = WakeRipple.#fadeEnvelope(t, p);
+        const env = this.#computeEnv(t, p);
 
         // Radius lerps from startRadius -> maxRadius over lifetime.
         // Distortion amplitude fades via env, but the ring keeps expanding.
