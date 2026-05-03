@@ -176,6 +176,8 @@ export class WakeTuningDialog extends foundry.applications.api.ApplicationV2 {
             ${row('shaderPhaseScale', 'Wave density', 0.06, 0.45, 0.01)}
             ${row('shaderRippleSpeed', 'Wave speed', 0, 18, 0.25)}
             ${row('shaderStrengthMul', 'Refraction strength', 1, 14, 0.25)}
+            ${row('ringWobbleAmp', 'Ring edge wobble (0 = circle)', 0, 0.22, 0.005)}
+            ${row('ringWobbleLobes', 'Ring wobble lobes', 2, 14, 0.5)}
         </div>
     </details>
 

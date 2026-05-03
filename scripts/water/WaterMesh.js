@@ -63,6 +63,8 @@ const FRAGMENT_SRC = `
     uniform float uWakePhaseScale;
     uniform float uWakeRippleSpeed;
     uniform float uWakeStrengthMul;
+    uniform float uWakeRingWobbleAmp;   // 0 = perfect circle
+    uniform float uWakeRingWobbleLobes; // angular bumps around ring
     // 0 = radial ripples (8 rings in uWake0–uWake7)
     // 1 = V-chevron stamps (4 stamps × 2 vec4 packed in uWake0–uWake7)
     uniform float uWakeStyle;
@@ -81,11 +83,21 @@ const FRAGMENT_SRC = `
         float r = length(d);
         if (r < 0.5) return vec2(0.0);
         vec2  dir   = d / r;
-        float band  = 1.0 - smoothstep(0.0, uWakeBandPx, abs(r - ringR));
-        float outer = 1.0 - smoothstep(ringR + uWakeBandPx * 2.5, ringR + uWakeBandPx * 7.0, r);
-        float inner = smoothstep(ringR * 0.02, ringR * 0.08 + 2.0, r);
+        float theta = atan(d.y, d.x);
+        // Stable per-ripple phase from center (no extra uniform slots needed)
+        float h = fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453) * 6.28318;
+        float lobes = max(uWakeRingWobbleLobes, 0.35);
+        // Two harmonics: slow drift vs time gives gentle "breathing" wobble
+        float wobble = uWakeRingWobbleAmp * ringR * (
+            0.58 * sin(theta * lobes + t * uWakeRippleSpeed * 0.11 + h)
+          + 0.42 * sin(theta * lobes * 1.71 - t * uWakeRippleSpeed * 0.07 + h * 1.37)
+        );
+        float ringReff = ringR + wobble;
+        float band  = 1.0 - smoothstep(0.0, uWakeBandPx, abs(r - ringReff));
+        float outer = 1.0 - smoothstep(ringReff + uWakeBandPx * 2.5, ringReff + uWakeBandPx * 7.0, r);
+        float inner = smoothstep(ringReff * 0.02, ringReff * 0.08 + 2.0, r);
         float shell = band * outer * inner;
-        float wave  = sin((r - ringR) * uWakePhaseScale + t * uWakeRippleSpeed);
+        float wave  = sin((r - ringReff) * uWakePhaseScale + t * uWakeRippleSpeed);
         return dir * wave * shell * amp * uDistortion * uWakeStrengthMul;
     }
 
@@ -422,6 +434,8 @@ export class WaterMesh {
             uWakePhaseScale: 0.22,
             uWakeRippleSpeed: 7.5,
             uWakeStrengthMul: 6.0,
+            uWakeRingWobbleAmp: 0.07,
+            uWakeRingWobbleLobes: 5.5,
             uWakeStyle: 0.0,
             uWakeDivergentK: 0.035,
             uWakeDivergentOmega: 1.8
@@ -517,6 +531,12 @@ export class WaterMesh {
             u.uWakePhaseScale  = Number(tuning.shaderPhaseScale)   || 0.22;
             u.uWakeRippleSpeed = Number(tuning.shaderRippleSpeed)  || 7.5;
             u.uWakeStrengthMul = Number(tuning.shaderStrengthMul)  || 6;
+            {
+                const wa = Number(tuning.ringWobbleAmp);
+                const wl = Number(tuning.ringWobbleLobes);
+                u.uWakeRingWobbleAmp   = Number.isFinite(wa) ? Math.max(0, wa) : 0;
+                u.uWakeRingWobbleLobes = Number.isFinite(wl) ? Math.max(0.35, wl) : 5.5;
+            }
             // V-chevron wave parameters (only used in wake style)
             u.uWakeDivergentK     = Number(tuning.wakeDivergentK)     || 0.035;
             u.uWakeDivergentOmega = Number(tuning.wakeDivergentOmega) || 1.8;

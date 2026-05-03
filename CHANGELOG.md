@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2] - 2026-05-03
+
+### Added
+- **Wake wobble.** Token ripples now feature an organic wobble effect. The wake tuning panel includes new sliders for wobble amplitude and lobe count to create more dynamic ripple shapes.
+
+### Fixed
+- Token ripples no longer appear when a token is hidden from players by the GM.
+
 ## [0.2.1] - 2026-04-25
 
 ### Fixed

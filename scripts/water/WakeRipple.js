@@ -30,6 +30,9 @@ export class WakeRipple {
     /** @type {number} */ #alphaMul;
     /** @type {number} */ #ringCountDelta;
 
+    /** Baked phase for ring-edge wobble (matches shader hash role for sprites). */
+    /** @type {number} */ #wobblePhase = 0;
+
     /** @type {number} */ #elapsed = 0;
     /** @type {PIXI.Graphics|null} */ #gfx = null;
 
@@ -96,6 +99,7 @@ export class WakeRipple {
         this.#radiusMul     = 1 + rng() * radJit;
         this.#alphaMul      = 1 + rng() * alphaJit;
         this.#ringCountDelta = Math.round(rng() * rcJit);
+        this.#wobblePhase   = Math.random() * Math.PI * 2;
     }
 
     #effectiveParams() {
@@ -263,6 +267,14 @@ export class WakeRipple {
         const color  = WakeRipple.#hexToNumber(String(p.spriteColor));
         const rc     = Math.max(p.ringCount, 1);
 
+        const tuNow = WakeTuning.get();
+        const wobbleAmp = Number(tuNow.ringWobbleAmp ?? 0);
+        const lobes     = Math.max(0.35, Number(tuNow.ringWobbleLobes ?? 5.5));
+        const spd       = Number(tuNow.shaderRippleSpeed ?? 9);
+        const anim1     = this.#elapsed * spd * 0.11;
+        const anim2     = this.#elapsed * spd * 0.07;
+        const h         = this.#wobblePhase;
+
         gfx.clear();
         for (let i = 0; i < rc; i++) {
             const ringPhase = i / rc;
@@ -273,7 +285,25 @@ export class WakeRipple {
             const ringAlpha = p.baseAlpha * env * (1 - i * 0.18);
             const lineWidth = Math.max(1, p.spriteLineWidthMax * (1 - expand * 0.35));
             gfx.lineStyle(lineWidth, color, Math.max(0, ringAlpha));
-            gfx.drawCircle(this.#x, this.#y, radius);
+
+            if (wobbleAmp < 0.001) {
+                gfx.drawCircle(this.#x, this.#y, radius);
+            } else {
+                const steps = Math.max(28, Math.min(96, Math.round(lobes * 10)));
+                const pts = [];
+                for (let s = 0; s < steps; s++) {
+                    const ang = (s / steps) * Math.PI * 2;
+                    const w = wobbleAmp * radius * (
+                        0.58 * Math.sin(ang * lobes + anim1 + h)
+                      + 0.42 * Math.sin(ang * lobes * 1.71 - anim2 + h * 1.37)
+                    );
+                    const rr = radius + w;
+                    pts.push(this.#x + Math.cos(ang) * rr, this.#y + Math.sin(ang) * rr);
+                }
+                gfx.moveTo(pts[0], pts[1]);
+                for (let k = 2; k < pts.length; k += 2) gfx.lineTo(pts[k], pts[k + 1]);
+                gfx.lineTo(pts[0], pts[1]);
+            }
         }
     }
 

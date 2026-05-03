@@ -73,6 +73,11 @@ export const WAKE_TUNING_DEFAULTS = {
     shaderRippleSpeed: 9.25,
     shaderStrengthMul: 2.25,
 
+    /** Radial edge wobble: 0 = perfect circle, ~0.08 = subtle organic ring */
+    ringWobbleAmp: 0.07,
+    /** Angular lobes around the ring (higher = more bumps). Shader + sprites. */
+    ringWobbleLobes: 5.5,
+
     spriteColor: '#c8e8ff',
     spriteLineWidthMax: 3,
     wakeSpriteAlpha: 0.45,
