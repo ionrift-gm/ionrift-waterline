@@ -185,6 +185,8 @@ Token wake (client):
         }
 
         WakeManager.#lastPositions.set(tokenId, { x: newX, y: newY });
+        if (WakeManager.#isGmHiddenFromPlayers(tokenDoc)) return;
+
         if (!inWater) return;
 
         const moveDist = oldPos ? Math.hypot(newX - oldPos.x, newY - oldPos.y) : 0;
@@ -275,6 +277,7 @@ Token wake (client):
 
             if (!inWater) return;
             if (!WaterManager.isPointInWater(oldPos.x, oldPos.y)) return;
+            if (WakeManager.#isGmHiddenFromPlayers(token.document)) return;
             WakeManager.#tryDepositStamp(tokenId, token, cx, cy, dist, tu);
             return;
         }
@@ -286,6 +289,7 @@ Token wake (client):
         }
         WakeManager.#lastPositions.set(tokenId, { x: cx, y: cy });
         if (!inWater) return;
+        if (WakeManager.#isGmHiddenFromPlayers(token.document)) return;
         if (WakeManager.#rippleTooClose(cx, cy, tu.spawnCooldownPx, tokenId)) return;
 
         const dirX = dist > 0.5 ? dx / dist : 0;
@@ -488,6 +492,10 @@ Token wake (client):
 
             if ((token.document?.elevation ?? 0) > 0) { WakeManager.#idleTimers.delete(tokenId); continue; }
             if (token.document?.getFlag?.(MODULE_ID, 'noRipple'))  { WakeManager.#idleTimers.delete(tokenId); continue; }
+            if (WakeManager.#isGmHiddenFromPlayers(token.document)) {
+                WakeManager.#idleTimers.delete(tokenId);
+                continue;
+            }
 
             const c = WakeManager.#placeableCenter(token);
             if (!c) continue;
@@ -623,6 +631,17 @@ Token wake (client):
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * GM "hidden from players" token toggle ({@link TokenDocument#hidden}).
+     * Unrelated to the Invisible status effect on the actor.
+     *
+     * @param {TokenDocument|undefined|null} tokenDoc
+     * @returns {boolean}
+     */
+    static #isGmHiddenFromPlayers(tokenDoc) {
+        return Boolean(tokenDoc?.hidden);
+    }
 
     static #changesMightMoveToken(changes) {
         if (!changes || typeof changes !== 'object') return false;
