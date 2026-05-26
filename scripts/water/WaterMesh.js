@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Animated water overlay using PIXI.Mesh + PIXI.Shader.
  * Voronoi caustics with background texture distortion (refraction).
  */

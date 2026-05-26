@@ -1,4 +1,4 @@
-﻿import { WakeRipple } from './WakeRipple.js';
+import { WakeRipple } from './WakeRipple.js';
 import { WakeStamp } from './WakeStamp.js';
 import { WaterManager } from './WaterManager.js';
 import { WakeTuning } from './WakeTuning.js';

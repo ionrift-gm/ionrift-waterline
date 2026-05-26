@@ -1,4 +1,4 @@
-﻿import { WakeTuning } from './WakeTuning.js';
+import { WakeTuning } from './WakeTuning.js';
 
 /**
  * GM-only ripple tuning panel (ApplicationV2).

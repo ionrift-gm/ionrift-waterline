@@ -1,4 +1,4 @@
-﻿import { WakeTuning } from './WakeTuning.js';
+import { WakeTuning } from './WakeTuning.js';
 
 /**
  * A single V-wake chevron stamp.

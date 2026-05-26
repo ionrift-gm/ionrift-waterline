@@ -1,4 +1,4 @@
-﻿import { WakeTuning } from './WakeTuning.js';
+import { WakeTuning } from './WakeTuning.js';
 
 /**
  * Token wake ripple -- shader refraction + optional sprite rings (debug preview).

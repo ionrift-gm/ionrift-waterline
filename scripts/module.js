@@ -47,7 +47,7 @@ Hooks.once('init', async () => {
         name: 'IonriftWaterline.SettingsEnableTokenWake',
         hint: 'IonriftWaterline.SettingsEnableTokenWakeHint',
         scope: 'client',
-        config: true,
+        config: false,
         type: Boolean,
         default: true
     });
@@ -78,7 +78,7 @@ Hooks.once('init', async () => {
         name: 'IonriftWaterline.SettingsDebug',
         hint: 'IonriftWaterline.SettingsDebugHint',
         scope: 'client',
-        config: true,
+        config: false,
         type: Boolean,
         default: false
     });

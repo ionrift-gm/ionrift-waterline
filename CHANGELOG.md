@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.3] - 2026-05-26
+
+### Changed
+- Token wake and debug settings moved behind the tuning dialog. The Game Settings list is cleaner.
+
 ## [0.2.2] - 2026-05-03
 
 ### Added
