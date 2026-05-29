@@ -60,16 +60,24 @@ export class WaterManager {
     static #refreshTimer = null;
 
     static registerBehavior() {
-        Object.assign(CONFIG.RegionBehavior.dataModels, {
-            [`${MODULE_ID}.waterFX`]: WaterBehaviorType
-        });
-        Object.assign(CONFIG.RegionBehavior.typeLabels, {
-            [`${MODULE_ID}.waterFX`]: 'Ionrift: Water FX'
-        });
-        Object.assign(CONFIG.RegionBehavior.typeIcons, {
-            [`${MODULE_ID}.waterFX`]: 'fas fa-water'
-        });
-        LOG('Registered WaterFX behavior type');
+        try {
+            Object.assign(CONFIG.RegionBehavior.dataModels, {
+                [`${MODULE_ID}.waterFX`]: WaterBehaviorType
+            });
+            Object.assign(CONFIG.RegionBehavior.typeLabels, {
+                [`${MODULE_ID}.waterFX`]: 'Ionrift: Water FX'
+            });
+            Object.assign(CONFIG.RegionBehavior.typeIcons, {
+                [`${MODULE_ID}.waterFX`]: 'fas fa-water'
+            });
+            LOG('Registered WaterFX behavior type');
+        } catch (err) {
+            console.error(
+                'Ionrift Waterline | Failed to register WaterFX behavior type. '
+                + 'Scenes with existing water regions may show validation warnings. '
+                + 'Error:', err
+            );
+        }
     }
 
     static init() {

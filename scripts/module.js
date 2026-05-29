@@ -8,11 +8,24 @@ import { WAKE_TUNING_DEFAULTS } from './water/WakeTuning.js';
 const MODULE_ID = 'ionrift-waterline';
 
 // ---------------------------------------------------------------
-// Init: Register the Water FX behavior type
+// Register the Water FX behavior type at module load time.
+// This MUST happen before Game.initializeDocuments() runs, which
+// validates embedded RegionBehavior types during Scene._initialize.
+// The init hook fires AFTER document initialization in v14, so
+// registration inside a hook is too late — scenes with existing
+// waterFX behaviors would fail validation and be purged.
+// ---------------------------------------------------------------
+try {
+    WaterManager.registerBehavior();
+} catch (err) {
+    console.error('Ionrift Waterline | Behavior registration failed at module load:', err);
+}
+
+// ---------------------------------------------------------------
+// Init: Register settings and remaining hooks
 // ---------------------------------------------------------------
 Hooks.once('init', async () => {
     console.log('Ionrift Waterline | Initializing...');
-    WaterManager.registerBehavior();
 
     // ── Hidden / world settings ──────────────────────────────────────────────
     game.settings.register(MODULE_ID, 'borderConfig', {

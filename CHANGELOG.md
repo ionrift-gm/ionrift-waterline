@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.4] - 2026-05-29
+
+### Fixed
+- Water region behaviors now survive Foundry v14 world upgrades. Previously, the behavior type registered too late and v14's stricter validation would silently drop water effects from scenes during migration.
+- Compatibility declared for Foundry v14.
+
 ## [0.2.3] - 2026-05-26
 
 ### Changed
