@@ -1,4 +1,4 @@
-import { WakeTuning } from './WakeTuning.js';
+﻿import { WakeTuning } from './WakeTuning.js';
 
 /**
  * A single V-wake chevron stamp.
@@ -167,7 +167,7 @@ export class WakeStamp {
     /**
      * Pack 8 floats (2 vec4) into buf at the given float offset.
      * @param {Float32Array} buf
-     * @param {number} floatOffset  Multiple of 8 (stamp slot 0–3).
+     * @param {number} floatOffset  Multiple of 8 (stamp slot 0-3).
      */
     packInto(buf, floatOffset) {
         const prog     = Math.min(1, this.#elapsed / this.#lifetime);

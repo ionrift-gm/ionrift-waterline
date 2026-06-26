@@ -1,0 +1,193 @@
+<div class="pfx-panel">
+
+    <!-- Scene Wind (shared by all smoke stacks — always pinned above tab bar) -->
+    <div class="pfx-scene-wind">
+        <div class="pfx-scene-wind-header">
+            <i class="fas fa-wind"></i>
+            <span>Scene Wind</span>
+            <span class="pfx-scene-wind-hint">shared by all smoke</span>
+        </div>
+        <div class="pfx-row">
+            <label title="Direction the wind blows across the scene (degrees, 90 = east)">Direction</label>
+            <input type="range" id="pfx-wind-dir" data-param="windDir"
+                min="0" max="360" step="1" value="{{windDir}}">
+            <span class="pfx-value" id="pfx-wind-dir-val">{{windDir}}°</span>
+        </div>
+        <div class="pfx-row">
+            <label title="How strongly wind overrides turbulence and leans the smoke">Strength</label>
+            <input type="range" id="pfx-wind-str" data-param="windStrength"
+                min="0" max="2" step="0.05" value="{{windStrength}}">
+            <span class="pfx-value" id="pfx-wind-str-val">{{windStrength}}</span>
+        </div>
+        <div class="pfx-row">
+            <label title="Frequency and magnitude of wind direction gusts — 0 is steady, 1 is chaotic">Turbulence</label>
+            <input type="range" id="pfx-wind-turb" data-param="windTurbulence"
+                min="0" max="1" step="0.01" value="{{windTurbulence}}">
+            <span class="pfx-value" id="pfx-wind-turb-val">{{windTurbulence}}</span>
+        </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="pfx-tab-bar" role="tablist">
+        <button class="pfx-tab {{#if (eq activeSection 'smoke')}}pfx-tab-active{{/if}}"
+                data-tab="smoke" role="tab"
+                aria-selected="{{#if (eq activeSection 'smoke')}}true{{else}}false{{/if}}"
+                aria-controls="pfx-pane-smoke">
+            <i class="fas fa-smog pfx-icon-smoke"></i>
+            <span>Smoke</span>
+        </button>
+        <button class="pfx-tab {{#if (eq activeSection 'waterfall')}}pfx-tab-active{{/if}}"
+                data-tab="waterfall" role="tab"
+                aria-selected="{{#if (eq activeSection 'waterfall')}}true{{else}}false{{/if}}"
+                aria-controls="pfx-pane-waterfall">
+            <i class="fas fa-water pfx-icon-waterfall"></i>
+            <span>Water</span>
+        </button>
+        <button class="pfx-tab pfx-tab-emitters {{#if (eq activeSection 'emitters')}}pfx-tab-active{{/if}}"
+                data-tab="emitters" role="tab"
+                aria-selected="{{#if (eq activeSection 'emitters')}}true{{else}}false{{/if}}"
+                aria-controls="pfx-pane-emitters">
+            <i class="fas fa-list-ul pfx-icon-emitters"></i>
+            <span>Emitters</span>
+            {{#if emitters.length}}
+            <span class="pfx-emitter-count">{{emitters.length}}</span>
+            {{/if}}
+        </button>
+    </div>
+
+    <!-- ── Smoke Plume tab pane ── -->
+    <div id="pfx-pane-smoke"
+         class="pfx-tab-pane {{#unless (eq activeSection 'smoke')}}pfx-pane-hidden{{/unless}}"
+         role="tabpanel" aria-labelledby="pfx-tab-smoke">
+        <div class="pfx-pane-scroll">
+            <div class="pfx-row">
+                <label title="Particles emitted per second">Density</label>
+                <input type="range" data-type="smoke" data-param="density"
+                    min="0.1" max="5" step="0.1" value="{{smoke.density}}">
+                <span class="pfx-value">{{smoke.density}}</span>
+            </div>
+            <div class="pfx-row">
+                <label title="Radius of the emission area">Spread</label>
+                <input type="range" data-type="smoke" data-param="spread"
+                    min="1" max="200" step="1" value="{{smoke.spread}}">
+                <span class="pfx-value">{{smoke.spread}}</span>
+            </div>
+            <div class="pfx-row">
+                <label title="Initial puff scale when spawned">Start Size</label>
+                <input type="range" data-type="smoke" data-param="sizeStart"
+                    min="0.05" max="5" step="0.05" value="{{smoke.sizeStart}}">
+                <span class="pfx-value">{{smoke.sizeStart}}</span>
+            </div>
+            <div class="pfx-row">
+                <label title="Maximum scale the puff billows to at end of life">End Size</label>
+                <input type="range" data-type="smoke" data-param="sizeEnd"
+                    min="0.1" max="20" step="0.1" value="{{smoke.sizeEnd}}">
+                <span class="pfx-value">{{smoke.sizeEnd}}</span>
+            </div>
+            <div class="pfx-row">
+                <label title="Upward speed when a particle first spawns (px/s)">Spd Start</label>
+                <input type="range" data-type="smoke" data-param="speedStart"
+                    min="0" max="200" step="1" value="{{smoke.speedStart}}">
+                <span class="pfx-value">{{smoke.speedStart}}</span>
+            </div>
+            <div class="pfx-row">
+                <label title="Upward speed by end of life — particles decelerate toward this value">Spd End</label>
+                <input type="range" data-type="smoke" data-param="speedEnd"
+                    min="0" max="100" step="1" value="{{smoke.speedEnd}}">
+                <span class="pfx-value">{{smoke.speedEnd}}</span>
+            </div>
+            <div class="pfx-row">
+                <label title="Peak opacity of smoke puffs (0 = invisible, 1 = fully opaque)">Max Alpha</label>
+                <input type="range" data-type="smoke" data-param="maxAlpha"
+                    min="0.05" max="1" step="0.01" value="{{smoke.maxAlpha}}">
+                <span class="pfx-value">{{smoke.maxAlpha}}</span>
+            </div>
+            <div class="pfx-row pfx-row-select">
+                <label title="PIXI blend mode applied to each smoke particle">Blend</label>
+                <select class="pfx-select" data-type="smoke" data-param="blendMode">
+                    <option value="NORMAL"   {{#if (eq smoke.blendMode 'NORMAL')}}selected{{/if}}>Normal</option>
+                    <option value="ADD"      {{#if (eq smoke.blendMode 'ADD')}}selected{{/if}}>Add (bright)</option>
+                    <option value="MULTIPLY" {{#if (eq smoke.blendMode 'MULTIPLY')}}selected{{/if}}>Multiply (dark)</option>
+                    <option value="SCREEN"   {{#if (eq smoke.blendMode 'SCREEN')}}selected{{/if}}>Screen (soft)</option>
+                </select>
+            </div>
+        </div>
+        <!-- Sticky place button — never scrolls away -->
+        <div class="pfx-pane-footer">
+            <button class="pfx-place-btn" data-type="smoke">
+                <i class="fas fa-map-pin"></i> Click to Place
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Waterfall Spray tab pane ── -->
+    <div id="pfx-pane-waterfall"
+         class="pfx-tab-pane {{#unless (eq activeSection 'waterfall')}}pfx-pane-hidden{{/unless}}"
+         role="tabpanel" aria-labelledby="pfx-tab-waterfall">
+        <div class="pfx-pane-scroll">
+            <div class="pfx-row">
+                <label title="Particles emitted per second">Density</label>
+                <input type="range" data-type="waterfall" data-param="density"
+                    min="0.1" max="5" step="0.1" value="{{waterfall.density}}">
+                <span class="pfx-value">{{waterfall.density}}</span>
+            </div>
+            <div class="pfx-row">
+                <label title="Width of the splash zone">Spread</label>
+                <input type="range" data-type="waterfall" data-param="spread"
+                    min="1" max="300" step="1" value="{{waterfall.spread}}">
+                <span class="pfx-value">{{waterfall.spread}}</span>
+            </div>
+            <div class="pfx-row">
+                <label title="Base scale of each mist droplet">Particle Size</label>
+                <input type="range" data-type="waterfall" data-param="particleSize"
+                    min="0.05" max="3" step="0.05" value="{{waterfall.particleSize}}">
+                <span class="pfx-value">{{waterfall.particleSize}}</span>
+            </div>
+            <div class="pfx-row">
+                <label title="Upward burst energy of the splash">Intensity</label>
+                <input type="range" data-type="waterfall" data-param="intensity"
+                    min="0.1" max="3" step="0.1" value="{{waterfall.intensity}}">
+                <span class="pfx-value">{{waterfall.intensity}}</span>
+            </div>
+        </div>
+        <!-- Sticky place button -->
+        <div class="pfx-pane-footer">
+            <button class="pfx-place-btn" data-type="waterfall">
+                <i class="fas fa-map-pin"></i> Click to Place
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Active Emitters tab pane ── -->
+    <div id="pfx-pane-emitters"
+         class="pfx-tab-pane pfx-emitter-list-body {{#unless (eq activeSection 'emitters')}}pfx-pane-hidden{{/unless}}"
+         role="tabpanel" aria-labelledby="pfx-tab-emitters">
+        <div class="pfx-pane-scroll">
+            {{#if emitters.length}}
+                {{#each emitters}}
+                <div class="pfx-emitter-item {{#if this.selected}}pfx-emitter-editing{{/if}}" data-id="{{this.id}}">
+                    <i class="fas {{this.icon}} pfx-emitter-type-icon"></i>
+                    <span class="pfx-emitter-name">{{this.label}}</span>
+                    <div class="pfx-emitter-actions">
+                        <button class="pfx-emitter-edit" data-id="{{this.id}}" title="Load into panel">
+                            <i class="fas fa-sliders-h"></i>
+                        </button>
+                        <button class="pfx-emitter-delete" data-id="{{this.id}}" title="Remove">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {{/each}}
+            {{else}}
+                <p class="pfx-empty">No particle emitters on this scene.</p>
+            {{/if}}
+        </div>
+        <!-- Sticky refresh button row -->
+        <div class="pfx-pane-footer pfx-emitter-footer">
+            <button class="pfx-refresh-btn">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+</div>

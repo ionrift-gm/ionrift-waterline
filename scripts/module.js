@@ -1,9 +1,10 @@
-import { BorderControls } from './border/BorderControls.js';
 import { WaterManager } from './water/WaterManager.js';
 import { WaterConfigDialog } from './water/WaterConfigDialog.js';
 import { WakeManager } from './water/WakeManager.js';
 import { WakeTuningDialog } from './water/WakeTuningDialog.js';
 import { WAKE_TUNING_DEFAULTS } from './water/WakeTuning.js';
+import { DrawingFX } from './particles/DrawingFX.js';
+import { ParticlePlacementPanel } from './particles/ParticleConfigApp.js';
 
 const MODULE_ID = 'ionrift-waterline';
 
@@ -12,7 +13,7 @@ const MODULE_ID = 'ionrift-waterline';
 // This MUST happen before Game.initializeDocuments() runs, which
 // validates embedded RegionBehavior types during Scene._initialize.
 // The init hook fires AFTER document initialization in v14, so
-// registration inside a hook is too late — scenes with existing
+// registration inside a hook is too late - scenes with existing
 // waterFX behaviors would fail validation and be purged.
 // ---------------------------------------------------------------
 try {
@@ -27,19 +28,14 @@ try {
 Hooks.once('init', async () => {
     console.log('Ionrift Waterline | Initializing...');
 
-    // ── Hidden / world settings ──────────────────────────────────────────────
-    game.settings.register(MODULE_ID, 'borderConfig', {
-        scope: 'world',
-        config: false,
-        type: Object,
-        default: {
-            totalVertices: 29,
-            amplitude: 244,
-            jitter: 0.5,
-            inset: 7
-        }
-    });
+    DrawingFX.init();
 
+    // Register Handlebars templates for particle FX panel
+    await loadTemplates([
+        `modules/${MODULE_ID}/scripts/particles/placement-panel.html`
+    ]);
+
+    // ── Hidden / world settings ──────────────────────────────────────────────
     game.settings.register(MODULE_ID, 'waterCustomPresets', {
         scope: 'world',
         config: false,
@@ -108,8 +104,7 @@ Hooks.on('updateSetting', (setting) => {
     }
 });
 // ---------------------------------------------------------------
-// Scene Controls: Add border tools to the Walls palette,
-// and a "Toggle Water" button to the Regions palette
+// Scene Controls: water configuration and wake tuning on the Regions palette
 // ---------------------------------------------------------------
 Hooks.on('getSceneControlButtons', (controls) => {
     if (!game.user.isGM) return;
@@ -117,28 +112,6 @@ Hooks.on('getSceneControlButtons', (controls) => {
     const isV13 = !Array.isArray(controls);
 
     if (isV13) {
-        // Inject border tools into the walls control group
-        if (controls.walls?.tools) {
-            controls.walls.tools['generate-border'] = {
-                name: 'generate-border',
-                title: 'Generate Border Walls',
-                icon: 'fas fa-mountain',
-                order: 20,
-                button: true,
-                onClick: () => BorderControls.showDialog(),
-                onChange: () => {}
-            };
-            controls.walls.tools['clear-border'] = {
-                name: 'clear-border',
-                title: 'Clear Border Walls',
-                icon: 'fas fa-trash-alt',
-                order: 21,
-                button: true,
-                onClick: () => BorderControls.confirmClear(),
-                onChange: () => {}
-            };
-        }
-
         // Inject water detection into the regions control group
         if (controls.regions?.tools) {
             controls.regions.tools['water-config'] = {
@@ -161,16 +134,7 @@ Hooks.on('getSceneControlButtons', (controls) => {
             };
         }
     } else {
-        // v12: find the walls control and inject tools
-        const wallsControl = controls.find(c => c.name === 'walls');
-        if (wallsControl?.tools) {
-            wallsControl.tools.push(
-                { name: 'generate-border', title: 'Generate Border Walls',
-                  icon: 'fas fa-mountain', onClick: () => BorderControls.showDialog(), button: true },
-                { name: 'clear-border', title: 'Clear Border Walls',
-                  icon: 'fas fa-trash-alt', onClick: () => BorderControls.confirmClear(), button: true }
-            );
-        }
+        // v12: inject water tools into the regions control
         const regionsControl = controls.find(c => c.name === 'regions');
         if (regionsControl?.tools) {
             regionsControl.tools.push(
@@ -190,6 +154,8 @@ Hooks.on('canvasReady', async () => {
     WaterManager.init();
     await WaterManager.refreshAll();
     WakeManager.init();
+    // Re-wire click handler on new canvas
+    DrawingFX._wireCanvasClick();
 });
 
 // ---------------------------------------------------------------

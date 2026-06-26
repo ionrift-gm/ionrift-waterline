@@ -1,6 +1,6 @@
 /**
  * Lightweight 1D Perlin-style noise for CPU-side vertex offsets.
- * Used by BorderGenerator to produce undulating wall edges.
+ * Used by the particle emitters (smoke, waterfall spray) for organic motion.
  */
 export class Noise {
 

@@ -1,4 +1,4 @@
-/* Ionrift Cartograph */
+﻿/* Ionrift Cartograph */
 
 /* Glass background for water dialogs (matches ionrift-lib brand) */
 .water-config-dialog.window-app,
@@ -137,7 +137,7 @@
     gap: 6px;
 }
 
-/* ── Unified Water Config Dialog ────────────────────── */
+/* â”€â”€ Unified Water Config Dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /* Glass background */
 .water-config-dialog.window-app {
@@ -790,7 +790,7 @@
     min-width: 120px;
 }
 
-/* ── Preset bar (top of dialog) ── */
+/* â”€â”€ Preset bar (top of dialog) â”€â”€ */
 
 .wake-tg-presets {
     flex-shrink: 0;
@@ -834,7 +834,7 @@
     color: #fff;
 }
 
-/* ── Inline save prompt ── */
+/* â”€â”€ Inline save prompt â”€â”€ */
 
 .wake-tg-save-prompt {
     flex-shrink: 0;
@@ -914,4 +914,404 @@
     color: #8ab;
     font-variant-numeric: tabular-nums;
 }
+
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Particle FX Placement Panel
+   Inherits glass treatment from .ionrift-window / .glass-ui.
+   Only module-specific layout and component styles live here.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* The ionrift-window class from ionrift-lib handles:
+   - Glass background & backdrop-filter
+   - Brand CSS variables (--ionrift-accent, etc.)
+   - Purple scrollbars
+   We just need sizing + border accent here. */
+.waterline-particle-panel.window-app {
+    border-color: rgba(139, 92, 246, 0.35) !important; /* brand purple border */
+    min-width: 280px;
+}
+
+.waterline-particle-panel .window-content {
+    padding: 0 !important;
+}
+
+/* ── Purple Scrollbar Override ─────────────────────────────────────────────
+   The library's .ionrift-window scrollbar rules lose to Foundry's
+   default styling due to CSS load order. This nuclear override uses
+   the module-specific class to guarantee purple scrollbars.        */
+.waterline-particle-panel,
+.waterline-particle-panel * {
+    scrollbar-color: #6d28d9 rgba(0, 0, 0, 0.4) !important;
+    scrollbar-width: thin !important;
+}
+.waterline-particle-panel ::-webkit-scrollbar,
+.waterline-particle-panel *::-webkit-scrollbar {
+    width: 6px !important;
+    height: 6px !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+}
+.waterline-particle-panel ::-webkit-scrollbar-track,
+.waterline-particle-panel *::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border-radius: 4px;
+}
+.waterline-particle-panel ::-webkit-scrollbar-thumb,
+.waterline-particle-panel *::-webkit-scrollbar-thumb {
+    background: #6d28d9 !important;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.waterline-particle-panel ::-webkit-scrollbar-thumb:hover,
+.waterline-particle-panel *::-webkit-scrollbar-thumb:hover {
+    background: #8b5cf6 !important;
+}
+
+/* ── Panel root ────────────────────────────────────────────────────────────── */
+.pfx-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Tab bar ────────────────────────────────────────────────────────────── */
+.pfx-tab-bar {
+    display: flex;
+    flex-direction: row;
+    /* Horizontal padding matches tab pane content (UI Handbook §4) */
+    padding: 0 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(0, 0, 0, 0.1);
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+/* Step 1: Nuclear reset (separate rule — see UI Handbook §3 CAUTION) */
+.waterline-particle-panel .pfx-tab { all: unset !important; }
+
+/* Step 2: Re-apply tab styles */
+.waterline-particle-panel .pfx-tab {
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    color: rgba(255, 255, 255, 0.35) !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    cursor: pointer !important;
+    transition: color 0.15s, border-bottom-color 0.15s !important;
+    white-space: nowrap !important;
+    user-select: none !important;
+}
+
+.waterline-particle-panel .pfx-tab:hover {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.waterline-particle-panel .pfx-tab.pfx-tab-active {
+    color: var(--ionrift-accent, #8b5cf6) !important;
+    border-bottom-color: var(--ionrift-accent, #8b5cf6) !important;
+}
+
+/* Emitters tab gets auto left margin to push right */
+.waterline-particle-panel .pfx-tab.pfx-tab-emitters {
+    margin-left: auto !important;
+}
+
+.pfx-icon-smoke    { color: rgba(255, 255, 255, 0.35); }
+.pfx-icon-waterfall { color: var(--ionrift-accent, #8b5cf6); opacity: 0.8; }
+.pfx-icon-emitters  { color: rgba(255, 255, 255, 0.25); }
+
+/* ── Tab panes ──────────────────────────────────────────────────────────── */
+.pfx-tab-pane {
+    display: flex;
+    flex-direction: column;
+    /* Fixed height so the panel never grows beyond this */
+    height: 380px;
+    min-height: 0;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.pfx-tab-pane.pfx-pane-hidden {
+    display: none;
+}
+
+/* Scrollable slider area — fills all space above the sticky footer */
+.pfx-pane-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Standard inner gutter (UI Handbook §4) — never flush to edges */
+    padding: 0.6rem 1.25rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Sticky footer holds the Place / Update button — never scrolls away */
+.pfx-pane-footer {
+    flex-shrink: 0;
+    padding: 0.45rem 1.25rem 0.75rem;
+    background: rgba(0, 0, 0, 0.12);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Emitter-tab footer: refresh button aligned right, no full-width treatment */
+.pfx-pane-footer.pfx-emitter-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 0.35rem;
+    padding-bottom: 0.5rem;
+}
+
+/* ── Scene Wind block ── */
+.pfx-scene-wind {
+    /* Standard inner gutter per UI Handbook §4 */
+    padding: 0.75rem 1.25rem 0.65rem;
+    background: rgba(139, 92, 246, 0.06);
+    border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pfx-scene-wind-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--ionrift-accent, #8b5cf6);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+}
+
+.pfx-scene-wind-hint {
+    margin-left: auto;
+    font-size: 0.67rem;
+    color: rgba(255, 255, 255, 0.2);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    font-style: italic;
+}
+
+
+/* â”€â”€ Slider row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.pfx-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pfx-row label {
+    flex: 0 0 72px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: help;
+    white-space: nowrap;
+}
+
+.pfx-row input[type="range"] {
+    flex: 1;
+    /* Use brand accent colour for slider thumb */
+    accent-color: var(--ionrift-accent, #8b5cf6);
+    cursor: pointer;
+    margin: 0;
+}
+
+.pfx-value {
+    flex: 0 0 40px;
+    text-align: right;
+    font-size: 0.72rem;
+    font-family: "Consolas", monospace;
+    color: var(--ionrift-accent, #8b5cf6);
+    font-weight: 700;
+}
+
+/* â”€â”€ Place / Update button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Reset first (separate rule â€” see UI Handbook Â§3 CAUTION) */
+.waterline-particle-panel .pfx-place-btn { all: unset !important; }
+
+/* Then re-style */
+.waterline-particle-panel .pfx-place-btn {
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.6rem !important;
+    width: 100% !important;
+    margin-top: 6px !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 5px !important;
+    border: 1px solid rgba(139, 92, 246, 0.4) !important;
+    background: rgba(139, 92, 246, 0.1) !important;
+    color: var(--ionrift-accent, #8b5cf6) !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.15s !important;
+    letter-spacing: 0.02em !important;
+}
+
+.waterline-particle-panel .pfx-place-btn:hover {
+    background: rgba(139, 92, 246, 0.22) !important;
+    border-color: rgba(139, 92, 246, 0.7) !important;
+    color: #fff !important;
+    box-shadow: var(--ionrift-accent-glow, 0 0 12px rgba(139, 92, 246, 0.35)) !important;
+}
+
+.waterline-particle-panel .pfx-place-btn.pfx-placing {
+    background: rgba(139, 92, 246, 0.35) !important;
+    border-color: #a78bfa !important;
+    color: #fff !important;
+    animation: pfx-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pfx-pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(139, 92, 246, 0.3); }
+    50%       { box-shadow: 0 0 20px rgba(139, 92, 246, 0.6); }
+}
+
+/* Update mode â€” green accent */
+.waterline-particle-panel .pfx-place-btn.pfx-place-btn-update {
+    border-color: rgba(74, 222, 128, 0.45) !important;
+    background: rgba(74, 222, 128, 0.1) !important;
+    color: #4ade80 !important;
+}
+
+.waterline-particle-panel .pfx-place-btn.pfx-place-btn-update:hover {
+    background: rgba(74, 222, 128, 0.22) !important;
+    border-color: rgba(74, 222, 128, 0.7) !important;
+    color: #fff !important;
+}
+
+/* â”€â”€ Active emitters list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.pfx-emitter-list-body {
+    gap: 5px;
+}
+
+.pfx-emitter-count {
+    margin-left: auto;
+    background: rgba(139, 92, 246, 0.2);
+    color: var(--ionrift-accent, #8b5cf6);
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.pfx-emitter-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.12s;
+}
+
+.pfx-emitter-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.pfx-emitter-item.pfx-emitter-editing {
+    background: rgba(139, 92, 246, 0.12);
+    border-color: rgba(139, 92, 246, 0.4);
+}
+
+.pfx-emitter-type-icon {
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 0.72rem;
+    flex-shrink: 0;
+}
+
+.pfx-emitter-name {
+    font-size: 0.76rem;
+    color: rgba(255, 255, 255, 0.55);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pfx-emitter-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* Icon action buttons â€” reset, then style */
+.waterline-particle-panel .pfx-emitter-edit,
+.waterline-particle-panel .pfx-emitter-delete { all: unset !important; }
+
+.waterline-particle-panel .pfx-emitter-edit,
+.waterline-particle-panel .pfx-emitter-delete {
+    box-sizing: border-box !important;
+    width: 24px !important;
+    height: 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 4px !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    color: rgba(255, 255, 255, 0.3) !important;
+    cursor: pointer !important;
+    font-size: 0.68rem !important;
+    transition: all 0.12s !important;
+}
+
+.waterline-particle-panel .pfx-emitter-edit:hover {
+    background: rgba(139, 92, 246, 0.2) !important;
+    border-color: rgba(139, 92, 246, 0.5) !important;
+    color: var(--ionrift-accent, #8b5cf6) !important;
+}
+
+.waterline-particle-panel .pfx-emitter-delete:hover {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border-color: rgba(239, 68, 68, 0.4) !important;
+    color: #f87171 !important;
+}
+
+.pfx-empty {
+    font-size: 0.73rem;
+    color: rgba(255, 255, 255, 0.2);
+    font-style: italic;
+    text-align: center;
+    padding: 4px 0;
+    margin: 0;
+}
+
+/* Refresh button â€” reset, then style */
+.waterline-particle-panel .pfx-refresh-btn { all: unset !important; }
+
+.waterline-particle-panel .pfx-refresh-btn {
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+    padding: 0.3rem 0.5rem !important;
+    margin-top: 4px !important;
+    font-size: 0.7rem !important;
+    color: rgba(255, 255, 255, 0.2) !important;
+    cursor: pointer !important;
+    border-radius: 3px !important;
+    transition: color 0.12s !important;
+    align-self: flex-end !important;
+}
+
+.waterline-particle-panel .pfx-refresh-btn:hover {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+
 

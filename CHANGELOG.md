@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Removed
+- Procedural border wall generation has moved to the Ionrift Cartographer module, which is the natural home for map preparation tools. Waterline now focuses on water effects.
+
 ## [0.2.4] - 2026-05-29
 
 ### Fixed

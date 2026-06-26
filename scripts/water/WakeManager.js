@@ -1,4 +1,4 @@
-import { WakeRipple } from './WakeRipple.js';
+﻿import { WakeRipple } from './WakeRipple.js';
 import { WakeStamp } from './WakeStamp.js';
 import { WaterManager } from './WaterManager.js';
 import { WakeTuning } from './WakeTuning.js';
@@ -17,10 +17,10 @@ const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) c
  * Purely visual, client-local -- no persisted data.
  *
  * Wake (V-chevron) strategy:
- *   – Smoothed EMA velocity drives a unit direction vector.
- *   – Bow anchor = token leading edge (center + dir × halfSize).
- *   – A new WakeStamp is deposited every `wakeStampIntervalPx` pixels of movement.
- *   – Up to `wakeStampPoolMax` (≤ 4) stamps feed 4 shader stamp slots (uWake0–uWake7).
+ *   - Smoothed EMA velocity drives a unit direction vector.
+ *   - Bow anchor = token leading edge (center + dir × halfSize).
+ *   - A new WakeStamp is deposited every `wakeStampIntervalPx` pixels of movement.
+ *   - Up to `wakeStampPoolMax` (≤ 4) stamps feed 4 shader stamp slots (uWake0-uWake7).
  *
  * Ripple strategy unchanged.
  */

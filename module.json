@@ -1,7 +1,7 @@
 {
     "id": "ionrift-waterline",
     "title": "Ionrift Waterline",
-    "description": "Click on water in your map and Waterline traces the shape, then renders animated caustics with live-tunable speed, distortion, and opacity. Includes presets for rivers, lakes, coastlines, and more. Also generates procedural border walls along the canvas edge.",
+    "description": "Click on water in your map and Waterline traces the shape, then renders animated caustics with live-tunable speed, distortion, and opacity. Includes presets for rivers, lakes, coastlines, and more.",
     "version": "0.2.4",
     "url": "https://github.com/ionrift-gm/ionrift-waterline",
     "bugs": "https://discord.gg/vFGXf7Fncj",
@@ -50,11 +50,6 @@
             "type": "video",
             "url": "https://youtu.be/USmx-8CmQGk",
             "caption": "Waterline Demo - Animated Water FX for Foundry VTT"
-        },
-        {
-            "type": "video",
-            "url": "https://youtu.be/_zGnOfai5YA",
-            "caption": "Waterline Demo - Procedural Border Walls for Foundry VTT"
         }
     ],
     "license": "LICENSE"

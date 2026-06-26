@@ -1,4 +1,4 @@
-import { WaterMesh } from './WaterMesh.js';
+﻿import { WaterMesh } from './WaterMesh.js';
 
 const MODULE_ID = 'ionrift-waterline';
 const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
@@ -539,7 +539,7 @@ Water Tuning API:
     /**
      * Push wake ripple uniforms to every active water mesh (shader refraction).
      * @param {Float32Array} buf - 32 floats (8 vec4: cx, cy, ringR, amp)
-     * @param {number} count - Active slots 0–8
+     * @param {number} count - Active slots 0-8
      */
     /**
      * @param {Float32Array} buf

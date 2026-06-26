@@ -46,6 +46,9 @@ export class WaterConfigDialog extends Dialog {
     /** @type {Function|null} Keyboard handler for Ctrl+Z */
     #keyHandler = null;
 
+    /** @type {boolean} Track if there are unsaved FX changes */
+    #hasUnsavedChanges = false;
+
     /** @type {WaterConfigDialog|null} */
     static _instance = null;
 
@@ -385,6 +388,12 @@ export class WaterConfigDialog extends Dialog {
         // Auto-color toggle
         html.find('input[name="autoColor"]').on('change', (ev) => {
             html.find('input[name="colorOverride"]').prop('disabled', ev.target.checked);
+            this.#hasUnsavedChanges = true;
+        });
+
+        // Color override
+        html.find('input[name="colorOverride"]').on('input', () => {
+            this.#hasUnsavedChanges = true;
         });
 
         // Delete zone (delegated)
@@ -729,6 +738,7 @@ export class WaterConfigDialog extends Dialog {
     // ------------------------------------------------------------------
 
     #liveUpdateFX() {
+        this.#hasUnsavedChanges = true;
         const tune = game.ionrift?.waterTune;
         if (!tune) return;
 
@@ -781,6 +791,7 @@ export class WaterConfigDialog extends Dialog {
         }
 
         ui.notifications.info(`Waterline | Saved FX to ${updated} zone(s).`);
+        this.#hasUnsavedChanges = false;
     }
 
     // ------------------------------------------------------------------
@@ -967,7 +978,18 @@ export class WaterConfigDialog extends Dialog {
     // Cleanup
     // ------------------------------------------------------------------
 
-    close(options) {
+    async close(options) {
+        if (this.#hasUnsavedChanges) {
+            const confirm = await Dialog.confirm({
+                title: "Unsaved Changes",
+                content: "<p>You have unsaved water animation properties. Are you sure you want to close and lose these changes?</p>",
+                yes: () => true,
+                no: () => false,
+                defaultYes: false
+            });
+            if (!confirm) return;
+        }
+
         this.#stopPickMode();
         this.#clearCurrentFill();
         if (this.#debounceTimer) clearTimeout(this.#debounceTimer);

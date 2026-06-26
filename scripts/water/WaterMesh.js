@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Animated water overlay using PIXI.Mesh + PIXI.Shader.
  * Voronoi caustics with background texture distortion (refraction).
  */
@@ -50,7 +50,7 @@ const FRAGMENT_SRC = `
     uniform float uShoreWaves;
     uniform sampler2D uBackground;
 
-    // Token wake ripples (max 8); xyzw = center.xy, ring radius (px), amplitude 0–1
+    // Token wake ripples (max 8); xyzw = center.xy, ring radius (px), amplitude 0-1
     uniform vec4 uWake0;
     uniform vec4 uWake1;
     uniform vec4 uWake2;
@@ -65,8 +65,8 @@ const FRAGMENT_SRC = `
     uniform float uWakeStrengthMul;
     uniform float uWakeRingWobbleAmp;   // 0 = perfect circle
     uniform float uWakeRingWobbleLobes; // angular bumps around ring
-    // 0 = radial ripples (8 rings in uWake0–uWake7)
-    // 1 = V-chevron stamps (4 stamps × 2 vec4 packed in uWake0–uWake7)
+    // 0 = radial ripples (8 rings in uWake0-uWake7)
+    // 1 = V-chevron stamps (4 stamps × 2 vec4 packed in uWake0-uWake7)
     uniform float uWakeStyle;
     // V-chevron wave parameters
     uniform float uWakeDivergentK;     // spatial wave-number along the arm (crests per px)
@@ -517,7 +517,7 @@ export class WaterMesh {
     /**
      * Push token-wake data into the water refraction shader.
      * @param {Float32Array} buf - Ripple: 8×vec4 ring data. Wake: 4×2 vec4 per line segment (32 floats).
-     * @param {number} count - Ripple: 0–8 rings. Wake: 0–4 segments.
+     * @param {number} count - Ripple: 0-8 rings. Wake: 0-4 segments.
      * @param {object} [tuning] - Wake tuning
      */
     setWakeData(buf, count, tuning) {
@@ -545,7 +545,7 @@ export class WaterMesh {
         if (tuning?.wakeStyle === 'wake') {
             u.uWakeStyle = 1.0;
             applyTuning();
-            // Pack 4 stamps × 2 vec4 each into uWake0–uWake7
+            // Pack 4 stamps × 2 vec4 each into uWake0-uWake7
             const ns = Math.min(Math.max(count | 0, 0), 4);
             for (let s = 0; s < 4; s++) {
                 const o = s * 8;
@@ -565,7 +565,7 @@ export class WaterMesh {
             return;
         }
 
-        // Ripple mode: 8 ring vec4s in uWake0–uWake7
+        // Ripple mode: 8 ring vec4s in uWake0-uWake7
         u.uWakeStyle = 0.0;
         const n = Math.min(Math.max(count | 0, 0), 8);
         for (let i = 0; i < 8; i++) {

@@ -1,4 +1,4 @@
-const MODULE_ID = 'ionrift-waterline';
+﻿const MODULE_ID = 'ionrift-waterline';
 
 /**
  * Client-side wake tuning defaults (merged with saved settings).
@@ -86,7 +86,7 @@ export const WAKE_TUNING_DEFAULTS = {
     // Wake (V-chevron) strategy
     // -------------------------------------------------------------------------
 
-    /** Half-angle of the wake V in degrees (19–22° is physically Kelvin; wider reads better at VTT scale). */
+    /** Half-angle of the wake V in degrees (19-22° is physically Kelvin; wider reads better at VTT scale). */
     wakeHalfAngleDeg: 22,
     /** Random per-stamp jitter added to half-angle (±deg). Breaks "tiled decal" look. */
     wakeHalfAngleJitterDeg: 2.5,

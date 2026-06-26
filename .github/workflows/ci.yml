@@ -24,3 +24,18 @@ jobs:
 
   hygiene:
     uses: ionrift-gm/ionrift-ci/.github/workflows/hygiene.yml@main
+
+  string-guard:
+    name: String literal guard (no typographic dashes)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate string literals (no typographic dashes)
+        run: node tools/validate-strings.mjs
