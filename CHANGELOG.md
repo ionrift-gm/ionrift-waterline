@@ -3,7 +3,7 @@
 ## [0.2.6] - 2026-07-14
 
 ### Changed
-- The Foundry package listing no longer pulls YouTube demos from the module manifest.
+- Package listing no longer links YouTube demos.
 - Package listing uses Foundry's default module icon.
 
 ## [0.2.5] - 2026-07-14
