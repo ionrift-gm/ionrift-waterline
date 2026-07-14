@@ -135,8 +135,7 @@ jobs:
                 title: `🌊 Ionrift Waterline — v${version}`,
                 description: desc,
                 color: 0x2BA3C1,
-                url: `https://github.com/${repo}/releases/tag/${tag}`,
-                thumbnail: { url: `https://raw.githubusercontent.com/${repo}/main/assets/module-icon.png` }
+                url: `https://github.com/${repo}/releases/tag/${tag}`
               }]
             };
 
