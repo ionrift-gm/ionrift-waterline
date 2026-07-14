@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.5] - 2026-07-14
+
+### Changed
+- Release package no longer includes development tooling files.
+
 ## [0.2.4] - 2026-05-29
 
 ### Fixed

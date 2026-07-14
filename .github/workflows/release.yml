@@ -24,7 +24,7 @@ jobs:
 
       - name: Zip Module
         run: |
-          zip -r module.zip . -x ".git/*" ".github/*" ".gitignore" ".gitattributes" "RELEASE_WORKFLOW.md" "POLYGON_STRATEGY.md" "task.md" "package.json" "package-lock.json" "node_modules/*" "scripts/tests/*" "scripts/utils/*" "*.bak" "audit_*.json" "audit_*.txt" "audit_*.js" "docs/*" "SETUP_GUIDE.md" "BACKLOG.md"
+          zip -r module.zip . -x ".git/*" ".github/*" ".gitignore" ".gitattributes" "RELEASE_WORKFLOW.md" "POLYGON_STRATEGY.md" "task.md" "package.json" "package-lock.json" "node_modules/*" "scripts/tests/*" "scripts/utils/*" "tools/*" "*.bak" "audit_*.json" "audit_*.txt" "audit_*.js" "docs/*" "SETUP_GUIDE.md" "BACKLOG.md"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
