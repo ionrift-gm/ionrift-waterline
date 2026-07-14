@@ -45,17 +45,5 @@
             "url": "https://patreon.com/ionrift"
         }
     ],
-    "media": [
-        {
-            "type": "video",
-            "url": "https://youtu.be/USmx-8CmQGk",
-            "caption": "Waterline Demo - Animated Water FX for Foundry VTT"
-        },
-        {
-            "type": "video",
-            "url": "https://youtu.be/_zGnOfai5YA",
-            "caption": "Waterline Demo - Procedural Border Walls for Foundry VTT"
-        }
-    ],
     "license": "LICENSE"
 }
