@@ -14,8 +14,6 @@
 
 > Documentation, setup guides, and troubleshooting: **[Ionrift Wiki](https://github.com/ionrift-gm/ionrift-library/wiki)**
 
-[![Watch the demo](https://img.youtube.com/vi/USmx-8CmQGk/maxresdefault.jpg)](https://youtu.be/USmx-8CmQGk)
-
 ## Water FX
 
 I spent literal days tracing water polygons on top of maps by hand. Every river, every lake, every puddle - click, click, click, adjusting vertices for hours. Across hundreds of maps this becomes genuinely soul-destroying prep work. Waterline exists to make that go away.
@@ -27,8 +25,6 @@ You can tune everything with sliders that update in real time: speed, intensity,
 Shift+Click adds area. Ctrl+Click subtracts. Ctrl+Z undoes the last change.
 
 ## Border Walls
-
-[![Watch the demo](https://img.youtube.com/vi/_zGnOfai5YA/maxresdefault.jpg)](https://youtu.be/_zGnOfai5YA)
 
 When you can see the exact edges of a map, you know the whole space. Your curiosity switches off. Even hiding those boundaries by a few pixels keeps players wondering what's around the corner or past the treeline.
 
