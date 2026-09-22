@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Waterline: Game-Grade Organic Shoreline Lab</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* Custom glass styling */
+    .glass-panel {
+      background: rgba(18, 24, 38, 0.82);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(80, 120, 180, 0.25);
+    }
+    .custom-slider {
+      accent-color: #38bdf8;
+    }
+    canvas {
+      image-rendering: auto;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased selection:bg-cyan-500/30">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-30 backdrop-blur">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 font-bold text-lg shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+        🌊
+      </div>
+      <div>
+        <h1 class="text-base font-semibold tracking-wide text-white flex items-center gap-2">
+          Waterline v2 Concept Lab <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 font-mono">Organic Shore Engine</span>
+        </h1>
+        <p class="text-xs text-slate-400">Next-gen distance-field (SDF) shoreline wave simulation for arbitrary, non-predictable coastlines</p>
+      </div>
+    </div>
+
+    <!-- Mode Selector Tabs -->
+    <div class="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs font-medium">
+      <button id="btnModeGame" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-semibold shadow-sm transition">
+        Game Shoreline (SDF)
+      </button>
+      <button id="btnModeRiver" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        River Bank (Current + Drag)
+      </button>
+      <button id="btnModeOld" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        Old Waterline v1 (AABB Box)
+      </button>
+      <button id="btnModeDebugSdf" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        Debug: Distance Field
+      </button>
+      <button id="btnModeDebugNormals" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        Debug: Shore Normals
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+
+    <!-- Viewport Area -->
+    <div class="flex-1 relative flex items-center justify-center bg-slate-950 p-4 overflow-hidden select-none">
+      <div class="relative w-full max-w-[840px] aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 group">
+        <canvas id="glCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+        <!-- Floating Quick Badges -->
+        <div class="absolute top-4 left-4 pointer-events-none flex flex-col gap-1.5">
+          <div class="glass-panel px-3 py-1 rounded-full text-xs font-mono text-cyan-300 flex items-center gap-2 border border-cyan-500/30">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span id="fpsLabel">60 FPS</span> | <span id="distTimeLabel">SDF: 2.1ms</span>
+          </div>
+          <div id="paintHint" class="glass-panel px-3 py-1.5 rounded-lg text-xs text-slate-300 max-w-xs transition-opacity duration-300 opacity-0 pointer-events-none">
+            🎨 <span class="font-medium text-cyan-200">Paint Mode Active:</span> Left-click drag to add water, Right-click to carve land.
+          </div>
+        </div>
+
+        <!-- Canvas Overlay Controls (Bottom overlay) -->
+        <div class="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none">
+          <div class="glass-panel px-3 py-1.5 rounded-xl text-xs text-slate-300 pointer-events-auto flex items-center gap-3">
+            <span class="text-slate-400">Presets:</span>
+            <button id="presetRiver" class="hover:text-cyan-300 transition font-medium">🏞️ Winding River</button>
+            <span class="text-slate-700">|</span>
+            <button id="presetCoast" class="hover:text-cyan-300 transition font-medium">🏝️ Jagged Cove</button>
+            <span class="text-slate-700">|</span>
+            <button id="presetIslands" class="hover:text-cyan-300 transition font-medium">⛵ Archipelago</button>
+            <span class="text-slate-700">|</span>
+            <button id="presetPaint" class="text-cyan-400 font-semibold hover:text-cyan-300 transition">✏️ Custom Paint</button>
+          </div>
+
+          <div class="glass-panel px-3 py-1.5 rounded-xl text-xs text-slate-300 pointer-events-auto flex items-center gap-2">
+            <button id="btnReset" class="hover:text-white transition px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700">Reset Shape</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls Sidebar -->
+    <aside class="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-slate-800 bg-slate-900/60 p-5 overflow-y-auto space-y-6">
+
+      <!-- Architectural Highlight Box -->
+      <div class="glass-panel p-4 rounded-xl text-xs leading-relaxed space-y-2 border-cyan-500/20">
+        <div class="font-semibold text-cyan-300 flex items-center gap-1.5">
+          <span>💡</span> The Core Game Engine Technique
+        </div>
+        <p class="text-slate-300">
+          Video games like <em class="text-slate-200">Sea of Thieves</em> and <em class="text-slate-200">Zelda</em> solve arbitrary shorelines via a <strong>Signed Distance Field (SDF)</strong>.
+          Every pixel knows its exact distance to the shore (<code class="text-cyan-300">d</code>) and the shore normal vector (<code class="text-cyan-300">∇d</code>).
+        </p>
+        <p class="text-slate-400">
+          Waves organically curve parallel to any winding river or jagged bay, compress as depth decreases (<em class="text-slate-300">shoaling</em>), and break into cellular Voronoi foam at the swash line.
+        </p>
+      </div>
+
+      <!-- Wave Dynamics Section -->
+      <div class="space-y-4">
+        <h2 class="text-xs uppercase tracking-wider text-slate-400 font-bold flex items-center justify-between">
+          <span>Shore Wave Mechanics</span>
+          <span class="text-[10px] text-cyan-400 font-mono">Shader v2</span>
+        </h2>
+
+        <!-- Wave Speed -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slSpeed" class="text-slate-300">Wave Roll Speed</label>
+            <span id="valSpeed" class="text-cyan-400 font-mono">1.2x</span>
+          </div>
+          <input id="slSpeed" type="range" min="0.2" max="3.0" step="0.1" value="1.2" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Speed at which wave crests propagate inward toward the shore.</p>
+        </div>
+
+        <!-- Wave Frequency -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFreq" class="text-slate-300">Wave Crest Frequency</label>
+            <span id="valFreq" class="text-cyan-400 font-mono">0.065</span>
+          </div>
+          <input id="slFreq" type="range" min="0.02" max="0.15" step="0.005" value="0.065" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Distance between successive rolling wave crests.</p>
+        </div>
+
+        <!-- Shoaling (Wave Compression) -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slShoaling" class="text-slate-300">Shoaling & Refraction</label>
+            <span id="valShoaling" class="text-cyan-400 font-mono">1.8</span>
+          </div>
+          <input id="slShoaling" type="range" min="0.0" max="3.5" step="0.1" value="1.8" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Compresses wavelength and steepens crests as water gets shallow.</p>
+        </div>
+
+        <!-- Swash Surge (Wash up shore) -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slSwash" class="text-slate-300">Swash Reach (Waterline Surge)</label>
+            <span id="valSwash" class="text-cyan-400 font-mono">9.0px</span>
+          </div>
+          <input id="slSwash" type="range" min="0" max="24" step="1" value="9" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">How far waves wash forward onto the dry shore before receding.</p>
+        </div>
+      </div>
+
+      <!-- Foam & Bubble Section -->
+      <div class="space-y-4 pt-2 border-t border-slate-800">
+        <h2 class="text-xs uppercase tracking-wider text-slate-400 font-bold">Foam & Bubble Dynamics</h2>
+
+        <!-- Foam Band Width -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamWidth" class="text-slate-300">Surf / Foam Width</label>
+            <span id="valFoamWidth" class="text-cyan-400 font-mono">18px</span>
+          </div>
+          <input id="slFoamWidth" type="range" min="4" max="45" step="1" value="18" class="w-full custom-slider">
+        </div>
+
+        <!-- Cellular Voronoi Breakup -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slCellular" class="text-slate-300">Foam Cellular Breakup</label>
+            <span id="valCellular" class="text-cyan-400 font-mono">0.75</span>
+          </div>
+          <input id="slCellular" type="range" min="0.0" max="1.0" step="0.05" value="0.75" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Perforates foam into organic bubble clusters instead of a solid stripe.</p>
+        </div>
+
+        <!-- Wet Shore Fringe -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slWetFringe" class="text-slate-300">Wet Sand / Shore Fringe</label>
+            <span id="valWetFringe" class="text-cyan-400 font-mono">14px</span>
+          </div>
+          <input id="slWetFringe" type="range" min="0" max="30" step="1" value="14" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Darkens shore ground where recent wave swash receded.</p>
+        </div>
+      </div>
+
+      <!-- River Mode Controls -->
+      <div class="space-y-4 pt-2 border-t border-slate-800">
+        <h2 class="text-xs uppercase tracking-wider text-slate-400 font-bold flex items-center justify-between">
+          <span>River Specifics</span>
+          <span class="text-[10px] text-emerald-400 font-mono">Hydraulics</span>
+        </h2>
+
+        <!-- Current Flow Angle -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFlowAngle" class="text-slate-300">River Flow Angle</label>
+            <span id="valFlowAngle" class="text-emerald-400 font-mono">0° (Right)</span>
+          </div>
+          <input id="slFlowAngle" type="range" min="0" max="360" step="5" value="0" class="w-full custom-slider">
+        </div>
+
+        <!-- Bank Boundary Drag -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slBankDrag" class="text-slate-300">Bank Friction Drag</label>
+            <span id="valBankDrag" class="text-emerald-400 font-mono">42px</span>
+          </div>
+          <input id="slBankDrag" type="range" min="10" max="90" step="2" value="42" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Boundary layer distance where bank friction slows downstream flow to zero.</p>
+        </div>
+      </div>
+
+      <!-- Comparison Key Takeaways -->
+      <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400 space-y-2">
+        <div class="font-semibold text-slate-300">Why v1 AABB failed on organic shores:</div>
+        <ul class="list-disc list-inside space-y-1 text-[11px] text-slate-400">
+          <li>AABB distance is calculated against rectangular box borders (<code class="text-slate-300">x=0, y=0</code>).</li>
+          <li>Waves only move purely horizontally or vertically.</li>
+          <li>Irregular river bends, bays, and coves get flat waves intersecting land sideways.</li>
+          <li>SDF replaces this with exact Euclidean distance to the organic polygon boundary.</li>
+        </ul>
+      </div>
+
+    </aside>
+  </main>
+
+  <script>
+    // --- State & Uniform Parameters ---
+    const state = {
+      mode: 0, // 0: Game Shoreline, 1: River Bank, 2: Old v1 AABB, 3: Debug SDF, 4: Debug Normals
+      waveSpeed: 1.2,
+      waveFreq: 0.065,
+      waveShoaling: 1.8,
+      swashReach: 9.0,
+      foamWidth: 18.0,
+      cellularBreakup: 0.75,
+      wetFringe: 14.0,
+      flowAngle: 0.0,
+      bankDrag: 42.0,
+      paintMode: false,
+      brushSize: 28,
+      brushAdd: true
+    };
+
+    // --- Grid & Distance Transform Constants ---
+    const GRID_W = 384;
+    const GRID_H = 288;
+    const MAX_DIST_PX = 128.0;
+
+    // Buffer for mask (0 = land, 1 = water)
+    const maskData = new Uint8Array(GRID_W * GRID_H);
+    // Buffer for distance field (Float32 in pixels)
+    const distData = new Float32Array(GRID_W * GRID_H);
+    // RGBA texture buffer for WebGL
+    const sdfTexData = new Uint8Array(GRID_W * GRID_H * 4);
+
+    // --- DOM Elements ---
+    const canvas = document.getElementById('glCanvas');
+    const fpsLabel = document.getElementById('fpsLabel');
+    const distTimeLabel = document.getElementById('distTimeLabel');
+    const paintHint = document.getElementById('paintHint');
+
+    // --- Fast 2D Euclidean Distance Transform (Felzenszwalb-Huttenlocher O(N)) ---
+    // Computes exact distance from every pixel to nearest 0-pixel.
+    function computeEDT() {
+      const t0 = performance.now();
+      const INF = 1e9;
+      const f = new Float64Array(Math.max(GRID_W, GRID_H));
+      const d = new Float64Array(Math.max(GRID_W, GRID_H));
+      const v = new Int32Array(Math.max(GRID_W, GRID_H));
+      const z = new Float64Array(Math.max(GRID_W, GRID_H) + 1);
+
+      // 1. Initialize distance grid: 0 if boundary/outside, INF if inside
+      for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
+          const idx = y * GRID_W + x;
+          distData[idx] = (maskData[idx] === 1) ? INF : 0;
+        }
+      }
+
+      // 2. Transform along columns
+      for (let x = 0; x < GRID_W; x++) {
+        for (let y = 0; y < GRID_H; y++) {
+          f[y] = distData[y * GRID_W + x];
+        }
+        let k = 0;
+        v[0] = 0;
+        z[0] = -INF;
+        z[1] = INF;
+        for (let q = 1; q < GRID_H; q++) {
+          let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+          while (s <= z[k]) {
+            k--;
+            s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+          }
+          k++;
+          v[k] = q;
+          z[k] = s;
+          z[k + 1] = INF;
+        }
+        k = 0;
+        for (let q = 0; q < GRID_H; q++) {
+          while (z[k + 1] < q) k++;
+          const dy = q - v[k];
+          d[q] = dy * dy + f[v[k]];
+        }
+        for (let y = 0; y < GRID_H; y++) {
+          distData[y * GRID_W + x] = d[y];
+        }
+      }
+
+      // 3. Transform along rows
+      for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
+          f[x] = distData[y * GRID_W + x];
+        }
+        let k = 0;
+        v[0] = 0;
+        z[0] = -INF;
+        z[1] = INF;
+        for (let q = 1; q < GRID_H; q++) {
+          let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+          while (s <= z[k]) {
+            k--;
+            s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+          }
+          k++;
+          v[k] = q;
+          z[k] = s;
+          z[k + 1] = INF;
+        }
+        k = 0;
+        for (let q = 0; q < GRID_W; q++) {
+          while (z[k + 1] < q) k++;
+          const dx = q - v[k];
+          d[q] = dx * dx + f[v[k]];
+        }
+        for (let x = 0; x < GRID_W; x++) {
+          const idx = y * GRID_W + x;
+          const sqDist = d[x];
+          const distPx = sqDist >= INF ? MAX_DIST_PX : Math.sqrt(sqDist);
+          distData[idx] = distPx;
+
+          // Pack into RGBA:
+          // R: normalized distance [0..1] capped at MAX_DIST_PX
+          // G: mask (1 inside water, 0 on land)
+          const normDist = Math.min(distPx / MAX_DIST_PX, 1.0);
+          const pIdx = idx * 4;
+          sdfTexData[pIdx + 0] = Math.floor(normDist * 255);
+          sdfTexData[pIdx + 1] = maskData[idx] ? 255 : 0;
+          sdfTexData[pIdx + 2] = 0;
+          sdfTexData[pIdx + 3] = 255;
+        }
+      }
+
+      const elapsed = performance.now() - t0;
+      distTimeLabel.textContent = `SDF: ${elapsed.toFixed(1)}ms`;
+      uploadSdfTexture();
+    }
+
+    // --- Presets Generation ---
+    function setPresetRiver() {
+      state.paintMode = false;
+      paintHint.style.opacity = '0';
+      maskData.fill(0);
+
+      // Meandering horizontal S-curve river
+      for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
+          const nx = x / GRID_W;
+          // Organic river center curve
+          const riverY = (GRID_H * 0.5)
+            + Math.sin(nx * Math.PI * 2.8) * (GRID_H * 0.22)
+            + Math.cos(nx * Math.PI * 4.5) * (GRID_H * 0.08);
+
+          // Varying river width (pinch points and wide pools)
+          const width = (GRID_H * 0.16)
+            + Math.sin(nx * Math.PI * 3.2 + 1.2) * (GRID_H * 0.06);
+
+          const distCenter = Math.abs(y - riverY);
+          if (distCenter < width) {
+            maskData[y * GRID_W + x] = 1;
+          }
+        }
+      }
+
+      // Add a small mid-stream sandbar island
+      for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
+          const dx = x - GRID_W * 0.65;
+          const dy = y - GRID_H * 0.38;
+          if (dx * dx * 1.5 + dy * dy * 4.0 < 220) {
+            maskData[y * GRID_W + x] = 0; // island
+          }
+        }
+      }
+
+      computeEDT();
+    }
+
+    function setPresetCoast() {
+      state.paintMode = false;
+      paintHint.style.opacity = '0';
+      maskData.fill(0);
+
+      // Jagged coastline running roughly diagonally
+      for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
+          const ny = y / GRID_H;
+          const nx = x / GRID_W;
+
+          // Coast base line
+          let coastX = 0.38 + (ny - 0.5) * 0.25;
+          coastX += Math.sin(ny * 9.0) * 0.08;
+          coastX += Math.cos(ny * 21.0) * 0.035;
+          coastX += Math.sin(ny * 43.0) * 0.015;
+
+          // Water is to the right
+          if (nx > coastX) {
+            maskData[y * GRID_W + x] = 1;
+          }
+        }
+      }
+
+      // Rocky headland/island
+      for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
+          const dx = x - GRID_W * 0.72;
+          const dy = y - GRID_H * 0.35;
+          if (dx * dx + dy * dy * 1.8 < 550) {
+            maskData[y * GRID_W + x] = 0; // rocky outcrop island
+          }
+        }
+      }
+
+      computeEDT();
+    }
+
+    function setPresetIslands() {
+      state.paintMode = false;
+      paintHint.style.opacity = '0';
+      maskData.fill(1); // All water base
+
+      // Carve out surrounding shoreline and several organic islands
+      for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
+          // Island 1 (Central tropical atoll)
+          const d1 = Math.hypot(x - GRID_W * 0.35, y - GRID_H * 0.5);
+          const r1 = 36 + Math.sin(Math.atan2(y - GRID_H * 0.5, x - GRID_W * 0.35) * 5.0) * 10;
+          if (d1 < r1) maskData[y * GRID_W + x] = 0;
+
+          // Island 2 (Small satellite)
+          const d2 = Math.hypot(x - GRID_W * 0.65, y - GRID_H * 0.62);
+          const r2 = 22 + Math.cos(Math.atan2(y - GRID_H * 0.62, x - GRID_W * 0.65) * 4.0) * 6;
+          if (d2 < r2) maskData[y * GRID_W + x] = 0;
+
+          // Island 3 (Elongated reef)
+          const dx3 = x - GRID_W * 0.75;
+          const dy3 = y - GRID_H * 0.3;
+          if (dx3 * dx3 * 0.8 + dy3 * dy3 * 3.0 < 400) maskData[y * GRID_W + x] = 0;
+
+          // Edge land masses
+          if (x < 35 + Math.sin(y * 0.08) * 15) maskData[y * GRID_W + x] = 0;
+        }
+      }
+
+      computeEDT();
+    }
+
+    function setPresetPaint() {
+      state.paintMode = true;
+      paintHint.style.opacity = '1';
+    }
+
+    // --- WebGL Shader Setup ---
+    let gl, program, sdfTexture;
+    let uTimeLoc, uResLoc, uMaxDistLoc, uModeLoc;
+    let uSpeedLoc, uFreqLoc, uShoalLoc, uSwashLoc, uFoamWLoc, uCellLoc, uWetFLoc;
+    let uFlowAngleLoc, uBankDragLoc;
+
+    const VS_SOURCE = `
+      attribute vec2 aPos;
+      varying vec2 vUv;
+      void main() {
+        vUv = aPos * 0.5 + 0.5;
+        vUv.y = 1.0 - vUv.y; // Flip Y for WebGL texture orientation
+        gl_Position = vec4(aPos, 0.0, 1.0);
+      }
+    `;
+
+    const FS_SOURCE = `
+      precision highp float;
+      varying vec2 vUv;
+
+      uniform sampler2D uSdf;
+      uniform vec2 uRes;
+      uniform float uTime;
+      uniform float uMaxDist;
+      uniform float uMode; // 0=Game, 1=River, 2=Old AABB, 3=Debug SDF, 4=Debug Normals
+
+      uniform float uSpeed;
+      uniform float uFreq;
+      uniform float uShoaling;
+      uniform float uSwash;
+      uniform float uFoamWidth;
+      uniform float uCellular;
+      uniform float uWetFringe;
+      uniform float uFlowAngle;
+      uniform float uBankDrag;
+
+      // --- Noise and Hash Helpers ---
+      vec2 hash22(vec2 p) {
+        p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+        return fract(sin(p) * 43758.5453);
+      }
+
+      float noise2(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = dot(hash22(i), f);
+        float b = dot(hash22(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0));
+        float c = dot(hash22(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0));
+        float d = dot(hash22(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y) + 0.5;
+      }
+
+      float fbm(vec2 p) {
+        float v = 0.0;
+        v += 0.5000 * noise2(p); p *= 2.02;
+        v += 0.2500 * noise2(p); p *= 2.03;
+        v += 0.1250 * noise2(p);
+        return v;
+      }
+
+      // Cellular Voronoi (returns distance to cell boundary for bubbles)
+      float voronoiBubbles(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        float d1 = 1.0;
+        float d2 = 1.0;
+        for (int y = -1; y <= 1; y++) {
+          for (int x = -1; x <= 1; x++) {
+            vec2 g = vec2(float(x), float(y));
+            vec2 o = hash22(i + g);
+            o = 0.5 + 0.38 * sin(o * 6.2831 + uTime * 1.5);
+            float d = length(g + o - f);
+            if (d < d1) {
+              d2 = d1;
+              d1 = d;
+            } else if (d < d2) {
+              d2 = d;
+            }
+          }
+        }
+        return d2 - d1;
+      }
+
+      void main() {
+        vec4 sdfSample = texture2D(uSdf, vUv);
+        float rawDistPx = sdfSample.r * uMaxDist;
+        float isWater = sdfSample.g;
+
+        vec2 pixelPos = vUv * uRes;
+
+        // Compute Shore Normal Vector (pointing into water) via central differences
+        vec2 texel = 1.0 / uRes;
+        float dR = texture2D(uSdf, vUv + vec2(texel.x, 0.0)).r * uMaxDist;
+        float dL = texture2D(uSdf, vUv - vec2(texel.x, 0.0)).r * uMaxDist;
+        float dU = texture2D(uSdf, vUv + vec2(0.0, texel.y)).r * uMaxDist;
+        float dD = texture2D(uSdf, vUv - vec2(0.0, texel.y)).r * uMaxDist;
+        vec2 grad = vec2(dR - dL, dU - dD);
+        vec2 shoreNormal = length(grad) > 0.001 ? normalize(grad) : vec2(0.0, 1.0);
+
+        // --- DEBUG MODES ---
+        if (uMode > 2.5 && uMode < 3.5) {
+          // Debug SDF distance gradient
+          if (isWater < 0.5) {
+            gl_FragColor = vec4(0.12, 0.14, 0.18, 1.0);
+            return;
+          }
+          float bands = fract(rawDistPx / 15.0);
+          float col = rawDistPx / uMaxDist;
+          vec3 sdfVis = mix(vec3(0.05, 0.45, 0.65), vec3(0.1, 0.9, 0.95), col);
+          if (bands < 0.12) sdfVis += 0.25;
+          gl_FragColor = vec4(sdfVis, 1.0);
+          return;
+        }
+
+        if (uMode > 3.5) {
+          // Debug Shore Normal Vectors
+          if (isWater < 0.5) {
+            gl_FragColor = vec4(0.1, 0.1, 0.14, 1.0);
+            return;
+          }
+          vec3 nVis = vec3(shoreNormal * 0.5 + 0.5, 1.0);
+          gl_FragColor = vec4(nVis, 1.0);
+          return;
+        }
+
+        // --- OLD WATERLINE v1 (AABB BASELINE) MODE ---
+        if (uMode > 1.5 && uMode < 2.5) {
+          // Simulate the old AABB approach: distance to rectangular canvas edges
+          float edgeL = vUv.x * uRes.x;
+          float edgeR = (1.0 - vUv.x) * uRes.x;
+          float edgeT = vUv.y * uRes.y;
+          float edgeB = (1.0 - vUv.y) * uRes.y;
+          float aabbDist = min(min(edgeL, edgeR), min(edgeT, edgeB));
+
+          if (isWater < 0.5) {
+            // Ground
+            gl_FragColor = vec4(0.48, 0.42, 0.32, 1.0);
+            return;
+          }
+
+          // In v1, waves formed flat lines along AABB boundaries regardless of actual shore
+          float wavePhase = aabbDist * 0.06 - uTime * 1.2;
+          float wavePulse = smoothstep(0.3, 0.9, sin(wavePhase) * 0.5 + 0.5);
+          float segMask = smoothstep(0.4, 0.6, noise2(pixelPos / 80.0));
+          float oldFoam = wavePulse * segMask * 0.4;
+
+          vec3 oldWater = vec3(0.1, 0.38, 0.55) + vec3(oldFoam);
+          gl_FragColor = vec4(oldWater, 1.0);
+          return;
+        }
+
+        // --- GAME ENGINE & RIVER SHORELINE MODE ---
+        // Base ground colors (sand, gravel, wet sand)
+        vec3 dryGround = vec3(0.55, 0.48, 0.36) + (fbm(pixelPos * 0.04) - 0.5) * 0.08;
+        vec3 wetGround = dryGround * 0.52; // Darkened wet sand
+
+        // Organic distortion for wave crests
+        float nOrganic = fbm(pixelPos * 0.025 + uTime * 0.04);
+        float perturbedDist = rawDistPx + (nOrganic - 0.5) * 16.0;
+
+        // Swash surge cycle (wave washing up shore past 0 into dry ground)
+        float swashPeriod = uTime * uSpeed * 0.75 + nOrganic * 2.0;
+        float swashSurge = sin(swashPeriod);
+        float swashDist = perturbedDist - swashSurge * uSwash;
+
+        // Wet sand fringe on dry shore (swash residue)
+        float isWetSand = (1.0 - smoothstep(0.0, uWetFringe, -swashDist)) * (1.0 - isWater);
+        vec3 groundColor = mix(dryGround, wetGround, isWetSand);
+
+        // Water depth colors
+        vec3 deepWater = vec3(0.06, 0.28, 0.48);
+        vec3 shallowWater = vec3(0.14, 0.65, 0.72);
+        vec3 waterTint = mix(shallowWater, deepWater, smoothstep(2.0, 75.0, rawDistPx));
+
+        // Subsurface caustics
+        float c1 = voronoiBubbles(pixelPos * 0.04 + vec2(uTime * 0.15, 0.0));
+        float c2 = voronoiBubbles(pixelPos * 0.07 - vec2(0.0, uTime * 0.12));
+        float caustics = smoothstep(0.1, 0.5, (c1 + c2) * 0.5) * 0.22;
+        waterTint += vec3(caustics) * smoothstep(12.0, 60.0, rawDistPx);
+
+        // --- MODE 0: OCEAN/COVE GAME SHORELINE ---
+        float waveCrest = 0.0;
+        float foam = 0.0;
+
+        if (uMode < 0.5) {
+          // Shoaling: wave frequency compresses and crests steepen near shore
+          float depthFactor = clamp(1.0 - rawDistPx / 90.0, 0.0, 1.0);
+          float localK = uFreq * (1.0 + uShoaling * depthFactor);
+
+          // Inward shoreward rolling phase (+dist * localK - t * speed)
+          // Notice: direction of motion is towards shore (dist -> 0)
+          float wavePhase = perturbedDist * localK - uTime * uSpeed * 2.2;
+          float crestShape = pow(max(0.0, sin(wavePhase)), 4.0); // Asymmetric peaked crest
+
+          // Wave crest envelope (disappears in deep ocean and right on the beach)
+          float waveEnvelope = smoothstep(6.0, 24.0, rawDistPx) * smoothstep(uMaxDist * 0.95, 45.0, rawDistPx);
+          waveCrest = crestShape * waveEnvelope;
+
+          // Cellular Voronoi foam mask
+          float voro = voronoiBubbles(pixelPos * 0.10 + shoreNormal * uTime * 0.35);
+          float foamNoise = fbm(pixelPos * 0.06 - vec2(uTime * 0.1));
+
+          // Surf / Swash band at the leading waterline
+          float surfBand = 1.0 - smoothstep(0.0, uFoamWidth, swashDist);
+          float bubbleCells = smoothstep(0.35 * uCellular, 0.72, voro * 0.65 + foamNoise * 0.35);
+          float swashFoam = surfBand * bubbleCells;
+
+          // Breaking foam on the wave crests near shore
+          float breakingFoam = waveCrest * smoothstep(55.0, 12.0, rawDistPx) * smoothstep(0.3, 0.7, foamNoise);
+
+          foam = max(swashFoam, breakingFoam);
+        }
+
+        // --- MODE 1: RIVER BANK FLOW & SHEAR ---
+        if (uMode > 0.5 && uMode < 1.5) {
+          // Flow direction vector
+          float rad = uFlowAngle * 3.14159 / 180.0;
+          vec2 flowDir = vec2(cos(rad), sin(rad));
+          vec2 flowPerp = vec2(-flowDir.y, flowDir.x);
+
+          // Bank friction drag: flow speed drops to zero within uBankDrag of shore
+          float dragFactor = smoothstep(2.0, uBankDrag, rawDistPx);
+          vec2 localFlow = flowDir * dragFactor;
+
+          // Downstream current streamlines
+          float riverWave = sin(dot(pixelPos, flowDir) * uFreq * 0.8 - uTime * uSpeed * 3.0 * dragFactor);
+          riverWave = pow(riverWave * 0.5 + 0.5, 2.5);
+
+          // Bank lapping ripples (small stationary transverse ripples along the shore)
+          float bankLapPhase = dot(pixelPos, flowPerp) * 0.12 - uTime * 1.6;
+          float bankLap = pow(sin(bankLapPhase) * 0.5 + 0.5, 3.0) * (1.0 - dragFactor);
+
+          waveCrest = riverWave * 0.4 * dragFactor + bankLap * 0.6;
+
+          // River froth near rocky banks
+          float frothVoro = voronoiBubbles(pixelPos * 0.12 + localFlow * uTime * 0.5);
+          float frothBand = 1.0 - smoothstep(0.0, uFoamWidth * 0.65, rawDistPx);
+          foam = frothBand * smoothstep(0.25 * uCellular, 0.65, frothVoro);
+        }
+
+        // Final composition: blend ground with water
+        // Alpha of water fades smoothly at shallowest edge
+        float waterAlpha = smoothstep(-1.0, 6.0, swashDist);
+        if (isWater < 0.5 && swashDist > 0.0) waterAlpha = 0.0;
+
+        vec3 waterColor = waterTint + vec3(waveCrest * 0.32);
+        // Add white foam
+        waterColor = mix(waterColor, vec3(0.96, 0.98, 1.0), foam * 0.92);
+
+        vec3 finalColor = mix(groundColor, waterColor, waterAlpha);
+
+        gl_FragColor = vec4(finalColor, 1.0);
+      }
+    `;
+
+    // --- WebGL Initialization ---
+    function initGL() {
+      gl = canvas.getContext('webgl');
+      if (!gl) {
+        alert('WebGL not supported');
+        return;
+      }
+
+      function createShader(type, src) {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+          console.error(gl.getShaderInfoLog(s));
+          gl.deleteShader(s);
+          return null;
+        }
+        return s;
+      }
+
+      const vs = createShader(gl.VERTEX_SHADER, VS_SOURCE);
+      const fs = createShader(gl.FRAGMENT_SHADER, FS_SOURCE);
+      program = gl.createProgram();
+      gl.attachShader(program, vs);
+      gl.attachShader(program, fs);
+      gl.linkProgram(program);
+
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error(gl.getProgramInfoLog(program));
+        return;
+      }
+
+      gl.useProgram(program);
+
+      // Full-screen Quad Buffer
+      const posBuf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        -1, -1,  1, -1, -1,  1,
+        -1,  1,  1, -1,  1,  1
+      ]), gl.STATIC_DRAW);
+
+      const aPos = gl.getAttribLocation(program, 'aPos');
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+      // Uniform Locations
+      uTimeLoc = gl.getUniformLocation(program, 'uTime');
+      uResLoc = gl.getUniformLocation(program, 'uRes');
+      uMaxDistLoc = gl.getUniformLocation(program, 'uMaxDist');
+      uModeLoc = gl.getUniformLocation(program, 'uMode');
+
+      uSpeedLoc = gl.getUniformLocation(program, 'uSpeed');
+      uFreqLoc = gl.getUniformLocation(program, 'uFreq');
+      uShoalLoc = gl.getUniformLocation(program, 'uShoaling');
+      uSwashLoc = gl.getUniformLocation(program, 'uSwash');
+      uFoamWLoc = gl.getUniformLocation(program, 'uFoamWidth');
+      uCellLoc = gl.getUniformLocation(program, 'uCellular');
+      uWetFLoc = gl.getUniformLocation(program, 'uWetFringe');
+      uFlowAngleLoc = gl.getUniformLocation(program, 'uFlowAngle');
+      uBankDragLoc = gl.getUniformLocation(program, 'uBankDrag');
+
+      // SDF Texture
+      sdfTexture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, sdfTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+      setPresetRiver();
+      resizeCanvas();
+    }
+
+    function uploadSdfTexture() {
+      if (!gl || !sdfTexture) return;
+      gl.bindTexture(gl.TEXTURE_2D, sdfTexture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, GRID_W, GRID_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, sdfTexData);
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+
+    // --- Interactive Paint Brush Handling ---
+    let isDrawing = false;
+
+    function applyBrush(clientX, clientY, addWater) {
+      const rect = canvas.getBoundingClientRect();
+      const gx = Math.floor(((clientX - rect.left) / rect.width) * GRID_W);
+      const gy = Math.floor(((clientY - rect.top) / rect.height) * GRID_H);
+      const r = state.brushSize;
+
+      let changed = false;
+      for (let y = Math.max(0, gy - r); y < Math.min(GRID_H, gy + r); y++) {
+        for (let x = Math.max(0, gx - r); x < Math.min(GRID_W, gx + r); x++) {
+          if ((x - gx) * (x - gx) + (y - gy) * (y - gy) <= r * r) {
+            const idx = y * GRID_W + x;
+            const targetVal = addWater ? 1 : 0;
+            if (maskData[idx] !== targetVal) {
+              maskData[idx] = targetVal;
+              changed = true;
+            }
+          }
+        }
+      }
+      if (changed) computeEDT();
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (!state.paintMode) return;
+      isDrawing = true;
+      applyBrush(e.clientX, e.clientY, e.button !== 2);
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isDrawing || !state.paintMode) return;
+      applyBrush(e.clientX, e.clientY, e.buttons !== 2);
+    });
+
+    window.addEventListener('pointerup', () => { isDrawing = false; });
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // --- Render Loop ---
+    let lastTime = 0;
+    let frameCount = 0;
+    let fpsTimer = 0;
+
+    function render(timeMs) {
+      const timeSec = timeMs * 0.001;
+      const dt = timeSec - lastTime;
+      lastTime = timeSec;
+
+      frameCount++;
+      fpsTimer += dt;
+      if (fpsTimer >= 0.5) {
+        const fps = Math.round(frameCount / fpsTimer);
+        fpsLabel.textContent = `${fps} FPS`;
+        frameCount = 0;
+        fpsTimer = 0;
+      }
+
+      gl.useProgram(program);
+
+      gl.uniform1f(uTimeLoc, timeSec);
+      gl.uniform2f(uResLoc, canvas.width, canvas.height);
+      gl.uniform1f(uMaxDistLoc, MAX_DIST_PX);
+      gl.uniform1f(uModeLoc, state.mode);
+
+      gl.uniform1f(uSpeedLoc, state.waveSpeed);
+      gl.uniform1f(uFreqLoc, state.waveFreq);
+      gl.uniform1f(uShoalLoc, state.waveShoaling);
+      gl.uniform1f(uSwashLoc, state.swashReach);
+      gl.uniform1f(uFoamWLoc, state.foamWidth);
+      gl.uniform1f(uCellLoc, state.cellularBreakup);
+      gl.uniform1f(uWetFLoc, state.wetFringe);
+      gl.uniform1f(uFlowAngleLoc, state.flowAngle);
+      gl.uniform1f(uBankDragLoc, state.bankDrag);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      requestAnimationFrame(render);
+    }
+
+    // --- UI Event Listeners ---
+    function setupUI() {
+      window.addEventListener('resize', resizeCanvas);
+
+      // Mode buttons
+      const modeButtons = [
+        { btn: 'btnModeGame', mode: 0 },
+        { btn: 'btnModeRiver', mode: 1 },
+        { btn: 'btnModeOld', mode: 2 },
+        { btn: 'btnModeDebugSdf', mode: 3 },
+        { btn: 'btnModeDebugNormals', mode: 4 }
+      ];
+
+      function setActiveTab(activeMode) {
+        state.mode = activeMode;
+        modeButtons.forEach(({ btn, mode }) => {
+          const el = document.getElementById(btn);
+          if (mode === activeMode) {
+            el.className = 'px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-semibold shadow-sm transition';
+          } else {
+            el.className = 'px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition';
+          }
+        });
+      }
+
+      modeButtons.forEach(({ btn, mode }) => {
+        document.getElementById(btn).addEventListener('click', () => setActiveTab(mode));
+      });
+
+      // Presets
+      document.getElementById('presetRiver').addEventListener('click', () => { setPresetRiver(); setActiveTab(1); });
+      document.getElementById('presetCoast').addEventListener('click', () => { setPresetCoast(); setActiveTab(0); });
+      document.getElementById('presetIslands').addEventListener('click', () => { setPresetIslands(); setActiveTab(0); });
+      document.getElementById('presetPaint').addEventListener('click', () => { setPresetPaint(); });
+      document.getElementById('btnReset').addEventListener('click', () => setPresetRiver());
+
+      // Sliders
+      function linkSlider(id, valId, key, fmt) {
+        const sl = document.getElementById(id);
+        const vl = document.getElementById(valId);
+        sl.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          state[key] = val;
+          vl.textContent = fmt ? fmt(val) : val;
+        });
+      }
+
+      linkSlider('slSpeed', 'valSpeed', 'waveSpeed', v => `${v.toFixed(1)}x`);
+      linkSlider('slFreq', 'valFreq', 'waveFreq', v => v.toFixed(3));
+      linkSlider('slShoaling', 'valShoaling', 'waveShoaling', v => v.toFixed(1));
+      linkSlider('slSwash', 'valSwash', 'swashReach', v => `${v.toFixed(0)}px`);
+      linkSlider('slFoamWidth', 'valFoamWidth', 'foamWidth', v => `${v.toFixed(0)}px`);
+      linkSlider('slCellular', 'valCellular', 'cellularBreakup', v => v.toFixed(2));
+      linkSlider('slWetFringe', 'valWetFringe', 'wetFringe', v => `${v.toFixed(0)}px`);
+      linkSlider('slFlowAngle', 'valFlowAngle', 'flowAngle', v => `${v.toFixed(0)}°`);
+      linkSlider('slBankDrag', 'valBankDrag', 'bankDrag', v => `${v.toFixed(0)}px`);
+    }
+
+    // Start
+    initGL();
+    setupUI();
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

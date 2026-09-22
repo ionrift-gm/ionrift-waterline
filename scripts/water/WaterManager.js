@@ -7,12 +7,15 @@ const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) c
  * Water body type presets. Each maps to a set of uniform defaults.
  */
 export const WATER_PRESETS = {
-    custom: { label: 'Custom',    opacity: 0.35, speed: 0.4,  distortion: 0.008, intensity: 0.8, fadeWidth: 50, scale: 150, flowAngle: 0,   shoreWaves: 0.0 },
-    river:  { label: 'River',     opacity: 0.15, speed: 1.45, distortion: 0.040, intensity: 0.2, fadeWidth: 70, scale: 90,  flowAngle: 90,  shoreWaves: 0.0 },
-    lake:   { label: 'Lake',      opacity: 0.35, speed: 0.25, distortion: 0.006, intensity: 0.6, fadeWidth: 60, scale: 200, flowAngle: 0,   shoreWaves: 0.0 },
-    puddle: { label: 'Puddle',    opacity: 0.25, speed: 0.15, distortion: 0.004, intensity: 0.4, fadeWidth: 20, scale: 60,  flowAngle: 0,   shoreWaves: 0.0 },
-    coast:  { label: 'Coast',     opacity: 0.40, speed: 0.5,  distortion: 0.010, intensity: 0.8, fadeWidth: 80, scale: 180, flowAngle: 270, shoreWaves: 0.0 },
-    deep:   { label: 'Deep Sea',  opacity: 0.50, speed: 0.35, distortion: 0.015, intensity: 1.0, fadeWidth: 100, scale: 250, flowAngle: 0,  shoreWaves: 0.0 }
+    custom:  { label: 'Custom',          opacity: 0.20, speed: 0.80, distortion: 0.020, intensity: 0.50, fadeWidth: 50, scale: 110, flowAngle: 0,   shoreWaves: 0.10 },
+    torrent: { label: 'Mountain Rapids', opacity: 0.12, speed: 1.85, distortion: 0.038, intensity: 0.30, fadeWidth: 45, scale: 75,  flowAngle: 90,  shoreWaves: 0.40 },
+    river:   { label: 'River / Stream',  opacity: 0.15, speed: 1.40, distortion: 0.035, intensity: 0.25, fadeWidth: 60, scale: 90,  flowAngle: 90,  shoreWaves: 0.15 },
+    coast:   { label: 'Coastal Surf',    opacity: 0.20, speed: 0.85, distortion: 0.020, intensity: 0.65, fadeWidth: 65, scale: 135, flowAngle: 270, shoreWaves: 0.55 },
+    lake:    { label: 'Calm Lake',       opacity: 0.16, speed: 0.55, distortion: 0.015, intensity: 0.45, fadeWidth: 50, scale: 110, flowAngle: 0,   shoreWaves: 0.08 },
+    deep:    { label: 'Ocean Swell',     opacity: 0.32, speed: 0.70, distortion: 0.024, intensity: 0.80, fadeWidth: 90, scale: 160, flowAngle: 45,  shoreWaves: 0.20 },
+    swamp:   { label: 'Murky Bayou',     opacity: 0.28, speed: 0.40, distortion: 0.018, intensity: 0.12, fadeWidth: 40, scale: 100, flowAngle: 180, shoreWaves: 0.00, colorOverride: '#2e3a1f' },
+    cistern: { label: 'Dungeon Cistern', opacity: 0.16, speed: 0.50, distortion: 0.015, intensity: 0.40, fadeWidth: 30, scale: 80,  flowAngle: 15,  shoreWaves: 0.05 },
+    puddle:  { label: 'Rain Puddle',     opacity: 0.14, speed: 0.85, distortion: 0.025, intensity: 0.25, fadeWidth: 20, scale: 50,  flowAngle: 0,   shoreWaves: 0.00 }
 };
 
 /**
@@ -23,16 +26,16 @@ export class WaterBehaviorType extends foundry.data.regionBehaviors.RegionBehavi
     static defineSchema() {
         const fields = foundry.data.fields;
         return {
-            intensity:     new fields.NumberField({ initial: 0.8,     min: 0.0,  max: 2.0,   step: 0.1,   label: 'Intensity' }),
-            speed:         new fields.NumberField({ initial: 0.4,     min: 0.05, max: 3.0,   step: 0.05,  label: 'Speed' }),
-            opacity:       new fields.NumberField({ initial: 0.35,    min: 0.05, max: 0.5,   step: 0.05,  label: 'Opacity' }),
-            distortion:    new fields.NumberField({ initial: 0.008,   min: 0.0,  max: 0.05,  step: 0.001, label: 'Distortion' }),
-            fadeWidth:     new fields.NumberField({ initial: 50,      min: 0,    max: 200,   step: 5,     label: 'Edge Fade' }),
-            scale:         new fields.NumberField({ initial: 150,     min: 30,   max: 400,   step: 10,    label: 'Scale' }),
-            flowAngle:     new fields.NumberField({ initial: 0,       min: 0,    max: 359,   step: 5,     label: 'Flow Direction' }),
-            shoreWaves:    new fields.NumberField({ initial: 0.0,     min: 0.0,  max: 1.0,   step: 0.1,   label: 'Shore Waves' }),
+            intensity:     new fields.NumberField({ initial: 0.25,    min: 0.0,  max: 2.0,   step: 0.05,  label: 'Intensity' }),
+            speed:         new fields.NumberField({ initial: 1.40,    min: 0.05, max: 3.0,   step: 0.05,  label: 'Speed' }),
+            opacity:       new fields.NumberField({ initial: 0.15,    min: 0.05, max: 0.5,   step: 0.01,  label: 'Opacity' }),
+            distortion:    new fields.NumberField({ initial: 0.035,   min: 0.0,  max: 0.05,  step: 0.001, label: 'Distortion' }),
+            fadeWidth:     new fields.NumberField({ initial: 60,      min: 0,    max: 200,   step: 5,     label: 'Edge Fade' }),
+            scale:         new fields.NumberField({ initial: 90,      min: 30,   max: 400,   step: 5,     label: 'Scale' }),
+            flowAngle:     new fields.NumberField({ initial: 90,      min: 0,    max: 359,   step: 5,     label: 'Flow Direction' }),
+            shoreWaves:    new fields.NumberField({ initial: 0.15,    min: 0.0,  max: 1.0,   step: 0.05,  label: 'Shore Waves' }),
             waterType:     new fields.StringField({
-                initial: 'custom',
+                initial: 'river',
                 label: 'Preset',
                 choices: Object.fromEntries(
                     Object.entries(WATER_PRESETS).map(([k, v]) => [k, v.label])
@@ -215,7 +218,8 @@ Water Tuning API:
                     'system.fadeWidth': preset.fadeWidth,
                     'system.scale': preset.scale,
                     'system.flowAngle': preset.flowAngle,
-                    'system.shoreWaves': preset.shoreWaves
+                    'system.shoreWaves': preset.shoreWaves,
+                    'system.colorOverride': preset.colorOverride ?? ''
                 };
 
                 for (const [name, val] of Object.entries(fieldMap)) {
@@ -292,17 +296,21 @@ Water Tuning API:
             shoreWaves: config.shoreWaves ?? preset.shoreWaves ?? 0
         };
 
-        // Determine water color: manual override or auto-sample
+        // Determine water color: manual override, preset override, or auto-sample
+        const colorHex = (config.colorOverride && config.colorOverride.length >= 6)
+            ? config.colorOverride
+            : (preset.colorOverride && preset.colorOverride.length >= 6 ? preset.colorOverride : null);
+
         let waterColor;
-        if (config.colorOverride && config.colorOverride.length >= 6) {
+        if (colorHex) {
             // Parse hex color override
-            const hex = config.colorOverride.replace('#', '');
+            const hex = colorHex.replace('#', '');
             waterColor = [
                 parseInt(hex.slice(0, 2), 16) / 255,
                 parseInt(hex.slice(2, 4), 16) / 255,
                 parseInt(hex.slice(4, 6), 16) / 255
             ];
-            LOG(`  Using color override: ${config.colorOverride}`);
+            LOG(`  Using color override: ${colorHex}`);
         } else {
             // Auto-sample background and shift toward blue
             const bgColor = await WaterManager.#sampleBackgroundColor(allPoints);

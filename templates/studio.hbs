@@ -177,6 +177,12 @@
                 </div>
 
                 <div class="form-group">
+                    <label title="Intensity of breaking foam waves near the water edge">Shore Waves</label>
+                    <input type="range" name="shoreWaves" min="0.0" max="1.0" value="{{fx.shoreWaves}}" step="0.05" />
+                    <span class="range-value">{{numberFormat fx.shoreWaves decimals=2}}</span>
+                </div>
+
+                <div class="form-group">
                     <label title="Texture pattern scale">Scale</label>
                     <input type="range" name="scale" min="30" max="400" value="{{fx.scale}}" step="10" />
                     <span class="range-value">{{fx.scale}}</span>

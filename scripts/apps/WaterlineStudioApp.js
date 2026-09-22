@@ -25,7 +25,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     hasUnsavedChanges = false;
 
     /** @type {string} Active water preset key */
-    activePreset = 'custom';
+    activePreset = 'river';
 
     /** @type {string|null} Active wake preset name */
     activeWakePreset = null;
@@ -41,14 +41,14 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
     /** @type {object} Current water animation FX parameters */
     fx = {
-        speed: 0.40,
-        intensity: 0.80,
-        opacity: 0.35,
-        distortion: 0.008,
-        fadeWidth: 50,
-        scale: 150,
-        flowAngle: 0,
-        shoreWaves: 0.0,
+        speed: 1.40,
+        intensity: 0.25,
+        opacity: 0.15,
+        distortion: 0.035,
+        fadeWidth: 60,
+        scale: 90,
+        flowAngle: 90,
+        shoreWaves: 0.15,
         colorOverride: '#0d2e4d',
         autoColor: true
     };
@@ -312,7 +312,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         });
 
         // Water animation slider listeners
-        const sliderNames = ['speed', 'intensity', 'opacity', 'distortion', 'fadeWidth', 'scale', 'flowAngle'];
+        const sliderNames = ['speed', 'intensity', 'opacity', 'distortion', 'fadeWidth', 'shoreWaves', 'scale', 'flowAngle'];
         for (const name of sliderNames) {
             const input = root.querySelector(`input[name="${name}"]`);
             if (!input) continue;
@@ -323,7 +323,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 if (display) {
                     if (name === 'flowAngle') display.innerHTML = `${Math.round(val)}&deg;`;
                     else if (name === 'distortion') display.textContent = val.toFixed(3);
-                    else if (['speed', 'intensity', 'opacity'].includes(name)) display.textContent = val.toFixed(2);
+                    else if (['speed', 'intensity', 'opacity', 'shoreWaves'].includes(name)) display.textContent = val.toFixed(2);
                     else display.textContent = String(val);
                 }
                 this.#liveUpdateFX();
@@ -509,7 +509,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 fadeWidth: preset.fadeWidth ?? this.fx.fadeWidth,
                 scale: preset.scale ?? this.fx.scale,
                 flowAngle: preset.flowAngle ?? this.fx.flowAngle,
-                shoreWaves: preset.shoreWaves ?? this.fx.shoreWaves
+                shoreWaves: preset.shoreWaves ?? this.fx.shoreWaves,
+                colorOverride: preset.colorOverride ?? this.fx.colorOverride,
+                autoColor: preset.colorOverride ? false : (key === 'custom' ? this.fx.autoColor : true)
             };
             this.#liveUpdateFX();
         }
