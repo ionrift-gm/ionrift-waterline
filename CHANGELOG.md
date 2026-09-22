@@ -1,9 +1,13 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.7] - 2026-09-22
+
+### Fixed
+- Water regions now render at their defined elevation on multi-level maps instead of defaulting to the ground level.
+- Token wake ripples now respect scene level elevations and no longer trigger across different floors.
 
 ### Removed
-- Procedural border wall generation has moved to the Ionrift Cartographer module, which is the natural home for map preparation tools. Waterline now focuses on water effects.
+- Procedural border wall generation has moved to the Ionrift Cartographer module.
 
 ## [0.2.6] - 2026-07-14
 

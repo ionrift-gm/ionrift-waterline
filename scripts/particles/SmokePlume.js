@@ -68,7 +68,7 @@ export class SmokePlume extends AbstractEmitter {
     _updateParticle(p, dt) {
         const t = performance.now() / 2000;
 
-        // Read live simulated wind — includes gust events and drift from WindSimulator
+        // Read live simulated wind -- includes gust events and drift from WindSimulator
         // Import is deferred to avoid circular dependency at module load time
         const wind = globalThis.game?.ionrift?.particleFX?.DrawingFX?.getEffectiveWind?.()
                   ?? { windDir: this.config.windDir, windStrength: this.config.windStrength };

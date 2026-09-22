@@ -1,4 +1,4 @@
-﻿import { WakeRipple } from './WakeRipple.js';
+import { WakeRipple } from './WakeRipple.js';
 import { WakeStamp } from './WakeStamp.js';
 import { WaterManager } from './WaterManager.js';
 import { WakeTuning } from './WakeTuning.js';
@@ -159,13 +159,11 @@ Token wake (client):
         if (!c) return;
         const { x: newX, y: newY } = c;
 
-        const inWater = WaterManager.isPointInWater(newX, newY);
+        const tokenElevation = tokenDoc.elevation ?? 0;
+        const inWater = WaterManager.isPointInWater(newX, newY, tokenElevation);
         WakeManager.#debugWetChange(tokenId, inWater, 'updateToken');
 
         if (!game.settings.get(MODULE_ID, 'enableTokenWake')) return;
-
-        // Elevated (flying) tokens leave no water wake
-        if ((tokenDoc.elevation ?? 0) > 0) return;
 
         // Per-token opt-out flag (set in Token Config > Identity)
         if (tokenDoc.getFlag?.(MODULE_ID, 'noRipple')) return;
@@ -205,7 +203,7 @@ Token wake (client):
         if (oldPos && moveDist > tu.longMoveMidPx) {
             const midX = (oldPos.x + newX) / 2;
             const midY = (oldPos.y + newY) / 2;
-            if (WaterManager.isPointInWater(midX, midY)) {
+            if (WaterManager.isPointInWater(midX, midY, tokenElevation)) {
                 WakeManager.#spawnRipple(midX, midY, { tokenId, dirX, dirY, tokenRadiusPx: tokR });
             }
         }
@@ -231,13 +229,11 @@ Token wake (client):
         if (!c) return;
         const { x: cx, y: cy } = c;
 
-        const inWater = WaterManager.isPointInWater(cx, cy);
+        const tokenElevation = token.document?.elevation ?? 0;
+        const inWater = WaterManager.isPointInWater(cx, cy, tokenElevation);
         WakeManager.#debugWetChange(tokenId, inWater, 'refreshToken');
 
         if (!game.settings.get(MODULE_ID, 'enableTokenWake')) return;
-
-        // Elevated (flying) tokens leave no water wake
-        if ((token.document?.elevation ?? 0) > 0) return;
 
         // Per-token opt-out flag (set in Token Config > Identity)
         if (token.document?.getFlag?.(MODULE_ID, 'noRipple')) return;
@@ -276,7 +272,7 @@ Token wake (client):
             WakeManager.#lastPositions.set(tokenId, { x: cx, y: cy });
 
             if (!inWater) return;
-            if (!WaterManager.isPointInWater(oldPos.x, oldPos.y)) return;
+            if (!WaterManager.isPointInWater(oldPos.x, oldPos.y, tokenElevation)) return;
             if (WakeManager.#isGmHiddenFromPlayers(token.document)) return;
             WakeManager.#tryDepositStamp(tokenId, token, cx, cy, dist, tu);
             return;
@@ -490,7 +486,6 @@ Token wake (client):
         for (const token of (canvas.tokens?.placeables ?? [])) {
             const tokenId = token.document?.id ?? token.id;
 
-            if ((token.document?.elevation ?? 0) > 0) { WakeManager.#idleTimers.delete(tokenId); continue; }
             if (token.document?.getFlag?.(MODULE_ID, 'noRipple'))  { WakeManager.#idleTimers.delete(tokenId); continue; }
             if (WakeManager.#isGmHiddenFromPlayers(token.document)) {
                 WakeManager.#idleTimers.delete(tokenId);
@@ -500,7 +495,8 @@ Token wake (client):
             const c = WakeManager.#placeableCenter(token);
             if (!c) continue;
 
-            if (!WaterManager.isPointInWater(c.x, c.y)) {
+            const tokenElevation = token.document?.elevation ?? 0;
+            if (!WaterManager.isPointInWater(c.x, c.y, tokenElevation)) {
                 WakeManager.#idleTimers.delete(tokenId);
                 continue;
             }
@@ -687,7 +683,9 @@ Token wake (client):
     static #syncWetFromPositions() {
         WakeManager.#lastWet.clear();
         for (const [id, pos] of WakeManager.#lastPositions) {
-            WakeManager.#lastWet.set(id, WaterManager.isPointInWater(pos.x, pos.y));
+            const token = canvas.tokens?.placeables?.find(t => (t.document?.id ?? t.id) === id);
+            const tokenElevation = token?.document?.elevation ?? 0;
+            WakeManager.#lastWet.set(id, WaterManager.isPointInWater(pos.x, pos.y, tokenElevation));
         }
     }
 

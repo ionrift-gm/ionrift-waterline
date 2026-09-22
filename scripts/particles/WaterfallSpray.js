@@ -39,7 +39,7 @@ export class WaterfallSpray extends AbstractEmitter {
         sprite.tint = 0xc8eeff;
 
         const life = 0.8 + Math.random() * 1.2;
-        // particleSize controls base scale — grows as mist disperses
+        // particleSize controls base scale -- grows as mist disperses
         const baseScale = this.config.particleSize * (0.6 + Math.random() * 0.8);
         sprite.scale.set(baseScale);
         sprite.alpha = 0;
@@ -80,7 +80,7 @@ export class WaterfallSpray extends AbstractEmitter {
         const lifeRatio = p.life / p.maxLife;
         p.sprite.scale.set(p.baseScale * (1.0 + (1.0 - lifeRatio) * 2.5));
 
-        // Bell-curve alpha — fade in quickly, linger, fade out
+        // Bell-curve alpha -- fade in quickly, linger, fade out
         p.sprite.alpha = Math.max(0, Math.sin(lifeRatio * Math.PI) * 0.7);
     }
 }

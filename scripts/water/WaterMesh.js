@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Animated water overlay using PIXI.Mesh + PIXI.Shader.
  * Voronoi caustics with background texture distortion (refraction).
  */
@@ -447,8 +447,15 @@ export class WaterMesh {
         this.mesh.name = 'water-mesh';
         this.mesh.eventMode = 'none';
         this.mesh.blendMode = PIXI.BLEND_MODES.NORMAL;
+        if (config.elevation !== undefined) {
+            this.mesh.elevation = config.elevation;
+            this.elevation = config.elevation;
+        }
+        if (config.sortLayer !== undefined) {
+            this.mesh.sortLayer = config.sortLayer;
+        }
 
-        LOG(`WaterMesh created, bounds: ${minX.toFixed(0)},${minY.toFixed(0)} ${boundsW.toFixed(0)}x${boundsH.toFixed(0)}`);
+        LOG(`WaterMesh created, bounds: ${minX.toFixed(0)},${minY.toFixed(0)} ${boundsW.toFixed(0)}x${boundsH.toFixed(0)}, elevation: ${config.elevation ?? 0}`);
     }
 
     startAnimation() {

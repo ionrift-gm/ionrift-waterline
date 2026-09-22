@@ -241,7 +241,7 @@ export class ParticlePlacementPanel extends Application {
         // Highlight canvas marker
         import('./DrawingFX.js').then(({ DrawingFX }) => DrawingFX._highlightMarker(drawingId));
 
-        ui.notifications.info(`Editing ${fx.type} emitter — adjust sliders then click "Update Emitter".`);
+        ui.notifications.info(`Editing ${fx.type} emitter - adjust sliders then click "Update Emitter".`);
     }
 
     async _saveEditTarget(type, root) {

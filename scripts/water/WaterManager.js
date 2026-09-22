@@ -1,4 +1,4 @@
-﻿import { WaterMesh } from './WaterMesh.js';
+import { WaterMesh } from './WaterMesh.js';
 
 const MODULE_ID = 'ionrift-waterline';
 const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
@@ -53,7 +53,7 @@ export class WaterManager {
     /** @type {Map<string, WaterMesh>} */
     static #zones = new Map();
 
-    /** @type {number[][]} Flat point arrays for all active water polygons (for hit-testing) */
+    /** @type {Array<{ points: number[], elevation: { bottom: number, top: number } } | number[]>} */
     static #polygons = [];
 
     /** @type {number|null} Debounce timer for hook-triggered refreshes */
@@ -314,6 +314,21 @@ Water Tuning API:
             LOG(`  Auto-sampled water color: [${waterColor.map(v => v.toFixed(3))}]`);
         }
 
+        // Extract region elevation bounds for multi-level maps
+        let meshElevation = 0;
+        let bottomBound = -Infinity;
+        let topBound = Infinity;
+
+        if (typeof regionDoc.elevation === 'number') {
+            meshElevation = regionDoc.elevation;
+            bottomBound = regionDoc.elevation;
+            topBound = regionDoc.elevation;
+        } else if (regionDoc.elevation && typeof regionDoc.elevation === 'object') {
+            bottomBound = regionDoc.elevation.bottom ?? -Infinity;
+            topBound = regionDoc.elevation.top ?? Infinity;
+            meshElevation = Number.isFinite(bottomBound) ? bottomBound : (Number.isFinite(topBound) ? topBound : 0);
+        }
+
         // Load background texture for distortion
         const bgPath = canvas.scene?.background?.src;
         let bgTexture = null;
@@ -327,7 +342,10 @@ Water Tuning API:
         }
         if (!bgTexture) {
             for (const points of allPoints) {
-                WaterManager.#polygons.push(points);
+                WaterManager.#polygons.push({
+                    points,
+                    elevation: { bottom: bottomBound, top: topBound }
+                });
             }
             LOG('  No background texture, skipping water mesh; wake hit-test polygons only');
             return;
@@ -345,6 +363,8 @@ Water Tuning API:
                 shoreWaves: resolvedConfig.shoreWaves,
                 bgTexture:  bgTexture,
                 waterColor: waterColor,
+                elevation:  meshElevation,
+                sortLayer:  100,
                 highlightColor: [
                     Math.min(waterColor[0] + 0.15, 1.0),
                     Math.min(waterColor[1] + 0.15, 1.0),
@@ -353,12 +373,17 @@ Water Tuning API:
             });
 
             if (waterMesh.mesh) {
+                waterMesh.mesh.elevation = meshElevation;
+                waterMesh.mesh.sortLayer = 100;
                 const layer = WaterManager.#getTargetLayer();
                 layer.addChild(waterMesh.mesh);
                 waterMesh.startAnimation();
                 WaterManager.#zones.set(`${regionDoc.id}-${WaterManager.#zones.size}`, waterMesh);
-                WaterManager.#polygons.push(points);
-                LOG(`  Water mesh active for "${regionDoc.name}"`);
+                WaterManager.#polygons.push({
+                    points,
+                    elevation: { bottom: bottomBound, top: topBound }
+                });
+                LOG(`  Water mesh active for "${regionDoc.name}" at elevation ${meshElevation}`);
             }
         }
     }
@@ -523,14 +548,25 @@ Water Tuning API:
 
     /**
      * Test whether a world-space point is inside any active water zone.
-     * Uses ray-casting point-in-polygon on the stored flat point arrays.
+     * Uses ray-casting point-in-polygon on the stored flat point arrays,
+     * matching elevation against region bounds if provided.
      *
      * @param {number} px - World X
      * @param {number} py - World Y
+     * @param {number} [elevation] - Optional elevation to match against region vertical bounds
      * @returns {boolean}
      */
-    static isPointInWater(px, py) {
-        for (const pts of WaterManager.#polygons) {
+    static isPointInWater(px, py, elevation = undefined) {
+        for (const entry of WaterManager.#polygons) {
+            const pts = Array.isArray(entry) ? entry : entry.points;
+            const bounds = entry?.elevation;
+
+            if (elevation !== undefined && elevation !== null && bounds) {
+                const minEl = bounds.bottom ?? -Infinity;
+                const maxEl = bounds.top ?? Infinity;
+                if (elevation < minEl || elevation > maxEl) continue;
+            }
+
             if (WaterManager.#pointInPolygon(px, py, pts)) return true;
         }
         return false;

@@ -40,14 +40,14 @@ export class DrawingFX {
     // Separate from per-particle turbulence: this moves the *mean* wind direction.
     //
     // State:
-    //   _ws.baseDir        — steady-state direction from scene flags
-    //   _ws.baseStrength   — strength from scene flags
-    //   _ws.turbulence     — 0-1 from scene flags, drives gust frequency + magnitude
-    //   _ws.drift          — slow sinusoidal wander (always active)
-    //   _ws.gustOffset     — current active gust offset (degrees)
-    //   _ws.gustTimer      — seconds remaining in the current gust
-    //   _ws.gustDuration   — total length of current gust
-    //   _ws.nextGustIn     — seconds until the next gust event fires
+    //   _ws.baseDir        -- steady-state direction from scene flags
+    //   _ws.baseStrength   -- strength from scene flags
+    //   _ws.turbulence     -- 0-1 from scene flags, drives gust frequency + magnitude
+    //   _ws.drift          -- slow sinusoidal wander (always active)
+    //   _ws.gustOffset     -- current active gust offset (degrees)
+    //   _ws.gustTimer      -- seconds remaining in the current gust
+    //   _ws.gustDuration   -- total length of current gust
+    //   _ws.nextGustIn     -- seconds until the next gust event fires
 
     static _ws = null;          // wind simulator state object
     static _wsTicker = null;    // PIXI ticker callback reference
@@ -93,7 +93,7 @@ export class DrawingFX {
 
         ws.time += dtSeconds;
 
-        // Slow sinusoidal drift — very gentle wander even at low turbulence
+        // Slow sinusoidal drift -- very gentle wander even at low turbulence
         ws.drift = Math.sin(ws.time * 0.12) * 8 * ws.turbulence
                  + Math.sin(ws.time * 0.05) * 5 * ws.turbulence;
 
@@ -101,14 +101,14 @@ export class DrawingFX {
         ws.nextGustIn -= dtSeconds;
         if (ws.nextGustIn <= 0 && ws.turbulence > 0.05) {
             // Kick off a new gust event
-            ws.gustDuration = 2 + Math.random() * 5;                // 2–7 s
+            ws.gustDuration = 2 + Math.random() * 5;                // 2-7 s
             ws.gustTimer    = ws.gustDuration;
             ws.gustOffset   = (Math.random() - 0.5) * 2            // sign
                             * ws.turbulence * 90;                   // up to ±90° at max turbulence
             ws.nextGustIn   = DrawingFX._randomGustInterval(ws.turbulence);
         }
 
-        // Gust envelope — bell curve: ramps up, peaks at 50%, decays back
+        // Gust envelope -- bell curve: ramps up, peaks at 50%, decays back
         if (ws.gustTimer > 0) {
             ws.gustTimer -= dtSeconds;
             const progress = 1 - ws.gustTimer / ws.gustDuration; // 0→1
@@ -135,7 +135,7 @@ export class DrawingFX {
 
     /**
      * Returns the stored (non-simulated) scene wind flags.
-     * Used for initialization only — runtime reads should use getEffectiveWind().
+     * Used for initialization only -- runtime reads should use getEffectiveWind().
      */
     static getSceneWind() {
         return {
@@ -171,7 +171,7 @@ export class DrawingFX {
         }
     }
 
-    // ── Scene wind changed — hot-update simulator base values ────────────────
+    // ── Scene wind changed -- hot-update simulator base values ────────────────
 
     static _onUpdateScene(scene, changes) {
         if (!canvas.scene || scene.id !== canvas.scene.id) return;
@@ -206,7 +206,7 @@ export class DrawingFX {
 
         const label = type === 'smoke' ? 'Smoke Plume' : 'Waterfall Spray';
         ui.notifications.info(
-            `📍 ${label} — click anywhere on the canvas to place. Press Escape to cancel.`,
+            `📍 ${label} - click anywhere on the canvas to place. Press Escape to cancel.`,
             { permanent: false, console: false }
         );
 
