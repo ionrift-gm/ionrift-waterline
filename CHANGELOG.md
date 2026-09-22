@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.8] - 2026-09-22
+
+### Restored
+- Procedural border wall generation.
+
 ## [0.2.7] - 2026-09-22
 
 ### Fixed
