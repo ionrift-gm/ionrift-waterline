@@ -1,4 +1,4 @@
-﻿/* Ionrift Cartograph */
+/* Ionrift Cartograph */
 
 /* Glass background for water dialogs (matches ionrift-lib brand) */
 .water-config-dialog.window-app,
@@ -229,23 +229,24 @@
 
 .wc-zone-delete {
     flex-shrink: 0;
-    width: 22px;
-    height: 22px;
+    width: 28px;
+    height: 28px;
     padding: 0;
-    border: none;
+    border: 1px solid rgba(239, 68, 68, 0.25);
     background: rgba(239, 68, 68, 0.1);
     color: #f87171;
-    border-radius: 3px;
+    border-radius: 4px;
     cursor: pointer;
     transition: all 0.15s;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
 }
 
 .wc-zone-delete:hover {
     background: rgba(239, 68, 68, 0.3);
+    border-color: rgba(239, 68, 68, 0.5);
     color: #fff;
 }
 
@@ -257,27 +258,31 @@
 }
 
 /* Form groups (sliders) */
-.water-config-form .form-group {
+.water-config-form .form-group,
+.waterline-studio-root .form-group {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 5px;
 }
 
-.water-config-form .form-group label {
-    flex: 0 0 72px;
+.water-config-form .form-group label,
+.waterline-studio-root .form-group label {
+    flex: 0 0 102px;
     font-size: 0.82rem;
     font-weight: 600;
     color: #ccc;
     cursor: help;
 }
 
-.water-config-form .form-group input[type="range"] {
+.water-config-form .form-group input[type="range"],
+.waterline-studio-root .form-group input[type="range"] {
     flex: 1;
     accent-color: var(--ionrift-accent, #8b5cf6);
 }
 
-.water-config-form .form-group select {
+.water-config-form .form-group select,
+.waterline-studio-root .form-group select {
     flex: 1;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -287,26 +292,28 @@
     font-size: 0.83rem;
 }
 
-.water-config-form .range-value {
-    flex: 0 0 40px;
+.water-config-form .range-value,
+.waterline-studio-root .range-value {
+    flex: 0 0 44px;
     text-align: right;
     font-size: 0.82rem;
     font-weight: 600;
     color: #fff;
     font-family: "Consolas", monospace;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Pick mode button */
 .cartograph-btn-pick {
     width: 100%;
     margin-top: 4px;
-    padding: 7px 14px;
+    padding: 8px 14px;
     font-size: 0.88rem;
     font-weight: 700;
     border-radius: 4px;
-    background: linear-gradient(to bottom, #4a4a4a, #2a2a2a);
-    border: 1px solid #000;
-    color: #fff;
+    background: rgba(139, 92, 246, 0.16);
+    border: 1px solid rgba(139, 92, 246, 0.45);
+    color: #e2d9f3;
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -400,6 +407,18 @@
 .cartograph-btn-discard:hover {
     background: rgba(239, 68, 68, 0.2);
     border-color: rgba(239, 68, 68, 0.5);
+}
+
+.cartograph-btn-undo {
+    background: rgba(139, 92, 246, 0.15);
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    color: #c4b5fd;
+}
+
+.cartograph-btn-undo:hover {
+    background: rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.5);
+    color: #fff;
 }
 
 /* Color picker */
@@ -641,7 +660,7 @@
 .wake-tuning-dialog.window-app {
     background: rgba(20, 20, 30, 0.95) !important;
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(56, 178, 200, 0.35) !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.8) !important;
     border-radius: 8px;
 }
@@ -1312,6 +1331,534 @@
 .waterline-particle-panel .pfx-refresh-btn:hover {
     color: rgba(255, 255, 255, 0.5) !important;
 }
+
+/* ── Waterline (ApplicationV2) ────────────────────────────────────────── */
+
+.waterline-studio-dialog.window-app,
+.waterline-studio-dialog {
+    background: rgba(15, 12, 27, 0.96) !important;
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9), 0 0 20px rgba(139, 92, 246, 0.15) !important;
+    border-radius: 10px;
+    max-height: 85vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.waterline-studio-dialog .window-content {
+    background: transparent !important;
+    padding: 10px 12px 8px !important;
+    max-height: 680px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+.waterline-studio-dialog .window-header {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.15) !important;
+    padding: 8px 12px !important;
+}
+
+.waterline-studio-dialog .window-header .window-title {
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    color: #ffffff !important;
+    text-shadow: 0 0 8px rgba(139, 92, 246, 0.4) !important;
+}
+
+.waterline-studio-root {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Specificity override for hidden elements (cures zombie preset prompts) */
+.waterline-studio-root .hidden,
+.waterline-studio-root .wc-preset-save-prompt.hidden,
+.waterline-studio-root .wake-tg-save-prompt.hidden,
+.waterline-studio-root [hidden] {
+    display: none !important;
+}
+
+/* Sleek Segmented Glass Tab Bar */
+.waterline-studio-root .waterline-tabs {
+    display: flex !important;
+    gap: 3px !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    padding: 3px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(139, 92, 246, 0.22) !important;
+    margin-bottom: 10px !important;
+    flex-shrink: 0 !important;
+}
+
+.waterline-studio-root .waterline-tab-btn {
+    all: unset !important;
+    flex: 1 1 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 6px 8px !important;
+    height: 28px !important;
+    font-size: 0.76rem !important;
+    font-weight: 600 !important;
+    color: rgba(226, 217, 243, 0.65) !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    transition: all 0.15s ease !important;
+    border: 1px solid transparent !important;
+    box-sizing: border-box !important;
+}
+
+.waterline-studio-root .waterline-tab-btn:hover {
+    color: #ffffff !important;
+    background: rgba(139, 92, 246, 0.15) !important;
+    border-color: rgba(139, 92, 246, 0.3) !important;
+}
+
+.waterline-studio-root .waterline-tab-btn.active {
+    color: #ffffff !important;
+    background: linear-gradient(180deg, rgba(139, 92, 246, 0.35), rgba(139, 92, 246, 0.18)) !important;
+    border-color: rgba(167, 139, 250, 0.55) !important;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.35) !important;
+    font-weight: 700 !important;
+}
+
+.waterline-studio-root .waterline-tab-btn i {
+    font-size: 0.78rem !important;
+    color: #a78bfa !important;
+}
+
+.waterline-studio-root .waterline-tab-btn.active i {
+    color: #c4b5fd !important;
+    text-shadow: 0 0 6px rgba(167, 139, 250, 0.6) !important;
+}
+
+/* Tab Content Scroll Container */
+.waterline-tab-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: 520px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-right: 4px !important;
+    scrollbar-color: rgba(139, 92, 246, 0.5) rgba(0, 0, 0, 0.3) !important;
+    scrollbar-width: thin !important;
+}
+
+.waterline-tab-body section.tab {
+    display: none;
+}
+
+.waterline-tab-body section.tab.active {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+}
+
+/* Neutralize harsh purple underlines (eradicating border soup) */
+.waterline-studio-root h3,
+.waterline-studio-root .wc-section h3 {
+    border-bottom: none !important;
+    margin: 8px 0 6px 0 !important;
+    padding: 0 !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: #c4b5fd !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.waterline-studio-root h3 i,
+.waterline-studio-root .wc-section h3 i {
+    color: #a78bfa !important;
+    font-size: 0.8rem !important;
+}
+
+.wc-zone-count-badge {
+    display: inline-block;
+    font-size: 0.70rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: rgba(139, 92, 246, 0.2);
+    color: #c4b5fd;
+    font-weight: 600;
+}
+
+.wc-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+/* Sliders: Dark Obsidian Tracks & Glowing Thumbs */
+.waterline-studio-root .form-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-bottom: 4px !important;
+    min-height: 24px !important;
+}
+
+.waterline-studio-root .form-group label {
+    flex: 0 0 104px !important;
+    font-size: 0.80rem !important;
+    font-weight: 600 !important;
+    color: #b3a8cf !important;
+    white-space: nowrap !important;
+    cursor: help !important;
+}
+
+.waterline-studio-root input[type="range"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    flex: 1 1 auto !important;
+    height: 18px !important;
+    background: transparent !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+}
+
+.waterline-studio-root input[type="range"]:focus {
+    outline: none !important;
+}
+
+.waterline-studio-root input[type="range"]::-webkit-slider-runnable-track {
+    width: 100% !important;
+    height: 4px !important;
+    background: rgba(20, 16, 36, 0.95) !important;
+    border: 1px solid rgba(139, 92, 246, 0.28) !important;
+    border-radius: 2px !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+}
+
+.waterline-studio-root input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    height: 14px !important;
+    width: 14px !important;
+    border-radius: 50% !important;
+    background: #a78bfa !important;
+    border: 1.5px solid #ffffff !important;
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.85) !important;
+    margin-top: -5px !important;
+    transition: transform 0.1s ease, background-color 0.1s ease !important;
+}
+
+.waterline-studio-root input[type="range"]::-webkit-slider-thumb:hover {
+    background: #c4b5fd !important;
+    transform: scale(1.15) !important;
+}
+
+.waterline-studio-root input[type="range"]::-moz-range-track {
+    width: 100% !important;
+    height: 4px !important;
+    background: rgba(20, 16, 36, 0.95) !important;
+    border: 1px solid rgba(139, 92, 246, 0.28) !important;
+    border-radius: 2px !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+}
+
+.waterline-studio-root input[type="range"]::-moz-range-thumb {
+    height: 14px !important;
+    width: 14px !important;
+    border-radius: 50% !important;
+    background: #a78bfa !important;
+    border: 1.5px solid #ffffff !important;
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.85) !important;
+}
+
+/* Numerical Readout Glass Well Badges */
+.waterline-studio-root .range-value,
+.waterline-studio-root .wake-tg-val {
+    flex: 0 0 46px !important;
+    min-width: 46px !important;
+    height: 20px !important;
+    line-height: 18px !important;
+    text-align: center !important;
+    font-family: "Consolas", "Courier New", monospace !important;
+    font-size: 0.74rem !important;
+    font-weight: 700 !important;
+    font-variant-numeric: tabular-nums !important;
+    color: #e2d9f3 !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    border-radius: 4px !important;
+    padding: 0 4px !important;
+    box-sizing: border-box !important;
+}
+
+/* Pick Button Hero Treatment */
+.waterline-studio-root .cartograph-btn-pick {
+    width: 100% !important;
+    margin: 4px 0 !important;
+    padding: 7px 12px !important;
+    font-size: 0.84rem !important;
+    font-weight: 700 !important;
+    border-radius: 6px !important;
+    background: linear-gradient(180deg, rgba(139, 92, 246, 0.25), rgba(139, 92, 246, 0.12)) !important;
+    border: 1px solid rgba(139, 92, 246, 0.45) !important;
+    color: #e2d9f3 !important;
+    cursor: pointer !important;
+    transition: all 0.18s ease !important;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.15) !important;
+}
+
+.waterline-studio-root .cartograph-btn-pick:hover {
+    background: linear-gradient(180deg, rgba(139, 92, 246, 0.38), rgba(139, 92, 246, 0.2)) !important;
+    border-color: #a78bfa !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 14px rgba(139, 92, 246, 0.35) !important;
+}
+
+.waterline-studio-root .cartograph-btn-pick.pick-active {
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.25), rgba(239, 68, 68, 0.12)) !important;
+    border-color: rgba(248, 113, 113, 0.6) !important;
+    color: #fca5a5 !important;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Candidate Card & Pick Controls */
+.waterline-studio-root .wc-pick-controls {
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+.waterline-studio-root .wc-candidate {
+    margin-top: 6px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.waterline-studio-root .wc-candidate-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.waterline-studio-root .cartograph-btn-accept {
+    background: rgba(34, 197, 94, 0.2) !important;
+    border: 1px solid rgba(74, 222, 128, 0.5) !important;
+    color: #4ade80 !important;
+}
+.waterline-studio-root .cartograph-btn-accept:hover {
+    background: rgba(34, 197, 94, 0.35) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.35) !important;
+}
+
+.waterline-studio-root .cartograph-btn-discard {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border: 1px solid rgba(248, 113, 113, 0.4) !important;
+    color: #f87171 !important;
+}
+.waterline-studio-root .cartograph-btn-discard:hover {
+    background: rgba(239, 68, 68, 0.3) !important;
+    color: #ffffff !important;
+}
+
+.waterline-studio-root .cartograph-btn-undo {
+    background: rgba(139, 92, 246, 0.18) !important;
+    border: 1px solid rgba(167, 139, 250, 0.45) !important;
+    color: #c4b5fd !important;
+}
+.waterline-studio-root .cartograph-btn-undo:hover {
+    background: rgba(139, 92, 246, 0.32) !important;
+    color: #ffffff !important;
+}
+
+/* Color input well */
+.waterline-studio-root input[type="color"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 34px !important;
+    height: 22px !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    border-radius: 4px !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6) !important;
+}
+
+.waterline-studio-root input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 2px !important;
+}
+
+.waterline-studio-root input[type="color"]::-webkit-color-swatch {
+    border: none !important;
+    border-radius: 2px !important;
+}
+
+.waterline-studio-root .color-auto-label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    font-size: 0.80rem !important;
+    color: #c4b5fd !important;
+    cursor: pointer !important;
+    margin-left: 4px !important;
+}
+
+.waterline-studio-root .color-auto-label input[type="checkbox"] {
+    accent-color: #8b5cf6 !important;
+    cursor: pointer !important;
+}
+
+/* Collapsible Details in Tab 2 */
+.waterline-studio-root .wake-tg-details {
+    margin-bottom: 6px !important;
+    border: 1px solid rgba(139, 92, 246, 0.18) !important;
+    border-radius: 6px !important;
+    background: rgba(0, 0, 0, 0.25) !important;
+}
+
+.waterline-studio-root .wake-tg-details > summary {
+    list-style: none !important;
+    cursor: pointer !important;
+    padding: 7px 10px !important;
+    font-size: 0.80rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: #c4b5fd !important;
+    user-select: none !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+.waterline-studio-root .wake-tg-details > summary::-webkit-details-marker {
+    display: none !important;
+}
+
+.waterline-studio-root .wake-tg-details > summary::before {
+    content: "" !important;
+    display: inline-block !important;
+    width: 0 !important;
+    height: 0 !important;
+    border-left: 5px solid #a78bfa !important;
+    border-top: 4px solid transparent !important;
+    border-bottom: 4px solid transparent !important;
+    transform: rotate(0deg) !important;
+    transition: transform 0.15s ease !important;
+}
+
+.waterline-studio-root .wake-tg-details[open] > summary::before {
+    transform: rotate(90deg) !important;
+}
+
+.waterline-studio-root .wake-tg-details-body {
+    padding: 6px 10px 8px 10px !important;
+    border-top: 1px solid rgba(139, 92, 246, 0.15) !important;
+}
+
+.waterline-studio-root .wake-tg-hint {
+    font-size: 0.76rem !important;
+    color: #9d95b0 !important;
+    margin: 2px 0 8px 0 !important;
+    line-height: 1.35 !important;
+}
+
+/* Shoreline Borders Buttons */
+.waterline-studio-root .cartograph-btn-organic {
+    background: rgba(34, 197, 94, 0.18) !important;
+    border: 1px solid rgba(74, 222, 128, 0.5) !important;
+    color: #4ade80 !important;
+}
+.waterline-studio-root .cartograph-btn-organic:hover {
+    background: rgba(34, 197, 94, 0.35) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.4) !important;
+}
+
+.waterline-studio-root .cartograph-btn-straight {
+    background: rgba(14, 165, 233, 0.18) !important;
+    border: 1px solid rgba(56, 189, 248, 0.5) !important;
+    color: #38bdf8 !important;
+}
+.waterline-studio-root .cartograph-btn-straight:hover {
+    background: rgba(14, 165, 233, 0.35) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(14, 165, 233, 0.4) !important;
+}
+
+.waterline-studio-root .border-btn-clear {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border: 1px solid rgba(248, 113, 113, 0.4) !important;
+    color: #f87171 !important;
+}
+.waterline-studio-root .border-btn-clear:hover {
+    background: rgba(239, 68, 68, 0.35) !important;
+    border-color: #ef4444 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.45) !important;
+}
+
+/* Pinned Sticky Footer Actions (never submerged off-screen) */
+.waterline-studio-root .wc-footer-actions {
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 10 !important;
+    background: rgba(15, 12, 27, 0.98) !important;
+    backdrop-filter: blur(10px) !important;
+    display: flex !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+    margin-top: 10px !important;
+    padding-top: 8px !important;
+    padding-bottom: 2px !important;
+    border-top: 1px solid rgba(139, 92, 246, 0.25) !important;
+    box-shadow: 0 -8px 16px rgba(15, 12, 27, 0.85) !important;
+}
+
+.waterline-studio-root .wc-footer-actions .cartograph-btn {
+    flex: 1 1 auto !important;
+    padding: 7px 12px !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.18s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+}
+
+.waterline-studio-root .cartograph-btn-save-fx {
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.28), rgba(16, 185, 129, 0.14)) !important;
+    border: 1px solid rgba(52, 211, 153, 0.6) !important;
+    color: #6ee7b7 !important;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.25) !important;
+}
+
+.waterline-studio-root .cartograph-btn-save-fx:hover {
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.45), rgba(16, 185, 129, 0.22)) !important;
+    border-color: #34d399 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.5) !important;
+}
+
+
 
 
 

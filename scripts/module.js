@@ -6,6 +6,7 @@ import { WakeTuningDialog } from './water/WakeTuningDialog.js';
 import { WAKE_TUNING_DEFAULTS } from './water/WakeTuning.js';
 import { DrawingFX } from './particles/DrawingFX.js';
 import { ParticlePlacementPanel } from './particles/ParticleConfigApp.js';
+import { WaterlineStudioApp } from './apps/WaterlineStudioApp.js';
 
 const MODULE_ID = 'ionrift-waterline';
 
@@ -31,9 +32,10 @@ Hooks.once('init', async () => {
 
     DrawingFX.init();
 
-    // Register Handlebars templates for particle FX panel
+    // Register Handlebars templates for particle FX panel and studio
     await loadTemplates([
-        `modules/${MODULE_ID}/scripts/particles/placement-panel.html`
+        `modules/${MODULE_ID}/scripts/particles/placement-panel.html`,
+        `modules/${MODULE_ID}/templates/studio.hbs`
     ]);
 
     // ── Hidden / world settings ──────────────────────────────────────────────
@@ -80,7 +82,7 @@ Hooks.once('init', async () => {
         hint: 'IonriftWaterline.SettingsRippleTuningHint',
         icon: 'fas fa-sliders-h',
         type: class extends FormApplication {
-            render() { WakeTuningDialog.show(); return this; }
+            render() { WaterlineStudioApp.show({ tab: 'wake' }); return this; }
             async _updateObject() {}
             get template() { return ''; }
         },
@@ -118,7 +120,7 @@ Hooks.on('updateSetting', (setting) => {
 });
 // ---------------------------------------------------------------
 // Scene Controls: Add border tools to the Walls palette,
-// and water configuration and wake tuning on the Regions palette
+// and Waterline on the Regions palette
 // ---------------------------------------------------------------
 Hooks.on('getSceneControlButtons', (controls) => {
     if (!game.user.isGM) return;
@@ -148,24 +150,15 @@ Hooks.on('getSceneControlButtons', (controls) => {
             };
         }
 
-        // Inject water detection into the regions control group
+        // Inject Waterline into the regions control group
         if (controls.regions?.tools) {
-            controls.regions.tools['water-config'] = {
-                name: 'water-config',
-                title: 'Water Configuration',
+            controls.regions.tools['waterline-studio'] = {
+                name: 'waterline-studio',
+                title: 'Waterline',
                 icon: 'fas fa-water',
                 order: 20,
                 button: true,
-                onClick: () => WaterConfigDialog.show(),
-                onChange: () => {}
-            };
-            controls.regions.tools['wake-tuning'] = {
-                name: 'wake-tuning',
-                title: 'Wake tuning (debug)',
-                icon: 'fas fa-sliders-h',
-                order: 22,
-                button: true,
-                onClick: () => WakeTuningDialog.show(),
+                onClick: () => WaterlineStudioApp.show({ tab: 'water' }),
                 onChange: () => {}
             };
         }
@@ -181,14 +174,12 @@ Hooks.on('getSceneControlButtons', (controls) => {
             );
         }
 
-        // v12: inject water tools into the regions control
+        // v12: inject Waterline into the regions control
         const regionsControl = controls.find(c => c.name === 'regions');
         if (regionsControl?.tools) {
             regionsControl.tools.push(
-                { name: 'water-config', title: 'Water Configuration',
-                  icon: 'fas fa-water', onClick: () => WaterConfigDialog.show(), button: true },
-                { name: 'wake-tuning', title: 'Wake tuning (debug)',
-                  icon: 'fas fa-sliders-h', onClick: () => WakeTuningDialog.show(), button: true }
+                { name: 'waterline-studio', title: 'Waterline',
+                  icon: 'fas fa-water', onClick: () => WaterlineStudioApp.show({ tab: 'water' }), button: true }
             );
         }
     }
@@ -198,8 +189,7 @@ Hooks.on('getSceneControlButtons', (controls) => {
 // Canvas Ready: Initialize water manager and render water regions
 // ---------------------------------------------------------------
 Hooks.on('canvasReady', async () => {
-    WaterConfigDialog.closeIfOpen();
-    WakeTuningDialog.closeIfOpen();
+    WaterlineStudioApp.closeIfOpen();
     WaterManager.init();
     await WaterManager.refreshAll();
     WakeManager.init();

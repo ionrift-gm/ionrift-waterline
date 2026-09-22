@@ -1,4 +1,4 @@
-﻿{
+{
     "TYPES": {
         "RegionBehavior": {
             "ionrift-waterline": {
@@ -17,17 +17,17 @@
     "IonriftWaterline.SettingsDebug": "Debug Logging",
     "IonriftWaterline.SettingsDebugHint": "Enable verbose console logging for water and ripple state. Useful for troubleshooting; can be chatty in combat.",
 
-    "IonriftWaterline.WakeTuningTitle": "Token Ripple Tuning",
-    "IonriftWaterline.WakeTuningHint": "Client-only ripple tuning. Shader / Sprites / Both = how you preview the effect.",
-    "IonriftWaterline.WakeTuningPreview": "Preview mode",
-    "IonriftWaterline.WakeTuningVisualMode": "Visual output",
+    "IonriftWaterline.WakeTuningTitle": "Waterline: Wake & Ripples",
+    "IonriftWaterline.WakeTuningHint": "Fine-tune water ripples created as tokens navigate across water zones.",
+    "IonriftWaterline.WakeTuningPreview": "Preview style",
+    "IonriftWaterline.WakeTuningVisualMode": "Visual style",
 
-    "IonriftWaterline.WakeTuningRippleTiming": "Ripple -- shape and feel",
-    "IonriftWaterline.WakeTuningRippleVariance": "Ripple -- randomness",
-    "IonriftWaterline.WakeTuningRippleSpawnTrail": "Ripple -- spawn and trail",
-    "IonriftWaterline.WakeTuningShader": "Shader refraction",
-    "IonriftWaterline.WakeTuningSprites": "Sprite rings",
-    "IonriftWaterline.WakeTuningSpriteColor": "Ring color",
+    "IonriftWaterline.WakeTuningRippleTiming": "Wave Shape & Lifetime",
+    "IonriftWaterline.WakeTuningRippleVariance": "Wave Dispersion & Randomness",
+    "IonriftWaterline.WakeTuningRippleSpawnTrail": "Motion Burst & Trail Ripples",
+    "IonriftWaterline.WakeTuningShader": "Surface Distortion & Refraction",
+    "IonriftWaterline.WakeTuningSprites": "Stylized Crest Rings",
+    "IonriftWaterline.WakeTuningSpriteColor": "Crest Color",
 
     "IonriftWaterline.WakeTuningPresetSave": "Save current settings as a new preset",
     "IonriftWaterline.WakeTuningPresetDelete": "Delete selected preset",
