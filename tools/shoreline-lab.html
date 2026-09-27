@@ -6,6 +6,54 @@
   <title>Waterline: Game-Grade Organic Shoreline Lab</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      background: #020617;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    main {
+      display: flex;
+      flex-direction: row;
+      flex: 1;
+      height: calc(100vh - 72px);
+      max-height: calc(100vh - 72px);
+      overflow: hidden;
+    }
+    .viewport-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      position: relative;
+      overflow: hidden;
+      height: 100%;
+    }
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      max-width: 840px;
+      aspect-ratio: 4 / 3;
+      border-radius: 1rem;
+      overflow: hidden;
+      border: 1px solid #1e293b;
+      background: #0f172a;
+    }
+    #glCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    aside {
+      width: 384px;
+      height: 100%;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
     /* Custom glass styling */
     .glass-panel {
       background: rgba(18, 24, 38, 0.82);
@@ -40,7 +88,16 @@
 
     <!-- Mode Selector Tabs -->
     <div class="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs font-medium">
-      <button id="btnModeGame" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-semibold shadow-sm transition">
+      <button id="btnModeFoam" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-semibold shadow-sm transition">
+        🫧 Living Seafoam
+      </button>
+      <button id="btnModeCSprite" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        🌊 C-Wave Sprite
+      </button>
+      <button id="btnModeOcean" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        🌊 Choppy Ocean (Swells)
+      </button>
+      <button id="btnModeGame" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
         Game Shoreline (SDF)
       </button>
       <button id="btnModeRiver" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
@@ -62,8 +119,8 @@
   <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
 
     <!-- Viewport Area -->
-    <div class="flex-1 relative flex items-center justify-center bg-slate-950 p-4 overflow-hidden select-none">
-      <div class="relative w-full max-w-[840px] aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 group">
+    <div class="flex-1 relative flex items-center justify-center bg-slate-950 p-4 overflow-hidden select-none viewport-area">
+      <div class="relative w-full max-w-[840px] aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 group canvas-container">
         <canvas id="glCanvas" class="w-full h-full block cursor-crosshair"></canvas>
 
         <!-- Floating Quick Badges -->
@@ -81,6 +138,12 @@
         <div class="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none">
           <div class="glass-panel px-3 py-1.5 rounded-xl text-xs text-slate-300 pointer-events-auto flex items-center gap-3">
             <span class="text-slate-400">Presets:</span>
+            <button id="presetFoam" class="text-cyan-400 font-semibold hover:text-cyan-300 transition">🫧 Seafoam Burst</button>
+            <span class="text-slate-700">|</span>
+            <button id="presetCSprite" class="hover:text-cyan-300 transition font-medium">🌊 Single C-Wave</button>
+            <span class="text-slate-700">|</span>
+            <button id="presetOcean" class="hover:text-cyan-300 transition font-medium">🌊 Open Ocean</button>
+            <span class="text-slate-700">|</span>
             <button id="presetRiver" class="hover:text-cyan-300 transition font-medium">🏞️ Winding River</button>
             <span class="text-slate-700">|</span>
             <button id="presetCoast" class="hover:text-cyan-300 transition font-medium">🏝️ Jagged Cove</button>
@@ -112,6 +175,230 @@
         <p class="text-slate-400">
           Waves organically curve parallel to any winding river or jagged bay, compress as depth decreases (<em class="text-slate-300">shoaling</em>), and break into cellular Voronoi foam at the swash line.
         </p>
+      </div>
+
+      <!-- Seafoam Mechanics Section (Mode 7) -->
+      <div id="foamControls" class="space-y-4 pt-2 border-t border-cyan-500/40 bg-cyan-950/20 p-3.5 rounded-xl border">
+        <h2 class="text-xs uppercase tracking-wider text-cyan-300 font-bold flex items-center justify-between">
+          <span class="flex items-center gap-1.5">🫧 Seafoam Mechanics</span>
+          <span class="text-[10px] text-cyan-400 font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/30">Lace & Decay</span>
+        </h2>
+        <p class="text-[11px] text-slate-400">Procedural ocean foam with cellular perforation, lacy filigree tendrils, and dissipation synchronized with underlying waves.</p>
+
+        <!-- Foam Patch Scale -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamScale" class="text-slate-300">Foam Patch Scale</label>
+            <span id="valFoamScale" class="text-cyan-400 font-mono">180px</span>
+          </div>
+          <input id="slFoamScale" type="range" min="80" max="350" step="5" value="180" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Base diameter of the erupting foam patch.</p>
+        </div>
+
+        <!-- Expansion Speed -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamExpand" class="text-slate-300">Expansion Speed</label>
+            <span id="valFoamExpand" class="text-cyan-400 font-mono">1.50x</span>
+          </div>
+          <input id="slFoamExpand" type="range" min="0.5" max="3.0" step="0.1" value="1.5" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">How rapidly the foam patch spreads outward across the water surface.</p>
+        </div>
+
+        <!-- Cellular Perforation (Holes) -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamPerforate" class="text-slate-300">Cellular Perforation (Holes)</label>
+            <span id="valFoamPerforate" class="text-cyan-400 font-mono">1.20</span>
+          </div>
+          <input id="slFoamPerforate" type="range" min="0.2" max="2.5" step="0.05" value="1.2" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Hollows out cell centers over time, turning solid clouds into webbed lace.</p>
+        </div>
+
+        <!-- Lace Filament Fineness -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamLace" class="text-slate-300">Lace Filament Fineness</label>
+            <span id="valFoamLace" class="text-cyan-400 font-mono">1.40</span>
+          </div>
+          <input id="slFoamLace" type="range" min="0.5" max="3.0" step="0.1" value="1.4" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Thickness and density of the interconnected spiderweb tendrils.</p>
+        </div>
+
+        <!-- Dissipation Rate -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamDecay" class="text-slate-300">Dissipation & Decay Rate</label>
+            <span id="valFoamDecay" class="text-cyan-400 font-mono">1.00</span>
+          </div>
+          <input id="slFoamDecay" type="range" min="0.2" max="2.5" step="0.05" value="1.0" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">How quickly filaments break into floating crumbs and dissolve.</p>
+        </div>
+
+        <!-- Wave Undulation Sync -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamWaveSync" class="text-slate-300">Wave Undulation Sync</label>
+            <span id="valFoamWaveSync" class="text-cyan-400 font-mono">1.00</span>
+          </div>
+          <input id="slFoamWaveSync" type="range" min="0.0" max="2.0" step="0.05" value="1.0" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Orbital advection coupling strength with rolling ocean swells beneath.</p>
+        </div>
+
+        <!-- Branching Tendrils -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamTendrils" class="text-slate-300">Branching Tendrils</label>
+            <span id="valFoamTendrils" class="text-cyan-400 font-mono">1.30</span>
+          </div>
+          <input id="slFoamTendrils" type="range" min="0.0" max="2.5" step="0.05" value="1.30" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Draws out elongated fluid filaments and spiderweb fingers.</p>
+        </div>
+
+        <!-- Depth & Swell Channel Mask -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamDepthMask" class="text-slate-300">Depth & Swell Channel Mask</label>
+            <span id="valFoamDepthMask" class="text-cyan-400 font-mono">1.25</span>
+          </div>
+          <input id="slFoamDepthMask" type="range" min="0.0" max="2.5" step="0.05" value="1.25" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Carves channels and gaps across wave troughs, gathering foam into convergence lanes.</p>
+        </div>
+
+        <!-- Satellite Detachment & Clumping -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamPinch" class="text-slate-300">Satellite Detachment & Clumping</label>
+            <span id="valFoamPinch" class="text-cyan-400 font-mono">1.10</span>
+          </div>
+          <input id="slFoamPinch" type="range" min="0.0" max="2.0" step="0.05" value="1.10" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Pinches off connecting necks, creating autonomous drifting foam clumps.</p>
+        </div>
+
+        <!-- Lifecycle Playback Controls -->
+        <div class="space-y-2 pt-2 border-t border-slate-800">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-300">Lifecycle Playback</span>
+            <button id="btnFoamAuto" class="px-2.5 py-1 rounded text-xs font-semibold bg-cyan-500 text-slate-950 shadow-sm transition">
+              Auto Loop: ON
+            </button>
+          </div>
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-medium">
+              <label for="slFoamAge" class="text-slate-300">Lifecycle Scrubber</label>
+              <span id="valFoamAge" class="text-cyan-400 font-mono">0.35</span>
+            </div>
+            <input id="slFoamAge" type="range" min="0.0" max="1.0" step="0.01" value="0.35" class="w-full custom-slider">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>Erupt (0.0)</span>
+              <span>Lace (0.5)</span>
+              <span>Dissolve (1.0)</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-[11px] text-cyan-400 font-medium pt-1">💡 Click anywhere on the water to spawn a fresh foam eruption at your cursor!</p>
+      </div>
+
+      <!-- C-Wave Sprite Dynamics Section -->
+      <div id="cSpriteControls" class="space-y-4 pt-2 border-t border-cyan-500/40 bg-cyan-950/20 p-3.5 rounded-xl border">
+        <h2 class="text-xs uppercase tracking-wider text-cyan-300 font-bold flex items-center justify-between">
+          <span class="flex items-center gap-1.5">🌊 C-Wave Sprite Mechanics</span>
+          <span class="text-[10px] text-cyan-400 font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/30">Prototype</span>
+        </h2>
+        <p class="text-[11px] text-slate-400">Interactive standalone C-shaped wave packet with localized water displacement, bubbling crest, and trailing horn spray.</p>
+
+        <!-- Wave Width / Span -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slCSpriteWidth" class="text-slate-300">Crescent Span (Width)</label>
+            <span id="valCSpriteWidth" class="text-cyan-400 font-mono">130px</span>
+          </div>
+          <input id="slCSpriteWidth" type="range" min="40" max="300" step="5" value="130" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Lateral half-span across the C-shaped wave.</p>
+        </div>
+
+        <!-- Arc Bow Curvature (Kappa) -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slCSpriteCurv" class="text-slate-300">Arc Bow Curvature (C-Shape)</label>
+            <span id="valCSpriteCurv" class="text-cyan-400 font-mono">0.0050</span>
+          </div>
+          <input id="slCSpriteCurv" type="range" min="0.0" max="0.015" step="0.0005" value="0.005" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">How deeply the crescent horns curve backward from the central apex.</p>
+        </div>
+
+        <!-- Lensing & Refraction Distortion -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slCSpriteLens" class="text-slate-300">Water Lensing Distortion</label>
+            <span id="valCSpriteLens" class="text-cyan-400 font-mono">1.30</span>
+          </div>
+          <input id="slCSpriteLens" type="range" min="0.0" max="3.0" step="0.1" value="1.3" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Refraction pull displacing the water surface underneath the wave swell.</p>
+        </div>
+
+        <!-- Crest Foam & Bubbles -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slCSpriteFoam" class="text-slate-300">Crest Foam & Bubbles</label>
+            <span id="valCSpriteFoam" class="text-cyan-400 font-mono">1.00</span>
+          </div>
+          <input id="slCSpriteFoam" type="range" min="0.0" max="2.0" step="0.05" value="1.0" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Cellular Voronoi bubble cluster and crisp white lip along the apex.</p>
+        </div>
+
+        <!-- Trailing Droplets & Spray Particles -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slCSpriteSpray" class="text-slate-300">Trailing Horn Spray / Flecks</label>
+            <span id="valCSpriteSpray" class="text-cyan-400 font-mono">1.10</span>
+          </div>
+          <input id="slCSpriteSpray" type="range" min="0.0" max="2.5" step="0.05" value="1.1" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Droplets and bubble flecks sliding backward and outward along the C horns.</p>
+        </div>
+
+        <!-- Propagation Speed -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slCSpriteSpeed" class="text-slate-300">Wave Speed</label>
+            <span id="valCSpriteSpeed" class="text-cyan-400 font-mono">75 px/s</span>
+          </div>
+          <input id="slCSpriteSpeed" type="range" min="15" max="200" step="5" value="75" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Speed at which the wave packet advances across the water.</p>
+        </div>
+
+        <!-- Travel Direction Angle -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slCSpriteAngle" class="text-slate-300">Propagation Angle</label>
+            <span id="valCSpriteAngle" class="text-cyan-400 font-mono">0° (Right)</span>
+          </div>
+          <input id="slCSpriteAngle" type="range" min="0" max="360" step="5" value="0" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Click & drag on the canvas to reposition or aim the wave directly!</p>
+        </div>
+
+        <!-- Lifecycle Controls -->
+        <div class="space-y-2 pt-2 border-t border-slate-800">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-300">Lifecycle Playback</span>
+            <button id="btnCSpriteAuto" class="px-2.5 py-1 rounded text-xs font-semibold bg-cyan-500 text-slate-950 shadow-sm transition">
+              Auto Loop: ON
+            </button>
+          </div>
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-medium">
+              <label for="slCSpriteAge" class="text-slate-300">Lifecycle Scrubber</label>
+              <span id="valCSpriteAge" class="text-cyan-400 font-mono">0.50</span>
+            </div>
+            <input id="slCSpriteAge" type="range" min="0.0" max="1.0" step="0.01" value="0.5" class="w-full custom-slider">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>Birth (0.0)</span>
+              <span>Peak Curl (0.5)</span>
+              <span>Fade (1.0)</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Wave Dynamics Section -->
@@ -159,6 +446,16 @@
           </div>
           <input id="slSwash" type="range" min="0" max="24" step="1" value="9" class="w-full custom-slider">
           <p class="text-[11px] text-slate-500">How far waves wash forward onto the dry shore before receding.</p>
+        </div>
+
+        <!-- Discrete Wave Segments (Pool / Packet Breakup) -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slSegment" class="text-slate-300">Wave Segment Breakup</label>
+            <span id="valSegment" class="text-cyan-400 font-mono">0.85 (Discrete)</span>
+          </div>
+          <input id="slSegment" type="range" min="0.0" max="1.0" step="0.05" value="0.85" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Breaks uniform continuous halo into discrete traveling wave packets along the perimeter.</p>
         </div>
       </div>
 
@@ -223,6 +520,78 @@
         </div>
       </div>
 
+      <!-- Ocean & Choppy Sea Controls -->
+      <div class="space-y-4 pt-2 border-t border-slate-800">
+        <h2 class="text-xs uppercase tracking-wider text-slate-400 font-bold flex items-center justify-between">
+          <span>Ocean & Choppy Seas</span>
+          <span class="text-[10px] text-sky-400 font-mono">Open Water</span>
+        </h2>
+
+        <!-- Chop Intensity -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slChop" class="text-slate-300">Chop Intensity</label>
+            <span id="valChop" class="text-sky-400 font-mono">0.85</span>
+          </div>
+          <input id="slChop" type="range" min="0.0" max="1.5" step="0.05" value="0.85" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Amplitude of multi-directional trochoidal Gerstner swells across open water.</p>
+        </div>
+
+        <!-- Whitecaps -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slWhitecaps" class="text-slate-300">Whitecaps & Spindrift</label>
+            <span id="valWhitecaps" class="text-sky-400 font-mono">0.65</span>
+          </div>
+          <input id="slWhitecaps" type="range" min="0.0" max="1.5" step="0.05" value="0.65" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Aerated foam crests and wind-sheared spindrift streaks at peak swell interference.</p>
+        </div>
+
+        <!-- Swell Scale / Wavelength -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slSwellScale" class="text-slate-300">Swell Wavelength</label>
+            <span id="valSwellScale" class="text-sky-400 font-mono">120px</span>
+          </div>
+          <input id="slSwellScale" type="range" min="40" max="250" step="5" value="120" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Spatial distance between successive ocean roller crests.</p>
+        </div>
+
+        <!-- Sun Glint / Specular -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slSunGlint" class="text-slate-300">Sun Glint & Slope Relief</label>
+            <span id="valSunGlint" class="text-sky-400 font-mono">0.80</span>
+          </div>
+          <input id="slSunGlint" type="range" min="0.0" max="2.0" step="0.05" value="0.80" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Pseudo-3D surface normal lighting: specular sun highlights and trough shadow depth.</p>
+        </div>
+
+        <!-- Foam High Frequency Undulation -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-medium">
+            <label for="slFoamHfWeight" class="text-slate-300">Bubble High-Freq Undulation</label>
+            <span id="valFoamHfWeight" class="text-sky-400 font-mono">0.35</span>
+          </div>
+          <input id="slFoamHfWeight" type="range" min="0.0" max="1.5" step="0.05" value="0.35" class="w-full custom-slider">
+          <p class="text-[11px] text-slate-500">Weight of high-frequency chop waves and capillary ripple agitation on Voronoi foam cells.</p>
+        </div>
+
+        <!-- Trailing Wake Toggle -->
+        <div class="flex items-center justify-between pt-1">
+          <label for="chkSpindriftWake" class="text-xs font-medium text-slate-300">Trailing Wake</label>
+          <input id="chkSpindriftWake" type="checkbox" class="w-4 h-4 rounded text-sky-500 bg-slate-900 border-slate-700">
+        </div>
+        <p class="text-[11px] text-slate-500">Wave crests ignite drifting foam clumps that trail behind across the surface current.</p>
+
+        <!-- Crest-Locked Toggle -->
+        <div class="flex items-center justify-between pt-1">
+          <label for="chkCrestBound" class="text-xs font-medium text-slate-300">Crest-Locked</label>
+          <input id="chkCrestBound" type="checkbox" class="w-4 h-4 rounded text-sky-500 bg-slate-900 border-slate-700">
+        </div>
+        <p class="text-[11px] text-slate-500">Restricts foam strictly to wave ridges and crests, suppressing foam in troughs.</p>
+      </div>
+
       <!-- Comparison Key Takeaways -->
       <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400 space-y-2">
         <div class="font-semibold text-slate-300">Why v1 AABB failed on organic shores:</div>
@@ -240,7 +609,7 @@
   <script>
     // --- State & Uniform Parameters ---
     const state = {
-      mode: 0, // 0: Game Shoreline, 1: River Bank, 2: Old v1 AABB, 3: Debug SDF, 4: Debug Normals
+      mode: 7, // 0: Game, 1: River, 2: Old AABB, 3: Debug SDF, 4: Debug Normals, 5: Ocean, 6: C-Wave Sprite, 7: Living Seafoam
       waveSpeed: 1.2,
       waveFreq: 0.065,
       waveShoaling: 1.8,
@@ -250,9 +619,46 @@
       wetFringe: 14.0,
       flowAngle: 0.0,
       bankDrag: 42.0,
+      waveSegment: 0.85,
+      chop: 0.85,
+      whitecaps: 0.65,
+      swellScale: 120.0,
+      sunGlint: 0.80,
+      spindriftWake: false,
+      crestBound: false,
+      foamHfWeight: 0.35,
       paintMode: false,
       brushSize: 28,
-      brushAdd: true
+      brushAdd: true,
+      // C-Wave Sprite Parameters (Mode 6)
+      cSpriteSpan: 130.0,
+      cSpriteCurv: 0.005,
+      cSpriteLens: 1.30,
+      cSpriteFoam: 1.0,
+      cSpriteSpray: 1.1,
+      cSpriteSpeed: 75.0,
+      cSpriteFrontThick: 7.0,
+      cSpriteAge: 0.5,
+      cSpriteAutoPlay: true,
+      cSpriteAngle: 0.0,
+      cSpriteX: 0.45,
+      cSpriteY: 0.5,
+      // Seafoam Mechanics Parameters (Mode 7)
+      foamExpand: 1.5,
+      foamPerforate: 1.2,
+      foamLace: 1.4,
+      foamDecay: 1.0,
+      foamWaveSync: 1.0,
+      foamScale: 180.0,
+      foamAge: 0.35,
+      foamAutoPlay: true,
+      foamSpeed: 45.0,
+      foamAngle: 25.0,
+      foamX: 0.45,
+      foamY: 0.45,
+      foamTendrils: 1.30,
+      foamDepthMask: 1.25,
+      foamPinch: 1.10
     };
 
     // --- Grid & Distance Transform Constants ---
@@ -480,16 +886,50 @@
       computeEDT();
     }
 
+    function setPresetOcean() {
+      state.paintMode = false;
+      paintHint.style.opacity = '0';
+      maskData.fill(1); // 100% open water base
+      computeEDT();
+    }
+
+    function setPresetFoam() {
+      state.paintMode = false;
+      paintHint.style.opacity = '0';
+      maskData.fill(1); // 100% open water base
+      computeEDT();
+      state.foamX = 0.45;
+      state.foamY = 0.45;
+      state.foamAge = 0.35;
+      state.foamAutoPlay = true;
+      state.mode = 7;
+    }
+
+    function setPresetCSprite() {
+      state.paintMode = false;
+      paintHint.style.opacity = '0';
+      maskData.fill(1); // 100% open water base
+      computeEDT();
+      state.cSpriteX = 0.45;
+      state.cSpriteY = 0.50;
+      state.cSpriteAngle = 0.0;
+      state.mode = 6;
+    }
+
     function setPresetPaint() {
       state.paintMode = true;
       paintHint.style.opacity = '1';
     }
 
     // --- WebGL Shader Setup ---
-    let gl, program, sdfTexture;
+    let gl, program, sdfTexture, setActiveTab;
     let uTimeLoc, uResLoc, uMaxDistLoc, uModeLoc;
     let uSpeedLoc, uFreqLoc, uShoalLoc, uSwashLoc, uFoamWLoc, uCellLoc, uWetFLoc;
-    let uFlowAngleLoc, uBankDragLoc;
+    let uFlowAngleLoc, uBankDragLoc, uWaveSegmentLoc;
+    let uChopLoc, uWhitecapsLoc, uSwellScaleLoc, uSunGlintLoc;
+    let uSpindriftWakeLoc, uCrestBoundLoc, uFoamHfWeightLoc;
+    let uCSpritePosDirLoc, uCSpriteParams1Loc, uCSpriteParams2Loc;
+    let uFoamPosDirLoc, uFoamParams1Loc, uFoamParams2Loc, uFoamParams3Loc;
 
     const VS_SOURCE = `
       attribute vec2 aPos;
@@ -509,7 +949,7 @@
       uniform vec2 uRes;
       uniform float uTime;
       uniform float uMaxDist;
-      uniform float uMode; // 0=Game, 1=River, 2=Old AABB, 3=Debug SDF, 4=Debug Normals
+      uniform float uMode; // 0=Game, 1=River, 2=Old AABB, 3=Debug SDF, 4=Debug Normals, 5=Ocean, 6=C-Wave Sprite
 
       uniform float uSpeed;
       uniform float uFreq;
@@ -520,6 +960,25 @@
       uniform float uWetFringe;
       uniform float uFlowAngle;
       uniform float uBankDrag;
+      uniform float uWaveSegment; // 0 = continuous, 1 = discrete wave packets
+      uniform float uChop;
+      uniform float uWhitecaps;
+      uniform float uSwellScale;
+      uniform float uSunGlint;
+      uniform float uSpindriftWake;
+      uniform float uCrestBound;
+      uniform float uFoamHfWeight;
+
+      // C-Wave Sprite Uniforms
+      uniform vec4 uCSpritePosDir;   // xy = center (px), zw = dir (unit vector)
+      uniform vec4 uCSpriteParams1;  // x = halfWidth (px), y = curvature (kappa), z = age01, w = lensStrength
+      uniform vec4 uCSpriteParams2;  // x = foamDensity, y = sprayIntensity, z = frontThick, w = speed
+
+      // Mode 7 Living Seafoam Uniforms
+      uniform vec4 uFoamPosDir;    // xy = center (px), zw = dir (unit vector)
+      uniform vec4 uFoamParams1;   // x = expandRate, y = perforateRate, z = laceFineness, w = decayRate
+      uniform vec4 uFoamParams2;   // x = waveSync, y = patchScale, z = age01, w = driftSpeed
+      uniform vec4 uFoamParams3;   // x = tendrilStrength, y = depthMaskStrength, z = pinchRate, w = 0.0
 
       // --- Noise and Hash Helpers ---
       vec2 hash22(vec2 p) {
@@ -538,6 +997,7 @@
         return mix(mix(a, b, f.x), mix(c, d, f.x), f.y) + 0.5;
       }
 
+
       float fbm(vec2 p) {
         float v = 0.0;
         v += 0.5000 * noise2(p); p *= 2.02;
@@ -546,8 +1006,13 @@
         return v;
       }
 
-      // Cellular Voronoi (returns distance to cell boundary for bubbles)
-      float voronoiBubbles(vec2 p) {
+      // Cellular Voronoi field returning vec2(d1, d2 - d1)
+      // Cellular Voronoi field returning vec2(d1, d2 - d1)
+      // x = d1 (spherical bubble dome distance to center)
+      // y = d2 - d1 (contact boundary wall / meniscus distance)
+      // Dynamic bubble jostling: each bubble seed wanders along its own independent multi-frequency orbit
+      // so contact walls flex, triple junctions migrate, and bubbles continuously jostle for position.
+      vec2 voronoiBubbleField(vec2 p, float t) {
         vec2 i = floor(p);
         vec2 f = fract(p);
         float d1 = 1.0;
@@ -555,8 +1020,20 @@
         for (int y = -1; y <= 1; y++) {
           for (int x = -1; x <= 1; x++) {
             vec2 g = vec2(float(x), float(y));
-            vec2 o = hash22(i + g);
-            o = 0.5 + 0.38 * sin(o * 6.2831 + uTime * 1.5);
+            vec2 h = hash22(i + g);
+            // Wide isotropic distribution across cell breaks Cartesian grid alignment into organic hex bubbles
+            vec2 basePos = 0.5 + (h - 0.5) * 0.65;
+            // Graceful, calm per-bubble orbital speed: 3.4s to 6.6s periods for gentle, continuous migration
+            float speed = mix(0.95, 1.85, fract(h.x * 17.31 + h.y * 29.53));
+            float phX = h.y * 6.28318;
+            float phY = fract(h.x * 7.13 + h.y * 11.29) * 6.28318;
+            vec2 orbit = vec2(
+              sin(t * speed + phX) * 0.72 + sin(t * (speed * 1.62) + phY) * 0.28,
+              cos(t * (speed * 0.88) + phY) * 0.72 + cos(t * (speed * 1.48) + phX) * 0.28
+            );
+            // Calmer amplitude: seeds traverse up to 0.26 of cell radius so cell walls slide gently without wild volatility
+            float amp = mix(0.16, 0.26, fract(h.x * 31.7 + h.y * 19.1));
+            vec2 o = basePos + orbit * amp;
             float d = length(g + o - f);
             if (d < d1) {
               d2 = d1;
@@ -566,9 +1043,362 @@
             }
           }
         }
-        return d2 - d1;
+        return vec2(d1, d2 - d1);
       }
 
+      vec2 voronoiBubbleField(vec2 p) {
+        return voronoiBubbleField(p, uTime);
+      }
+
+      float voronoiBubbles(vec2 p, float t) {
+        return voronoiBubbleField(p, t).y;
+      }
+
+      float voronoiBubbles(vec2 p) {
+        return voronoiBubbleField(p, uTime).y;
+      }
+
+      // Voronoi caustic pattern with dynamic cell-junction migration and jostle
+      float voronoiCaustic(vec2 uv, float t) {
+        vec2 i = floor(uv);
+        vec2 f = fract(uv);
+        float minDist1 = 1.0;
+        float minDist2 = 1.0;
+
+        for (int y = -1; y <= 1; y++) {
+          for (int x = -1; x <= 1; x++) {
+            vec2 neighbor = vec2(float(x), float(y));
+            vec2 h = hash22(i + neighbor);
+            // Wide isotropic distribution across cell breaks Cartesian grid alignment into organic hex cells
+            vec2 basePos = 0.5 + (h - 0.5) * 0.65;
+            // Exaggerated responsive per-cell orbital speed: 2.2s to 4.5s periods for unmistakable active migration
+            float speed = mix(1.40, 2.70, fract(h.x * 17.31 + h.y * 29.53));
+            float phX = h.y * 6.28318;
+            float phY = fract(h.x * 7.13 + h.y * 11.29) * 6.28318;
+            vec2 orbit = vec2(
+              sin(t * speed + phX) * 0.72 + sin(t * (speed * 1.62) + phY) * 0.28,
+              cos(t * (speed * 0.88) + phY) * 0.72 + cos(t * (speed * 1.48) + phX) * 0.28
+            );
+            // Exaggerated amplitude: seeds traverse up to 0.44 of cell radius so cell walls and triple junctions boldly slide
+            float amp = mix(0.32, 0.44, fract(h.x * 31.7 + h.y * 19.1));
+            vec2 point = basePos + orbit * amp;
+            float d = length(neighbor + point - f);
+            if (d < minDist1) {
+              minDist2 = minDist1;
+              minDist1 = d;
+            } else if (d < minDist2) {
+              minDist2 = d;
+            }
+          }
+        }
+        return minDist2 - minDist1;
+      }
+
+      // Multi-core organic eruption energy with compact support, fluid shear, randomized morphology,
+      // and wave-crest physical molding (stretches along wave crest ridge, compresses across wave front)
+      vec2 evalPatchCoreEnergy(vec2 p, vec2 center, vec2 fwd, float age, float patchScale, float expandRate, float pinchRate, vec4 clumpSeed, vec2 waveDir, float waveAtClump) {
+        float a = clamp(age, 0.0, 1.0);
+
+        // Individual lifecycle envelopes:
+        // 1. Advancing wave front builds EARLY (present before trailing foam body arrives)
+        float frontBirth = smoothstep(0.0, 0.08, a);
+
+        // Trailing foam body builds AFTER breaker crests and accumulates turbulent wake
+        float bodyBirth = smoothstep(0.08, 0.25, a);
+        float bodyDeath = 1.0 - smoothstep(0.68, 0.98, a);
+        float bodyLife = bodyBirth * bodyDeath;
+
+        // Instantaneous forward expansion & surge speed of the wave crest:
+        float expandSpeed = max(0.0, 1.0 - a / 0.46);
+        float crestSpeed = max(expandSpeed, waveAtClump);
+
+        // Accelerated dying off in late stage if the crest is stationary or barely moving:
+        // In formation (a < 0.38): crest is strong and unrestrained.
+        // In late stage (a > 0.40): if stationary, active surge subsides quickly to a minimal, restrained floor.
+        // If it lunges forward (crestSpeed high), it re-presents itself strongly for that burst!
+        // The minimal restrained crest persists until the foam body starts to dissipate (governed by bodyDeath).
+        float speedFactor = smoothstep(0.10, 0.45, crestSpeed);
+        float lateDeathStart = mix(0.38, 0.65, speedFactor);
+        float lateDeathEnd = mix(0.52, 0.88, speedFactor);
+        float activeCrest = 1.0 - smoothstep(lateDeathStart, lateDeathEnd, a);
+
+        // When stationary/settled, floor at a minimal, restrained presence that fades out with bodyDeath
+        float minimalFloor = 0.16 * bodyDeath;
+        float speedGatedDeath = mix(minimalFloor, 1.0, activeCrest);
+
+        float lateStage = smoothstep(0.35, 0.48, a);
+        float normalDeath = 1.0 - smoothstep(0.55, 0.88, a);
+        float frontDeath = mix(normalDeath, speedGatedDeath, lateStage);
+        float frontLife = frontBirth * frontDeath;
+
+        // Crest activity: scales particle emission and throw speed proportionally with crest strength and motion
+        float crestActivity = frontLife * mix(1.0, speedFactor, lateStage);
+
+        if (frontLife <= 0.0001 && bodyLife <= 0.0001) return vec2(0.0);
+
+        // Organic expansion: begins as small budding cluster, expands rapidly, and continues expanding outward as it dissipates (grows ~45% larger)
+        float growth = smoothstep(0.0, 0.32, a);
+        float expansion = mix(0.18, 1.0, sqrt(growth)) * mix(1.0, 1.45, smoothstep(0.35, 0.88, a));
+        // As cohesion relaxes between bubbles, the clump and satellites grow slightly larger (+28%) and disperse outward
+        float cohesionRelax = 1.0 + 0.28 * smoothstep(0.28, 0.88, a);
+        float relaxedRadius = patchScale * expansion * (0.80 + expandRate * 0.35) * cohesionRelax;
+
+        // Wave-crest physical molding on clump shape:
+        // As a wave crest passes the clump, the steep slope and Stokes flow
+        // compress the clump body across the wave face and stretch it along the wave crest ridge.
+        vec2 waveTan = vec2(-waveDir.y, waveDir.x);
+        vec2 deltaP = p - center;
+        float acrossDist = dot(deltaP, waveDir);
+        float alongDist = dot(deltaP, waveTan);
+
+        // Compress across wave by up to ~38%, stretch along crest ridge by up to ~55%
+        float waveAcrossScale = 1.0 + waveAtClump * 0.38;
+        float waveAlongScale = 1.0 / (1.0 + waveAtClump * 0.55);
+        vec2 waveShapedP = center + waveDir * (acrossDist * waveAcrossScale) + waveTan * (alongDist * waveAlongScale);
+
+        // Clump-specific random orientation and subtle rotational yaw drift (breaks uniform directional stamping)
+        float baseAngle = atan(fwd.y, fwd.x);
+        float spinRate = (clumpSeed.x - 0.5) * 0.40;
+        float clumpAngle = baseAngle + (clumpSeed.x - 0.5) * 3.14159 + a * spinRate;
+        vec2 cFwd = vec2(cos(clumpAngle), sin(clumpAngle));
+        vec2 cPerp = vec2(-cFwd.y, cFwd.x);
+
+        // Wave front advance: wave front lip surges forward along wave propagation direction from initial birth anchor
+        // Late-stage swell surge: if wave energy pushes forward, crest lunges forward with the surge
+        float crestLunge = waveAtClump * patchScale * 0.30 * smoothstep(0.35, 0.70, a);
+        float frontDist = patchScale * mix(0.80, 1.25, clumpSeed.z) * smoothstep(0.0, 0.48, a) + crestLunge;
+
+        // Smooth distance bounding check with radial boundary falloff
+        float distToCluster = length(waveShapedP - center);
+        float clusterFade = 1.0 - smoothstep(patchScale * 2.0, patchScale * 2.7, distToCluster);
+        if (clusterFade <= 0.001) return vec2(0.0);
+
+        // Fluid vorticity & gentle organic domain warping (bounded to prevent harsh stretching/lensing)
+        vec2 turbWarp = vec2(
+          noise2((waveShapedP - center) * 0.016 + vec2(uTime * 0.03, -uTime * 0.02)) - 0.5,
+          noise2((waveShapedP - center) * 0.016 - vec2(-uTime * 0.02, uTime * 0.03) + 41.3) - 0.5
+        ) * 7.0;
+
+        vec2 warpedP = waveShapedP + turbWarp;
+
+        // Boundary organic indentation noise (seeded uniquely per clump to break repeating contours, softened for gentle feathering)
+        float bNoise = (noise2(warpedP * 0.020 + clumpSeed.xy * 23.7 + vec2(a * 0.10, -a * 0.06)) - 0.5) * 0.15;
+
+        // Coordinates measured directly from the starting point of the wave front (center):
+        vec2 dpStart = warpedP - center;
+        float xProg = dot(dpStart, waveDir); // distance along travel direction from starting point
+        float yLat = dot(dpStart, waveTan);  // lateral distance across crest
+
+        // Lateral crest span:
+        float lateralGrowth = mix(0.60, 1.0, smoothstep(0.02, 0.28, a));
+        float crestWidth = patchScale * mix(0.55, 0.85, clumpSeed.z) * lateralGrowth;
+        float bowAmp = crestWidth * 0.24;
+
+        // The rear line is established at the starting point where the wave front broke:
+        float w0 = 14.0;
+        float rearRelax = patchScale * 0.08 * smoothstep(0.18, 0.85, a);
+        float xRear = -w0 - rearRelax;
+
+        // The advancing wave front lip surges forward from the starting point:
+        float lipWiggle = (noise2(vec2(yLat * 0.14, uTime * 0.35) + clumpSeed.xy * 17.1) - 0.5) * 4.0;
+
+        // Trailing wake lateral flare: wake fans out gently from starting point to advancing lip
+        float totalSpan = frontDist - xRear;
+        float wakeT = clamp((frontDist - xProg) / max(totalSpan, 0.001), 0.0, 1.0);
+        float localWidth = crestWidth * mix(0.75, 1.15, wakeT);
+        float sY = clamp(abs(yLat) / max(localWidth, 0.001), 0.0, 1.0);
+        float lateralMask = pow(max(0.0, 1.0 - sY * sY), 1.4);
+
+        // Crescent-bowed wave front lip position at this lateral coordinate:
+        float xLip = frontDist - (sY * sY) * bowAmp + lipWiggle;
+
+        // Distance ahead of the advancing wave front lip (positive = ahead into open sea, negative = inside wake)
+        float distAhead = xProg - xLip;
+
+        // Boundary organic contour modulation on advancing wave front margin
+        float frontWarp = (noise2(warpedP * 0.045 + vec2(uTime * 0.02, -uTime * 0.015) + clumpSeed.xy * 19.3) - 0.5) * 6.0;
+        float frontMicro = (noise2(warpedP * 0.12 + clumpSeed.zw * 31.7) - 0.5) * 3.0;
+        float effDistAhead = distAhead + frontWarp + frontMicro;
+
+        // --- Thick, Brilliant White Advancing Wave Front Lip & Spat Spray Droplets ---
+        float frontLip = 0.0;
+        if (frontLife > 0.001) {
+          float distToLip = abs(effDistAhead);
+
+          // Dynamic lip thickness: thick (10-18px) when active/bursting, delicate & restrained (5-8.5px) when settled
+          float crestPower = clamp(mix(speedFactor, 1.0, 1.0 - lateStage), 0.0, 1.0);
+          float activeThick = mix(10.0, 18.0, clumpSeed.z);
+          float restrainedThick = mix(5.0, 8.5, clumpSeed.z);
+          float lipThick = mix(restrainedThick, activeThick, crestPower);
+          float lipBand = smoothstep(lipThick, 0.4, distToLip);
+
+          // Solid frothy core along the crest ridge: dense & bright when active, gentle frothy beads when restrained
+          float solidCore = smoothstep(lipThick * 0.60, 0.0, distToLip) * mix(0.12, 0.95, crestPower);
+
+          // Dense frothy cellular bead nodules along the crest lip
+          float bubbleW = yLat * 0.34 + noise2(warpedP * 0.08 + uTime * 0.05) * 4.2;
+          float bubbleNodules = 0.70 + 0.30 * cos(bubbleW);
+          float whiteNodes = pow(max(0.0, cos(bubbleW * 1.6 + 1.2)), 3.0) * 0.85;
+          frontLip = lipBand * (solidCore + bubbleNodules * 0.85 + whiteNodes);
+
+          // Procedural ballistic spray particles dynamically spit and flick around the wave crest
+          float sprayParticles = 0.0;
+          if (distAhead > -14.0 && distAhead < 20.0 && abs(yLat) < crestWidth * 1.30 && crestActivity > 0.01) {
+            for (int i = 0; i < 28; i++) {
+              float fi = float(i);
+              // Staggered ejection frequency and phase per particle stream
+              float streamFreq = mix(1.8, 3.4, fract(fi * 0.382));
+              float streamPhase = fi * 0.0357 + fract(fi * 0.618) * 0.40;
+              float pTime = uTime * streamFreq + streamPhase + clumpSeed.x * 19.7;
+              float cycle = floor(pTime);
+              float tau = fract(pTime);
+
+              // Pseudo-random parameters for this particle's current flight
+              vec2 pSeed = vec2(fi * 17.31 + cycle * 43.19 + clumpSeed.y * 31.0, fi * 31.17 - cycle * 19.73 + clumpSeed.z * 23.0);
+              vec2 h1 = hash22(pSeed);
+              vec2 h2 = hash22(pSeed + vec2(19.43, 71.29));
+
+              // Lateral birth position along crest lip
+              float yBirth = (h1.x - 0.5) * 1.75 * crestWidth;
+
+              // Restrained throw: particles flick both forward into the sea and backward into the wake/crest
+              // Approximately 55% flick forward (+3.5px to +16px), 45% flick backward (-2px to -11px)
+              float isMicro = step(15.5, fi);
+              float isFwd = step(0.45, h1.y);
+              float throwFwd = mix(3.5, mix(10.0, 16.0, isMicro), fract(h1.y * 7.31));
+              float throwBack = mix(-2.0, mix(-7.0, -11.0, isMicro), fract(h1.y * 5.17));
+              float baseThrow = mix(throwBack, throwFwd, isFwd);
+
+              // Throw distance and speed are proportional to crest strength/speed (restrained when failing)
+              float throwDist = baseThrow * mix(0.20, 1.0, crestActivity);
+
+              // Ballistic trajectory: flicking forward or backward with gentle deceleration
+              float pFwd = throwDist * (tau - 0.25 * tau * tau);
+              float pLat = yBirth + (h2.x - 0.5) * mix(8.0, 14.0, isMicro) * tau;
+
+              // Distance squared from current pixel to particle position
+              vec2 pOffset = vec2(distAhead - pFwd, yLat - pLat);
+              float d2 = dot(pOffset, pOffset);
+
+              // Lifecycle curve: pops out from lip, stays crisp during flight, fades as it splashes
+              float pLife = smoothstep(0.0, 0.10, tau) * smoothstep(1.0, 0.55, tau);
+              float invR2 = mix(0.60, 1.30, isMicro);
+              float pDrop = exp(-d2 * invR2) * pLife;
+
+              sprayParticles += pDrop * mix(1.6, 2.2, isMicro);
+            }
+          }
+          // Particle emission intensity is proportional to crest activity & speed
+          frontLip += sprayParticles * 1.8 * crestActivity;
+          frontLip *= lateralMask * frontLife;
+        }
+
+        // --- Main Foam Body: Anchored at Origin, Extends to Surging Lip ---
+        float e0_body = 0.0;
+        if (bodyLife > 0.001) {
+          if (effDistAhead <= 0.0) {
+            // Inside the trailing wake: from advancing lip back to the starting point
+            float dBehind = -effDistAhead;
+
+            // Organic fluid boundary indentation (macro fluid meander + micro bubble fringe)
+            float rearWarp = (noise2(warpedP * 0.032 + vec2(uTime * 0.025, -uTime * 0.02) + clumpSeed.xy * 29.1) - 0.5) * 36.0;
+            float microFringe = (noise2(warpedP * 0.095 + clumpSeed.zw * 13.5 + vec2(-uTime * 0.01, uTime * 0.015)) - 0.5) * 12.0;
+            float effectiveDBehind = dBehind + rearWarp + microFringe;
+
+            // Broad, feathered rear falloff skirt (50-70px wide) with quadratic decay
+            float rearSkirt = mix(50.0, 70.0, clumpSeed.w);
+            float rearStart = max(totalSpan * 0.60, totalSpan - 24.0);
+            float rearFade = 1.0;
+            if (effectiveDBehind > rearStart) {
+              float sRear = clamp((effectiveDBehind - rearStart) / rearSkirt, 0.0, 1.0);
+              rearFade = pow(max(0.0, 1.0 - sRear), 2.2);
+            }
+
+            // Progressive wake aging: fresh dense foam at surging wave front tapers gracefully to wispy wash at rear
+            float wakeAging = mix(1.0, 0.35, smoothstep(0.10, 0.85, wakeT));
+            e0_body = rearFade * wakeAging * lateralMask * bodyLife;
+          } else {
+            // Soft, feathered organic falloff ahead of lip into open water (no guillotine knife edge)
+            float frontSkirt = mix(8.0, 14.0, clumpSeed.z);
+            float sFront = clamp(effDistAhead / frontSkirt, 0.0, 1.0);
+            float frontSlope = pow(max(0.0, 1.0 - sFront), 1.8);
+            e0_body = frontSlope * lateralMask * bodyLife;
+          }
+        }
+
+        // Morphology archetype:
+        // clumpSeed.y controls satellite presence so clumps aren't all identical paw prints!
+        // ~35% solitary blobs (0 satellites), ~30% single breakaway, ~20% two satellites, ~15% three satellites
+        float archetype = clumpSeed.y;
+        float sat1Active = step(0.35, archetype);
+        float sat2Active = step(0.65, archetype);
+        float sat3Active = step(0.85, archetype);
+
+        // Satellites drift outward as cohesion releases:
+        float satSpread = 1.0 + 0.25 * smoothstep(0.30, 0.88, a);
+
+        // Satellite 1: flank breakaway along left shoulder of the wake
+        float dist1 = crestWidth * mix(0.55, 0.90, clumpSeed.x) * satSpread;
+        float alongWake1 = frontDist * mix(0.25, 0.65, clumpSeed.w);
+        vec2 c1 = center + waveDir * alongWake1 + waveTan * dist1;
+        vec2 dp1 = warpedP - c1;
+        float r1 = patchScale * 0.22 * mix(0.7, 1.2, clumpSeed.z) * cohesionRelax;
+        float d1 = length(dp1);
+        float s1 = clamp((d1 / max(r1, 0.001)) + bNoise * 1.1, 0.0, 1.0);
+        float e1 = pow(max(0.0, 1.0 - s1 * s1), 1.8) * 0.70 * sat1Active * bodyLife;
+
+        // Satellite 2: flank breakaway along right shoulder of the wake
+        float dist2 = -crestWidth * mix(0.55, 0.90, clumpSeed.y) * satSpread;
+        float alongWake2 = frontDist * mix(0.35, 0.75, clumpSeed.z);
+        vec2 c2 = center + waveDir * alongWake2 + waveTan * dist2;
+        vec2 dp2 = warpedP - c2;
+        float r2 = patchScale * 0.20 * mix(0.7, 1.2, clumpSeed.w);
+        float d2 = length(dp2);
+        float s2 = clamp((d2 / max(r2, 0.001)) + bNoise * 1.1, 0.0, 1.0);
+        float e2 = pow(max(0.0, 1.0 - s2 * s2), 1.8) * 0.65 * sat2Active * bodyLife;
+
+        // Satellite 3: trailing fleck deposited near origin
+        float dist3 = (clumpSeed.x - 0.5) * crestWidth * 0.5;
+        vec2 c3 = center - waveDir * (w0 * 0.5 + rearRelax * 0.5) + waveTan * dist3;
+        vec2 dp3 = warpedP - c3;
+        float r3 = patchScale * 0.16 * mix(0.7, 1.1, clumpSeed.x) * cohesionRelax;
+        float d3 = length(dp3);
+        float s3 = clamp((d3 / max(r3, 0.001)) + bNoise * 1.2, 0.0, 1.0);
+        float e3 = pow(max(0.0, 1.0 - s3 * s3), 1.8) * 0.60 * sat3Active * bodyLife;
+
+        // Soft metaball blend with compact support and continuous boundary falloff
+        float coreEnergy = (max(e0_body, frontLip * 0.45) + (e1 + e2 + e3)) * clusterFade;
+        return vec2(coreEnergy, frontLip * clusterFade);
+      }
+
+      // C-Wave Sprite Height Evaluation
+      float evalWaveSpriteHeight(vec2 q, vec2 center, vec2 fwd, vec2 perp, float width, float curv, float swellAmp, float frontThick, float backThick) {
+        vec2 delta = q - center;
+        float along = dot(delta, perp);
+        float across = dot(delta, fwd);
+
+        float xi = along / max(width, 1.0);
+        if (abs(xi) >= 1.0) return 0.0;
+        float latEnvelope = 1.0 - xi * xi;
+        latEnvelope = latEnvelope * latEnvelope;
+
+        // C-shape parabola: horns bow backward along travel direction
+        float arcBow = curv * along * along;
+        float dCrest = across + arcBow;
+
+        // Asymmetric steep front vs gentle sloping back trough
+        float profileH = 0.0;
+        if (dCrest >= 0.0) {
+          float s = dCrest / max(frontThick, 1.0);
+          profileH = exp(-s * s * 1.5);
+        } else {
+          float s = (-dCrest) / max(backThick, 1.0);
+          profileH = exp(-s * s * 0.9);
+        }
+        return profileH * latEnvelope * swellAmp;
+      }
+
+      // --- GAME ENGINE & RIVER SHORELINE MODE ---
       void main() {
         vec4 sdfSample = texture2D(uSdf, vUv);
         float rawDistPx = sdfSample.r * uMaxDist;
@@ -584,10 +1414,10 @@
         float dD = texture2D(uSdf, vUv - vec2(0.0, texel.y)).r * uMaxDist;
         vec2 grad = vec2(dR - dL, dU - dD);
         vec2 shoreNormal = length(grad) > 0.001 ? normalize(grad) : vec2(0.0, 1.0);
+        vec2 shoreTangent = vec2(-shoreNormal.y, shoreNormal.x);
 
         // --- DEBUG MODES ---
         if (uMode > 2.5 && uMode < 3.5) {
-          // Debug SDF distance gradient
           if (isWater < 0.5) {
             gl_FragColor = vec4(0.12, 0.14, 0.18, 1.0);
             return;
@@ -600,8 +1430,7 @@
           return;
         }
 
-        if (uMode > 3.5) {
-          // Debug Shore Normal Vectors
+        if (uMode > 3.5 && uMode < 4.5) {
           if (isWater < 0.5) {
             gl_FragColor = vec4(0.1, 0.1, 0.14, 1.0);
             return;
@@ -613,7 +1442,6 @@
 
         // --- OLD WATERLINE v1 (AABB BASELINE) MODE ---
         if (uMode > 1.5 && uMode < 2.5) {
-          // Simulate the old AABB approach: distance to rectangular canvas edges
           float edgeL = vUv.x * uRes.x;
           float edgeR = (1.0 - vUv.x) * uRes.x;
           float edgeT = vUv.y * uRes.y;
@@ -621,12 +1449,10 @@
           float aabbDist = min(min(edgeL, edgeR), min(edgeT, edgeB));
 
           if (isWater < 0.5) {
-            // Ground
             gl_FragColor = vec4(0.48, 0.42, 0.32, 1.0);
             return;
           }
 
-          // In v1, waves formed flat lines along AABB boundaries regardless of actual shore
           float wavePhase = aabbDist * 0.06 - uTime * 1.2;
           float wavePulse = smoothstep(0.3, 0.9, sin(wavePhase) * 0.5 + 0.5);
           float segMask = smoothstep(0.4, 0.6, noise2(pixelPos / 80.0));
@@ -637,21 +1463,1051 @@
           return;
         }
 
+        // --- MODE 5: CHOPPY OPEN SEA (Trochoidal Swells + Cross-Chop + Whitecaps) ---
+        if (uMode > 4.5 && uMode < 5.5) {
+          vec3 dryGround = vec3(0.55, 0.48, 0.36) + (fbm(pixelPos * 0.04) - 0.5) * 0.08;
+          if (isWater < 0.5) {
+            gl_FragColor = vec4(dryGround, 1.0);
+            return;
+          }
+
+          // =========================================================================
+          // 1. MACRO PERLIN ENERGY & DIRECTION MASKS (Living, Undulating Sea)
+          // =========================================================================
+          float rad = uFlowAngle * 3.14159 / 180.0;
+          vec2 flow = vec2(cos(rad), sin(rad));
+          vec2 flowPerp = vec2(-flow.y, flow.x);
+
+          // A. Dynamic Direction Curvature Field (+/- 38° continuous steering)
+          float dirNoise = noise2(pixelPos / 380.0 + vec2(uTime * 0.04, -uTime * 0.03) + 71.5) - 0.5;
+          float steerAngle = dirNoise * 1.35;
+          float cSt = cos(steerAngle);
+          float sSt = sin(steerAngle);
+          vec2 localFlow = vec2(flow.x * cSt - flow.y * sSt, flow.x * sSt + flow.y * cSt);
+          vec2 localPerp = vec2(-localFlow.y, localFlow.x);
+
+          // B. Non-affine 2D Fluid Domain Warp with Convective Eddy Advection
+          vec2 eddyWarpA = vec2(
+            sin(pixelPos.y * 0.0035 + uTime * 0.14) + cos(pixelPos.x * 0.0028 - uTime * 0.09),
+            cos(pixelPos.x * 0.0038 - uTime * 0.12) - sin(pixelPos.y * 0.0031 + uTime * 0.11)
+          ) * 36.0;
+          vec2 warpNoise = vec2(
+            noise2((pixelPos + eddyWarpA * 0.4) / 140.0 + vec2(uTime * 0.16, -uTime * 0.12)) - 0.5,
+            noise2((pixelPos + eddyWarpA * 0.4) / 140.0 - vec2(uTime * 0.14, uTime * 0.18) + 43.1) - 0.5
+          );
+          vec2 warpNoise2 = vec2(
+            noise2((pixelPos + warpNoise * 55.0) / 85.0 + vec2(-uTime * 0.22, uTime * 0.19) + 18.7) - 0.5,
+            noise2((pixelPos + warpNoise * 55.0) / 85.0 + vec2(uTime * 0.18, uTime * 0.21) + 63.4) - 0.5
+          );
+          vec2 warpedPos = pixelPos + eddyWarpA * 0.45 + warpNoise * 36.0 + warpNoise2 * 20.0;
+
+          // =========================================================================
+          // 2. THREE CONFLICTING LIVING WAVE TRAINS
+          // =========================================================================
+          vec2 dir1 = localFlow;
+          vec2 tan1 = localPerp;
+          float lam1 = max(uSwellScale * 1.45, 90.0);
+          float k1 = 6.28318 / lam1;
+          float spd1 = uSpeed * 2.0;
+
+          float ca2 = cos(0.42); float sa2 = sin(0.42);
+          vec2 dir2 = vec2(localFlow.x * ca2 - localFlow.y * sa2, localFlow.x * sa2 + localFlow.y * ca2);
+          vec2 tan2 = vec2(-dir2.y, dir2.x);
+          float lam2 = lam1 * 0.62;
+          float k2 = 6.28318 / lam2;
+          float spd2 = uSpeed * 1.65;
+
+          float ca3 = cos(-0.38); float sa3 = sin(-0.38);
+          vec2 dir3 = vec2(localFlow.x * ca3 - localFlow.y * sa3, localFlow.x * sa3 + localFlow.y * ca3);
+          vec2 tan3 = vec2(-dir3.y, dir3.x);
+          float lam3 = lam1 * 0.36;
+          float k3 = 6.28318 / lam3;
+          float spd3 = uSpeed * 2.45;
+
+          // C. Non-Linear Swell Set Envelope Groups (Interfering Soliton Sets)
+          // Broad group scale (~1400-1800px) traveling at deep-water group velocity
+          float setPhase1 = dot(warpedPos, dir1) * (k1 * 0.08) - uTime * (spd1 * 0.18);
+          float setPhase2 = dot(warpedPos, dir2) * (k2 * 0.09) - uTime * (spd2 * 0.16) + 19.3;
+          float setInterference = sin(setPhase1) * cos(setPhase2);
+          float energyNoise1 = noise2(warpedPos / 850.0 + localFlow * (uTime * 0.03) + setInterference * 0.30);
+          float energyNoise2 = noise2(warpedPos / 520.0 - localPerp * (uTime * 0.02) + 38.2);
+          float setPulse = sin(setPhase1 + setInterference * 1.2) * 0.5 + 0.5;
+          float macroEnergy = smoothstep(0.18, 0.78, energyNoise1 * 0.45 + energyNoise2 * 0.25 + setPulse * 0.30);
+          float swellSetGate = mix(0.55, 1.0, macroEnergy);
+
+          // =========================================================================
+          // 3. LIVING PACKET LIFECYCLES WITH DYNAMIC SELF-STRETCHING & MORPHING
+          // =========================================================================
+          // Multi-frequency 2D wave envelope advection with cross-swell modulation:
+          // Envelopes advect co-directionally with wave propagation at group velocity (cg ~ 0.50 cp)
+          vec2 envCoord1 = vec2(
+            dot(warpedPos, tan1) / (lam1 * 1.5) + uTime * 0.04,
+            (dot(warpedPos, dir1) - uTime * (spd1 * 0.48) / k1) / (lam1 * 2.2)
+          );
+          float envNoise1 = noise2(envCoord1 + warpNoise2 * 0.25);
+          float env1 = mix(0.50, 1.0, smoothstep(0.18, 0.68, envNoise1)) * swellSetGate;
+
+          vec2 envCoord2 = vec2(
+            dot(warpedPos, tan2) / (lam2 * 1.4) - uTime * 0.05,
+            (dot(warpedPos, dir2) - uTime * (spd2 * 0.48) / k2) / (lam2 * 2.0) + 51.7
+          );
+          float envNoise2 = noise2(envCoord2 - warpNoise2 * 0.20);
+          float env2 = mix(0.40, 1.0, smoothstep(0.16, 0.66, envNoise2)) * mix(0.55, 1.0, macroEnergy);
+
+          vec2 envCoord3 = vec2(
+            dot(warpedPos, tan3) / (lam3 * 1.3) + uTime * 0.06,
+            (dot(warpedPos, dir3) - uTime * (spd3 * 0.48) / k3) / (lam3 * 1.8) + 83.4
+          );
+          float envNoise3 = noise2(envCoord3);
+          float env3 = mix(0.35, 1.0, smoothstep(0.15, 0.65, envNoise3)) * (1.1 - macroEnergy * 0.3);
+
+          // --- Wave Train 1: Dynamic 2D Stretch & Shear Vector Field ---
+          vec2 waveStretchVec1 = vec2(
+            sin(dot(warpedPos, tan1) * 0.024 + uTime * 0.45) * 12.0 + cos(dot(warpedPos, dir1) * 0.018 - uTime * 0.35) * 8.0,
+            cos(dot(warpedPos, dir1) * 0.022 + uTime * 0.40) * 12.0 - sin(dot(warpedPos, tan1) * 0.020 + uTime * 0.30) * 8.0
+          );
+          vec2 stretchedPos1 = warpedPos + waveStretchVec1;
+
+          float along1 = dot(stretchedPos1, tan1);
+          float across1 = dot(stretchedPos1, dir1);
+
+          float waveWarp1 = (noise2(stretchedPos1 / 65.0 + vec2(uTime * 0.22, -uTime * 0.18)) - 0.5) * 14.0;
+          float crestMeander1 = sin(along1 * 0.026 + uTime * 1.5) * 8.0;
+          float pOffset1 = (noise2(stretchedPos1 / 180.0 + vec2(uTime * 0.07, -uTime * 0.05)) - 0.5) * 3.5;
+
+          // Multi-tier chunking (~45-90px swell segments):
+          // Envelope advects co-directionally with the wave at group velocity (cg ~ 0.50 cp)
+          vec2 chunkCoord1 = vec2(
+            (along1 + waveStretchVec1.x * 0.8) / 58.0 + uTime * 0.05,
+            (across1 - uTime * (spd1 * 0.48) / k1 + waveStretchVec1.y * 0.8) / 78.0 + 17.4
+          );
+          float chunkNoise1 = noise2(chunkCoord1);
+          float chunk1 = smoothstep(0.32, 0.72, chunkNoise1);
+
+          // Stretch-induced tearing: under shear stress, the crest tears into natural packet segments
+          vec2 tearCoord1 = vec2(
+            (along1 - waveStretchVec1.x * 0.6) / 36.0 - uTime * 0.04,
+            (across1 - uTime * (spd1 * 0.52) / k1 - waveStretchVec1.y * 0.6) / 48.0 + 61.2
+          );
+          float tearNoise1 = noise2(tearCoord1);
+          float tear1 = smoothstep(0.28, 0.68, tearNoise1);
+
+          // Combined packet envelope: finite crest lengths with soft organic tapers
+          float packetEnvelope1 = env1 * mix(0.42, 1.0, chunk1) * mix(0.45, 1.0, tear1);
+          float crestSurge1 = packetEnvelope1 * 0.42;
+
+          float stretchFactor1 = noise2(stretchedPos1 / 60.0 + vec2(uTime * 0.14, -uTime * 0.12));
+          float dynTight1 = mix(2.6, 5.0, stretchFactor1);
+
+          // Base uncoupled phase for Train 1
+          float basePhase1 = (across1 + waveWarp1 + crestMeander1) * k1 - uTime * spd1 + pOffset1;
+
+          // --- Wave Train 2: Dynamic 2D Stretch & Shear Vector Field ---
+          vec2 waveStretchVec2 = vec2(
+            sin(dot(warpedPos, tan2) * 0.028 - uTime * 0.40) * 10.0 + cos(dot(warpedPos, dir2) * 0.020 + uTime * 0.32) * 7.0,
+            cos(dot(warpedPos, dir2) * 0.025 - uTime * 0.36) * 10.0 - sin(dot(warpedPos, tan2) * 0.022 - uTime * 0.28) * 7.0
+          );
+          vec2 stretchedPos2 = warpedPos + waveStretchVec2;
+
+          float along2 = dot(stretchedPos2, tan2);
+          float across2 = dot(stretchedPos2, dir2);
+
+          float waveWarp2 = (noise2(stretchedPos2 / 55.0 - vec2(uTime * 0.20, uTime * 0.16) + 33.1) - 0.5) * 12.0;
+          float crestMeander2 = cos(along2 * 0.032 - uTime * 1.7) * 7.0;
+          float pOffset2 = (noise2(stretchedPos2 / 160.0 - vec2(uTime * 0.05, -uTime * 0.07) + 52.6) - 0.5) * 3.5;
+
+          vec2 chunkCoord2 = vec2(
+            (along2 + waveStretchVec2.x * 0.7) / 48.0 - uTime * 0.04,
+            (across2 - uTime * (spd2 * 0.48) / k2 + waveStretchVec2.y * 0.7) / 68.0 + 43.8
+          );
+          float chunkNoise2 = noise2(chunkCoord2);
+          float chunk2 = smoothstep(0.32, 0.70, chunkNoise2);
+
+          vec2 tearCoord2 = vec2(
+            (along2 - waveStretchVec2.x * 0.5) / 32.0 + uTime * 0.05,
+            (across2 - uTime * (spd2 * 0.52) / k2 - waveStretchVec2.y * 0.5) / 42.0 + 79.4
+          );
+          float tearNoise2 = noise2(tearCoord2);
+          float tear2 = smoothstep(0.28, 0.66, tearNoise2);
+
+          float packetEnvelope2 = env2 * mix(0.40, 1.0, chunk2) * mix(0.45, 1.0, tear2);
+          float stretchFactor2 = noise2(stretchedPos2 / 50.0 - vec2(uTime * 0.12, uTime * 0.15) + 21.7);
+          float dynTight2 = mix(2.4, 4.8, stretchFactor2);
+
+          // Base uncoupled phase for Train 2
+          float basePhase2 = (across2 + waveWarp2 + crestMeander2) * k2 - uTime * spd2 + pOffset2 + 27.3;
+
+          // --- Wave Train 3: Emergent Retrograde Wind Chop (Dispersive Cat's Paws) ---
+          float chopSteer = (noise2(warpedPos / 140.0 + vec2(-uTime * 0.12, uTime * 0.10) + 81.2) - 0.5) * 0.62;
+          float cChop = cos(chopSteer); float sChop = sin(chopSteer);
+          vec2 localDir3 = vec2(dir3.x * cChop - dir3.y * sChop, dir3.x * sChop + dir3.y * cChop);
+          vec2 localTan3 = vec2(-localDir3.y, localDir3.x);
+
+          float gustNoise1 = noise2(warpedPos / 190.0 + localDir3 * (uTime * 0.35) + vec2(uTime * 0.08, -uTime * 0.06));
+          float gustNoise2 = noise2(warpedPos / 110.0 - localTan3 * (uTime * 0.25) + 47.3);
+          float gustEnvelope = smoothstep(0.38, 0.76, gustNoise1 * 0.65 + gustNoise2 * 0.35);
+
+          vec2 chopStretch = vec2(
+            sin(dot(warpedPos, localTan3) * 0.042 + uTime * 0.65) * 7.0 + cos(dot(warpedPos, localDir3) * 0.035 - uTime * 0.50) * 4.5,
+            cos(dot(warpedPos, localDir3) * 0.038 + uTime * 0.55) * 7.0 - sin(dot(warpedPos, localTan3) * 0.032 + uTime * 0.45) * 4.5
+          );
+          vec2 stretchedPos3 = warpedPos + chopStretch;
+
+          float along3 = dot(stretchedPos3, localTan3);
+          float across3 = dot(stretchedPos3, localDir3);
+
+          // Short wave packet chunking (20-45px organic crestlets) advected at group velocity
+          vec2 chunkCoord3 = vec2(
+            along3 / 42.0 + uTime * 0.06,
+            (across3 - uTime * (spd3 * 0.48) / k3) / 54.0 + 29.5
+          );
+          float chopChunkNoise = noise2(chunkCoord3);
+          float chopChunk = smoothstep(0.32, 0.70, chopChunkNoise);
+
+          vec2 tearCoord3 = vec2(
+            along3 / 26.0 - uTime * 0.06,
+            (across3 - uTime * (spd3 * 0.52) / k3) / 36.0 + 63.1
+          );
+          float chopTearNoise = noise2(tearCoord3);
+          float chopTear = smoothstep(0.28, 0.66, chopTearNoise);
+
+          float chopGate = gustEnvelope * mix(0.40, 1.0, chopChunk) * mix(0.45, 1.0, chopTear) * (1.15 - macroEnergy * 0.35);
+
+          float chopMeander = sin(along3 * 0.060 + uTime * 2.2) * 4.5;
+          float pOffset3 = (noise2(stretchedPos3 / 120.0 + vec2(uTime * 0.08, -uTime * 0.06) + 71.9) - 0.5) * 3.0;
+          float basePhase3 = (across3 + chopMeander) * k3 - uTime * spd3 + pOffset3 + 61.8;
+
+          // =========================================================================
+          // NON-LINEAR WAVE-WAVE CROSS COUPLING (Hydrodynamic Triad Resonance)
+          // Perturbations are bounded to prevent spatial phase gradient reversal/caustics
+          // =========================================================================
+          float waveCrossCouple1 = sin(basePhase2) * (0.20 * env2) + cos(basePhase3) * (0.10 * chopGate);
+          float waveCrossCouple2 = cos(basePhase1) * (0.18 * env1) - sin(basePhase3) * (0.09 * chopGate);
+          float waveCrossCouple3 = (sin(basePhase1) + cos(basePhase2)) * 0.15 * (env1 * 0.6 + env2 * 0.4);
+
+          float phase1 = basePhase1 + waveCrossCouple1;
+          float s1 = sin(phase1) * 0.5 + 0.5;
+          float w1 = pow(s1, 2.6) * packetEnvelope1;
+          vec2 g1 = dir1 * (cos(phase1) * k1 * w1 * 2.0);
+
+          float phase2 = basePhase2 + waveCrossCouple2;
+          float s2 = sin(phase2) * 0.5 + 0.5;
+          float w2 = pow(s2, 2.4) * packetEnvelope2;
+          vec2 g2 = dir2 * (cos(phase2) * k2 * w2 * 2.0);
+
+          float phase3A = basePhase3 + waveCrossCouple3;
+          float s3A = sin(phase3A) * 0.5 + 0.5;
+
+          float k3B = k3 * 1.65;
+          float spd3B = spd3 * 1.30;
+          float phase3B = (across3 * 1.08 - along3 * 0.22) * k3B - uTime * spd3B + 14.7;
+          float s3B = sin(phase3B) * 0.5 + 0.5;
+
+          float combinedChop = pow(s3A * 0.72 + s3B * 0.28, 2.4);
+          float w3 = combinedChop * chopGate;
+          float phase3 = phase3A;
+          vec2 g3 = localDir3 * (cos(phase3A) * k3 * w3 * 1.4);
+
+          // =========================================================================
+          // 4. NON-LINEAR STOKES ELEVATION (Organic Crest Superposition & Rogue Sets)
+          // =========================================================================
+          float waveInterference = w1 * w2;
+          float baseElevation = w1 * 0.50 + w2 * 0.32 + w3 * 0.14 + waveInterference * 0.55;
+          float steepening = pow(baseElevation, 2.0) * (0.75 * swellSetGate);
+          float macroElevation = clamp(baseElevation + steepening, 0.0, 1.0);
+
+          vec2 macroGrad = (g1 * 0.52 + g2 * 0.34 + g3 * 0.14) * (1.0 + baseElevation * 0.7) * uChop;
+
+          // =========================================================================
+          // 5. ORGANIC DISPERSIVE CAPILLARY WAVELETS (Fluid-Warped Micro-Facets)
+          // =========================================================================
+          vec2 capCoord = (pixelPos + warpNoise * 10.0) / 80.0;
+          // Fluid-advected capillary coordinates
+          vec2 capPos = warpedPos + flow * (uTime * 6.0);
+
+          // Capillary Wavelet A: primary windward ripple (~28px, +14 deg)
+          float caCapA = cos(0.24); float saCapA = sin(0.24);
+          vec2 dirCapA = vec2(localFlow.x * caCapA - localFlow.y * saCapA, localFlow.x * saCapA + localFlow.y * caCapA);
+          vec2 tanCapA = vec2(-dirCapA.y, dirCapA.x);
+          float kCapA = 6.28318 / 28.0;
+          float phaseCapA = dot(capPos, dirCapA) * kCapA - uTime * 4.2 + sin(dot(capPos, tanCapA) * 0.075) * 1.8;
+          vec2 gCapA = dirCapA * (cos(phaseCapA) * 0.35);
+
+          // Capillary Wavelet B: retrograde counter-ripple (~19px, -36 deg, dispersive speed)
+          float caCapB = cos(-0.63); float saCapB = sin(-0.63);
+          vec2 dirCapB = vec2(localFlow.x * caCapB - localFlow.y * saCapB, localFlow.x * saCapB + localFlow.y * caCapB);
+          vec2 tanCapB = vec2(-dirCapB.y, dirCapB.x);
+          float kCapB = 6.28318 / 19.0;
+          float phaseCapB = dot(capPos, dirCapB) * kCapB - uTime * 5.6 + cos(dot(capPos, tanCapB) * 0.11) * 1.4;
+          vec2 gCapB = dirCapB * (cos(phaseCapB) * 0.28);
+
+          // Capillary Wavelet C: fine cross-chop capillary shimmer (~12px, +68 deg)
+          float caCapC = cos(1.19); float saCapC = sin(1.19);
+          vec2 dirCapC = vec2(localFlow.x * caCapC - localFlow.y * saCapC, localFlow.x * saCapC + localFlow.y * caCapC);
+          float kCapC = 6.28318 / 12.0;
+          float phaseCapC = dot(capPos, dirCapC) * kCapC - uTime * 7.1;
+          vec2 gCapC = dirCapC * (cos(phaseCapC) * 0.20);
+
+          // Combined organic capillary gradient: continuous, directional, zero grid artifacts
+          vec2 capGrad = (gCapA + gCapB + gCapC) * (0.09 * uChop);
+
+          // =========================================================================
+          // 6. SURFACE NORMAL & SPECULAR LIGHTING (Physical Facet Glints)
+          // =========================================================================
+          // Broad macro normal for smooth volume slope relief (zero micro-stripes)
+          vec3 N_macro = normalize(vec3(-clamp(macroGrad, vec2(-0.75), vec2(0.75)) * 2.2, 1.0));
+          // Microfacet normal for fine specular sparkles
+          vec3 N_micro = normalize(vec3(-clamp(macroGrad, vec2(-0.75), vec2(0.75)) * 2.2 - capGrad * 1.15, 1.0));
+
+          vec3 L = normalize(vec3(dir1 * 0.35 + vec2(-0.25, 0.45), 0.88));
+          vec3 Hhalf = normalize(L + vec3(0.0, 0.0, 1.0));
+
+          // Specular highlight: physical reflection of sun on passing wave facets
+          float NdotH = max(0.0, dot(N_micro, Hhalf));
+          float broadSheen = pow(NdotH, 16.0) * 0.22;
+          float sharpGlint = pow(NdotH, 44.0) * 1.05;
+          float crestAffinity = smoothstep(0.35, 0.75, macroElevation) * mix(0.75, 1.0, swellSetGate);
+          float glint = (broadSheen + sharpGlint) * crestAffinity * (0.72 * uSunGlint * uChop);
+
+          // =========================================================================
+          // 7. LITTERED LIVING SEAFOAM PATCHES (SCATTERED ORGANIC CLUMPS ACROSS OPEN SEA)
+          // =========================================================================
+          float cellSize = 280.0;
+          // Transform evaluation coordinates into moving drift frame of ocean swell
+          // Gentle swell undulation: waves displace surface water slightly in an orbital motion
+          // Bounded to 6.5px max along swell direction so there is zero harsh stretching or lensing
+          float swellPhase = dot(pixelPos, dir1) * k1 - uTime * spd1;
+          vec2 swellUndulation = (-dir1 * sin(swellPhase) * 6.5 + tan1 * cos(swellPhase * 0.7) * 3.5) * uChop;
+
+          // Surface water drift frame (drifting steadily with ocean current at 13 px/s)
+          vec2 waterDriftPos = pixelPos - flow * (uTime * 13.0);
+
+          // Wave orbital motion and Stokes surge field:
+          // Waves physically surge forward at crests and draw back in troughs,
+          // undulating the foam clump body with primary swell, cross-chop, and wind waves
+          vec2 waveBodyDisp = (
+            dir1 * cos(phase1) * (w1 * 14.0) +
+            dir2 * cos(phase2) * (w2 * 8.5) +
+            localDir3 * cos(phase3) * (w3 * 4.0)
+          ) * uChop;
+
+          // Foam body coordinate frame: observes full swell undulation and dynamic wave orbital surges
+          vec2 bodyDriftPos = waterDriftPos + swellUndulation - waveBodyDisp;
+          vec2 cellBase = floor(bodyDriftPos / cellSize);
+          float rawEnergy = 0.0;
+          float rawFront = 0.0;
+          float weightedAge = 0.0;
+
+          for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+              vec2 cId = cellBase + vec2(float(dx), float(dy));
+              // Fixed deterministic hash anchors per cell: eliminates teleportation/jumping
+              vec2 rnd  = hash22(cId * 19.17 + 23.41);
+              vec2 rnd2 = hash22(cId * 37.89 + 67.13);
+              vec2 rnd3 = hash22(cId * 53.31 + 91.07);
+
+              // Approximate cell anchor for dynamic wave & set evaluation:
+              // Tightly bounded jitter (+/-0.35) prevents clumps from crossing outer 3x3 search bounds
+              vec2 cellJitter = (rnd - 0.5) * 0.35 * cellSize;
+              vec2 rawCellCenter = (cId + 0.5) * cellSize + cellJitter;
+              vec2 clumpWorldPos = rawCellCenter + flow * (uTime * 13.0) + dir1 * (mix(0.0, 20.0, uCrestBound));
+
+              // Turbulent fluid displacement at clump anchor:
+              vec2 clumpTurbWarp = vec2(
+                noise2(clumpWorldPos / 160.0 + vec2(uTime * 0.12, -uTime * 0.09)) - 0.5,
+                noise2(clumpWorldPos / 160.0 - vec2(uTime * 0.10, uTime * 0.13) + 39.4) - 0.5
+              ) * 32.0;
+              vec2 warpedClumpPos = clumpWorldPos + clumpTurbWarp;
+
+              // --- Non-Linear Swell Set Group Energy at Clump Anchor ---
+              float clumpSetPhase1 = dot(warpedClumpPos, dir1) * (k1 * 0.08) - uTime * (spd1 * 0.18);
+              float clumpSetPhase2 = dot(warpedClumpPos, dir2) * (k2 * 0.09) - uTime * (spd2 * 0.16) + 19.3;
+              float clumpSetInterf = sin(clumpSetPhase1) * cos(clumpSetPhase2);
+              float setNoiseA = noise2(warpedClumpPos / 750.0 + flow * (uTime * 0.03) + clumpSetInterf * 0.25);
+              float setPulseClump = sin(clumpSetPhase1 + clumpSetInterf * 1.2) * 0.5 + 0.5;
+              float dynamicSetEnergy = smoothstep(0.18, 0.75, setNoiseA * 0.50 + setPulseClump * 0.50);
+
+              // --- Coupled Non-Linear Wave Elevation & Constructive Breaker Energy ---
+              float phiClump1 = dot(warpedClumpPos, dir1) * k1 - uTime * spd1;
+              float phiClump2 = dot(warpedClumpPos, dir2) * k2 - uTime * spd2 + 27.3;
+              float phiClump3 = dot(warpedClumpPos, localDir3) * k3 - uTime * spd3 + 61.8;
+
+              // Triad cross-coupling: bounded perturbation at clump
+              float clumpCrossMod = sin(phiClump2) * 0.20 + cos(phiClump3) * 0.10;
+              float coupledPhaseAtClump = phiClump1 + clumpCrossMod - 1.5708;
+
+              // --- Continuous C1 Swell-Set Activation Check ---
+              // Cells smoothly awaken and go dormant over 20-30s with zero step discontinuities
+              float cellThreshold = mix(0.15, 0.85, rnd.x);
+              float setActivation = smoothstep(cellThreshold - 0.18, cellThreshold + 0.18, dynamicSetEnergy * uWhitecaps * 1.15);
+              if (setActivation <= 0.001) continue;
+
+              float patchLife = 6.5 + rnd2.y * 3.5;
+              float localTime = uTime * 0.85 + rnd.y * patchLife;
+              float gridAge = fract(localTime / patchLife);
+
+              // Coupled wave age: foam birth synchronizes with constructive crest arrival,
+              // with slight stochastic phase delay to break straight line burst lockstep
+              float stochasticDelay = (rnd2.x - 0.5) * 0.80;
+              float waveAge = fract((-coupledPhaseAtClump + stochasticDelay) / 6.28318);
+
+              // Synchronize birth to wave crest arrival when either trailing wake or crest-bound is enabled
+              float syncStrength = max(uSpindriftWake, uCrestBound);
+              float pAge = mix(gridAge, waveAge, syncStrength);
+
+              vec2 cellCenter = rawCellCenter + clumpTurbWarp;
+
+              // Instance-specific speed variation & fluid eddy meander (natural deviation in traversal)
+              float instSpeedMul = mix(0.82, 1.20, rnd.y);
+              vec2 instDrift = flow * (pAge * 10.0 * (instSpeedMul - 1.0));
+
+              // Fluid meander: gentle transverse eddy sway unique to this clump
+              float swayFreq = mix(0.35, 0.65, rnd2.x);
+              float instSway = sin(uTime * swayFreq + rnd.x * 6.28318) * mix(3.0, 7.0, rnd2.y);
+              vec2 instMeander = flowPerp * instSway;
+
+              // Instance-specific swell response: unique heave amplitude and phase lag
+              float instSwellPhaseOffset = (rnd.x - 0.5) * 1.2;
+              float instHeaveAmp = mix(0.70, 1.30, rnd3.x);
+              float clumpSwellPhase = coupledPhaseAtClump + instSwellPhaseOffset;
+              vec2 instSwellDev = (-dir1 * sin(clumpSwellPhase) * 4.5 * instHeaveAmp + tan1 * cos(clumpSwellPhase * 0.7) * 2.5 * (rnd.y - 0.5)) * uChop;
+
+              // Wave surge along crest:
+              float sClump1 = sin(coupledPhaseAtClump + 1.5708) * 0.5 + 0.5;
+              float sClump2 = sin(phiClump2) * 0.5 + 0.5;
+              float waveConstructive = pow(sClump1, 2.6) * (0.65 + 0.60 * pow(sClump2, 2.4));
+              float waveAtClump = waveConstructive * uChop;
+
+              // Forward surge with instance variation: some clumps catch crests more vigorously
+              float instSurgeMul = mix(0.65, 1.35, rnd3.y);
+              float crestSurgeDist = waveAtClump * mix(3.5, 9.0, uCrestBound) * instSurgeMul;
+              float forwardSurge = (mix(pAge * 3.5, pAge * 9.0, uCrestBound) + crestSurgeDist) * instSpeedMul;
+              vec2 center = cellCenter + flow * forwardSurge + instDrift + instMeander + instSwellDev;
+
+              float pScale = (uSwellScale * 0.48 + 30.0) * mix(0.75, 1.20, rnd2.x);
+
+              // Evaluate clump core energy with wave-crest physical shape molding:
+              float crestPeakLife = smoothstep(0.35, 0.0, pAge);
+              float localWaveAtClump = mix(crestPeakLife, macroElevation, 0.50) * uChop;
+              vec2 patchRes = evalPatchCoreEnergy(bodyDriftPos, center, flow, pAge, pScale, 1.1, 1.2, vec4(rnd, rnd2), dir1, localWaveAtClump);
+              float e = patchRes.x;
+              float fLip = patchRes.y;
+
+              // Guaranteed lifecycle wrap deadband:
+              // Smooth birth emergence, absolute zero opacity between 0.88 and 1.00 (eliminates fract() pop)
+              float cycleEnvelope = smoothstep(0.0, 0.06, pAge) * (1.0 - smoothstep(0.70, 0.88, pAge));
+              e *= cycleEnvelope * setActivation;
+              fLip *= cycleEnvelope * setActivation;
+
+              // In crest-locked mode (without trailing wake), foam dissolves sooner after crest passes (as a complete organic clump, not a crescent cutout!)
+              if (uCrestBound > 0.5 && uSpindriftWake < 0.5) {
+                float crestLifeEnvelope = 1.0 - smoothstep(0.35, 0.65, pAge);
+                e *= crestLifeEnvelope;
+                fLip *= crestLifeEnvelope;
+              }
+
+              rawEnergy += e;
+              rawFront += fLip;
+              weightedAge += e * pAge;
+            }
+          }
+
+          float blendedAge = rawEnergy > 0.001 ? (weightedAge / rawEnergy) : 0.0;
+
+          // Ocean depth & swell convergence channel mask
+          float smoothElev = clamp(macroElevation, 0.0, 1.25);
+          float channelNoise = noise2(bodyDriftPos / 140.0 + dir1 * (uTime * 0.05));
+          float convergence = (channelNoise - 0.5) * 0.30 + (smoothElev - 0.5) * 0.15;
+          float depthModulator = mix(0.85, 1.15, clamp(convergence + 0.5, 0.0, 1.0));
+
+          // Dynamic wave elevation influence on foam density and mounding:
+          // Foam is buoyant; it gathers and mounds up thickly on wave crest summits (+75%),
+          // and disperses/flattens into delicate lace in the troughs (-55%)
+          float crestMound = 1.0 + smoothstep(0.28, 0.85, smoothElev) * 0.75 * uChop;
+          float troughThinning = mix(0.45, 1.0, smoothstep(0.06, 0.38, smoothElev));
+          float waveInfluence = crestMound * troughThinning;
+          float modulatedEnergy = rawEnergy * depthModulator * waveInfluence;
+
+          // Soft organic tendril lobes: curl and ripple with wave orbital surges
+          vec2 tendrilCoord = (bodyDriftPos + waveBodyDisp * 0.5) / 75.0 + vec2(uTime * 0.02, -uTime * 0.015);
+          float tNoise = noise2(tendrilCoord) * 0.65 + noise2(tendrilCoord * 1.8 + 23.4) * 0.35;
+          float softTendril = smoothstep(0.36, 0.82, tNoise);
+
+          // Tendrils sprout outward along passing wave ridges into the surrounding sea
+          float tendrilSprout = smoothstep(0.12, 0.38, modulatedEnergy) * (1.0 - smoothstep(0.55, 0.85, modulatedEnergy));
+          float tendrilProjection = softTendril * tendrilSprout * (0.35 + smoothstep(0.30, 0.80, smoothElev) * 0.30);
+
+          // Fissure tear channels: as foam ages and dissipates, it fractures into ragged breaking pieces
+          float breakupNoise = noise2(bodyDriftPos / 32.0 + vec2(uTime * 0.025, -uTime * 0.02));
+          float breakupFissure = smoothstep(0.36, 0.72, breakupNoise) * smoothstep(0.32, 0.82, blendedAge) * 0.42;
+
+          float totalEnergy = clamp(modulatedEnergy + tendrilProjection - breakupFissure, 0.0, 2.5);
+
+          // Outer envelope: crisp advancing wave front cutoff with smooth trailing wake
+          float outerEnvelope = smoothstep(0.02, 0.28, totalEnergy);
+
+          // Unified multi-scale cellular Voronoi lace pass (d2 - d1)
+          // High-frequency undulation displacement (chop waves, cross-chop, and capillary orbital eddies)
+          // Bounded and phase-shifted so Voronoi bubble cells bob, tilt, and breathe dynamically without rigid crest lockstep
+          vec2 dChop3 = (-localDir3 * sin(phase3A + 0.85) * 2.8 + localTan3 * cos(phase3A * 1.15) * 1.8) * chopGate;
+          vec2 dChop2 = (-dir2 * sin(phase2 + 0.60) * 3.0 + tan2 * cos(phase2 * 0.85) * 2.0) * env2;
+          vec2 dCap = vec2(
+            sin(capCoord.x * 6.28 + capCoord.y * 3.14 - uTime * 2.2),
+            cos(capCoord.y * 6.28 - capCoord.x * 3.14 + uTime * 1.8)
+          ) * 2.2;
+          vec2 hfUndulation = (dChop3 * 0.55 + dChop2 * 0.30 + dCap * 0.35) * uChop;
+
+          // Texture coordinates: bubbles drift naturally with the foam clump current (bodyDriftPos),
+          // observing gentle macro swell undulation and high-frequency undulations weighted by uFoamHfWeight
+          vec2 texturePos = bodyDriftPos + swellUndulation * 0.15 + hfUndulation * uFoamHfWeight;
+
+          // Dynamic fluid advection turbulence (living convective swirls that stretch, twist, and deform the bubble cells)
+          const float BUBBLE_FREQ = 0.096;
+          vec2 foamUv = texturePos * BUBBLE_FREQ;
+          vec2 foamSwirl = vec2(
+              sin(foamUv.y * 1.4 + uTime * 0.55) * 0.22 + cos(foamUv.x * 1.1 - uTime * 0.42) * 0.15,
+              cos(foamUv.x * 1.4 - uTime * 0.50) * 0.22 + sin(foamUv.y * 1.1 + uTime * 0.40) * 0.15
+          );
+          vec2 foamWarp = (vec2(
+              noise2(foamUv * 1.3 + vec2(uTime * 0.08, -uTime * 0.06)),
+              noise2(foamUv * 1.3 - vec2(uTime * 0.06, uTime * 0.07) + 27.4)
+          ) - 0.5) * 0.16;
+
+          vec2 voroField = voronoiBubbleField(foamUv + foamSwirl + foamWarp, uTime);
+          float voroDist = voroField.x;
+          float voroMeso = voroField.y;
+          float voroMacro = noise2(foamUv * 0.45 + vec2(uTime * 0.015, -uTime * 0.01));
+          float voroMicro = noise2(texturePos / 7.2 + uTime * 0.03);
+
+          // Hollow bubble burst perforation
+          float holeMask = smoothstep(0.38, 0.68, voroMeso * 0.65 + voroMacro * 0.35);
+          float perforateProgress = smoothstep(0.15, 0.70, blendedAge);
+
+          // Lacy filament walls with organic boundary noise and softened, blurrier feathered edges (no hard geometric wireframe)
+          float edgeNoise = (noise2(texturePos / 8.5 + vec2(uTime * 0.08, -uTime * 0.06)) - 0.5) * 0.065;
+          float softMeso = voroMeso + edgeNoise;
+
+          float wallWidth = mix(0.35, 0.12, smoothstep(0.15, 0.80, blendedAge));
+          wallWidth *= mix(0.55, 1.0, smoothstep(0.02, 0.25, totalEnergy));
+          float cavityOpening = mix(0.035, 0.012, smoothstep(0.20, 0.85, blendedAge));
+          // Softened, blurrier edge roll-off with gentle penumbra blur (eliminates hard vector lines)
+          float filamentLace = 1.0 - smoothstep(cavityOpening * 0.50, wallWidth * 1.55, softMeso);
+          float softHalo = (1.0 - smoothstep(0.0, wallWidth * 2.2, softMeso)) * 0.28;
+          filamentLace = clamp(filamentLace * 0.76 + softHalo, 0.0, 1.0);
+          filamentLace = smoothstep(0.06, 0.90, filamentLace);
+
+          // Spherical 3D Bubble Domes with Meniscus Volume (soft volume, no harsh shines)
+          float domeCurve = sqrt(clamp(1.0 - pow(voroDist / 0.58, 2.0), 0.0, 1.0));
+          float domeIntegrity = 1.0 - smoothstep(0.18, 0.75, blendedAge);
+          float bubbleDome = domeCurve * (0.18 + 0.18 * domeIntegrity);
+          float cellVolume = clamp(filamentLace * 0.85 + bubbleDome, 0.0, 1.0);
+          float detailedLace = cellVolume * (voroMicro * 0.30 + 0.70);
+
+          // Transition from early dense froth cloud to voluminous cellular bubble lace
+          float earlyCloud = smoothstep(0.30, 0.70, voroMacro) * (voroMeso * 0.4 + 0.6);
+          float foamBody = mix(earlyCloud, detailedLace, smoothstep(0.10, 0.45, blendedAge));
+
+          // Hollow out burst bubble cavities while keeping structural filaments and dome rims
+          foamBody = clamp(foamBody - holeMask * perforateProgress * 0.70, 0.0, 1.0);
+          foamBody = max(foamBody, filamentLace * 0.35 * (voroMicro * 0.3 + 0.7));
+
+          // Dissolving into floating crumbs in the late trailing wash
+          float crumbNoise = noise2(texturePos / 18.0 + vec2(uTime * 0.02, -uTime * 0.015));
+          float dissolveCutoff = smoothstep(0.40, 0.96, blendedAge) * 0.55;
+          float crumbPersistence = smoothstep(dissolveCutoff, dissolveCutoff + 0.28, crumbNoise);
+
+          // Edge feather falloff: preserves full density at advancing lip while softly tapering trailing skirt down to zero
+          float edgeFeather = smoothstep(0.01, 0.28, totalEnergy);
+          float cellularSpindrift = foamBody * outerEnvelope * crumbPersistence * edgeFeather;
+
+          // Combine Voronoi trailing wake with bold, dense, opaque white advancing wave front lip and spray droplets
+          float combinedFoam = clamp(cellularSpindrift + rawFront * 0.95, 0.0, 2.0);
+
+          // Layer 1: Primary surface cellular lace and brilliant white wave front
+          float whitecaps = combinedFoam * 0.90 * uWhitecaps * uChop;
+
+          // =========================================================================
+          // Layer 2: Subsurface Undercurrent Churn (Offset, Tumbling, & Decently Fainter)
+          // =========================================================================
+          // Sheared & trailing offset along swell flow + gentle transverse fluid eddy
+          vec2 churnDriftPos = texturePos - flow * 12.0 + flowPerp * (sin(texturePos.x * 0.018 + uTime * 0.12) * 3.0);
+          const float CHURN_BUBBLE_FREQ = 0.108;
+          vec2 churnUv = churnDriftPos * CHURN_BUBBLE_FREQ;
+          float churnVoro = voronoiBubbles(churnUv, uTime);
+          float churnLace = 1.0 - smoothstep(0.035, 0.28, churnVoro);
+          float churnMicro = noise2(churnDriftPos / 8.8 - uTime * 0.03);
+          float churnEnvelope = smoothstep(0.04, 0.28, modulatedEnergy);
+          float churnBody = churnLace * (churnMicro * 0.38 + 0.62) * churnEnvelope;
+          float undercurrentFoam = churnBody * 0.42 * uWhitecaps * uChop;
+
+          // Aerated Subsurface Base: continuous cushion strictly under the breaking crest clumps
+          float aeratedBase = modulatedEnergy * outerEnvelope * 0.65 * uWhitecaps * uChop;
+
+          float crestBody = smoothstep(0.15, 0.85, macroElevation) * 0.30 * uChop;
+
+          // =========================================================================
+          // 8. DEEP OCEAN COLOR & VOLUMETRIC FOAM COMPOSITING
+          // =========================================================================
+          float diffuse = max(0.0, dot(N_macro, L));
+          float slopeShading = mix(0.94, 1.06, diffuse);
+
+          vec3 deepNavy = vec3(0.02, 0.09, 0.22);
+          vec3 crestTeal = vec3(0.05, 0.35, 0.45);
+          float troughShadow = smoothstep(0.12, 0.56, macroElevation);
+          float troughFactor = mix(0.72, 1.16, troughShadow);
+
+          vec3 seaColor = mix(deepNavy, crestTeal, crestBody) * (troughFactor * slopeShading);
+
+          // Subsurface aerated foam wash: glowing seafoam turquoise under whitecaps
+          vec3 aeratedSeafoam = vec3(0.20, 0.72, 0.75);
+          seaColor = mix(seaColor, aeratedSeafoam, clamp(aeratedBase * 0.75, 0.0, 0.65));
+
+          // Composite Layer 2: Subsurface Undercurrent Churn (submerged aquamarine bubbles)
+          vec3 churnBubbleTint = vec3(0.38, 0.82, 0.88);
+          seaColor = mix(seaColor, churnBubbleTint, clamp(undercurrentFoam * 0.70, 0.0, 0.48));
+
+          // Composite Layer 1: Primary Surface Cellular Foam (textured with sea color influence and dynamic whiteness)
+          if (whitecaps > 0.001) {
+            vec3 seaInfluencedTint = mix(clamp(seaColor * 1.45 + vec3(0.08, 0.16, 0.20), 0.0, 1.0), vec3(0.84, 0.92, 0.95), 0.55);
+            vec3 pureWhiteTint = vec3(0.95, 0.97, 0.99);
+
+            // Multi-scale fluid texturing noise (drifting advected swirls across foam patches)
+            float tintSwirl = noise2(pixelPos / 55.0 - flow * (uTime * 5.0));
+            float tintMeso = noise2(pixelPos / 22.0 + vec2(uTime * 0.02, -uTime * 0.015));
+            float tintNoise = tintSwirl * 0.60 + tintMeso * 0.40;
+
+            // Whiteness modulation: varies organically across space, crest density, and fluid swirls
+            float whiteness = smoothstep(0.30, 0.75, tintNoise);
+            whiteness = mix(whiteness, 1.0, clamp(whitecaps * 0.60, 0.0, 0.65));
+            whiteness = clamp(whiteness * 0.70 + 0.20, 0.0, 0.95);
+
+            vec3 foamTint = mix(seaInfluencedTint, pureWhiteTint, whiteness);
+            seaColor = mix(seaColor, foamTint, clamp(whitecaps * 0.72, 0.0, 0.65));
+          }
+          seaColor += vec3(0.96, 0.98, 1.0) * glint * 0.70;
+
+          gl_FragColor = vec4(seaColor, 1.0);
+          return;
+        }
+
+        // --- MODE 6: STANDALONE C-SHAPED WAVE SPRITE PROTOTYPE ---
+        if (uMode > 5.5 && uMode < 6.5) {
+          vec3 dryGround = vec3(0.55, 0.48, 0.36) + (fbm(pixelPos * 0.04) - 0.5) * 0.08;
+          if (isWater < 0.5) {
+            gl_FragColor = vec4(dryGround, 1.0);
+            return;
+          }
+
+          // Sprite parameters unpacked from uniforms:
+          vec2 center = uCSpritePosDir.xy;
+          vec2 fwd = normalize(uCSpritePosDir.zw);
+          vec2 perp = vec2(-fwd.y, fwd.x);
+
+          float width = uCSpriteParams1.x;      // half-width (e.g. 130px)
+          float curv = uCSpriteParams1.y;       // arc curvature kappa (e.g. 0.005)
+          float age = uCSpriteParams1.z;        // age 0..1
+          float lens = uCSpriteParams1.w;       // lensing strength (e.g. 1.3)
+
+          float foamDensity = uCSpriteParams2.x;    // e.g. 1.0
+          float sprayIntensity = uCSpriteParams2.y; // e.g. 1.1
+          float frontThick = max(uCSpriteParams2.z, 4.0); // e.g. 7.0
+          float backThick = frontThick * 2.8;
+
+          // Lifecycle swell amplitude (smooth bell curve peaking at age ~0.45)
+          float swellAmp = sin(clamp(age * 1.35, 0.0, 1.0) * 3.14159);
+          swellAmp = pow(swellAmp, 1.2);
+
+          // Finite difference height and gradient of the wave mound
+          float h0 = evalWaveSpriteHeight(pixelPos, center, fwd, perp, width, curv, swellAmp, frontThick, backThick);
+          float hX = evalWaveSpriteHeight(pixelPos + vec2(1.5, 0.0), center, fwd, perp, width, curv, swellAmp, frontThick, backThick);
+          float hY = evalWaveSpriteHeight(pixelPos + vec2(0.0, 1.5), center, fwd, perp, width, curv, swellAmp, frontThick, backThick);
+          vec2 gradH = vec2(hX - h0, hY - h0) / 1.5;
+
+          // 1. Water Refraction Distortion (optical lensing)
+          vec2 distortedPos = pixelPos - gradH * (lens * 36.0);
+
+          // 2. Local Frame & Crescent Arc Coordinates
+          vec2 delta = pixelPos - center;
+          float along = dot(delta, perp);
+          float across = dot(delta, fwd);
+          float xi = along / max(width, 1.0);
+          float absXi = abs(xi);
+          float latEnvelope = clamp(1.0 - xi * xi, 0.0, 1.0);
+          latEnvelope = latEnvelope * latEnvelope;
+
+          // Parabolic C-bow: horns bow backwards behind the apex
+          float arcBow = curv * along * along;
+          float dCrest = across + arcBow; // = 0 at the crescent ridge line
+
+          // 3. Ambient Sea Surface & Soft Caustics
+          float ambSwell1 = sin(dot(distortedPos, fwd) * 0.015 - uTime * 0.6) * 0.5 + 0.5;
+          float ambSwell2 = cos(dot(distortedPos, vec2(fwd.y, -fwd.x)) * 0.012 + uTime * 0.4) * 0.5 + 0.5;
+          float ambSwell = (ambSwell1 * 0.6 + ambSwell2 * 0.4);
+
+          // Broad, smooth caustics with organic domain noise and blurred edges
+          vec2 csWarp = vec2(noise2(distortedPos / 80.0 + uTime * 0.05) - 0.5, noise2(distortedPos / 80.0 - uTime * 0.06 + 32.1) - 0.5) * 10.0;
+          float c1 = voronoiBubbles((distortedPos + csWarp) * 0.018 + vec2(uTime * 0.10, uTime * 0.06));
+          float c2 = voronoiBubbles((distortedPos + csWarp * 0.8) * 0.032 - vec2(uTime * 0.07, -uTime * 0.08) + 14.2);
+          float caustics = pow(smoothstep(0.15, 0.72, (c1 + c2) * 0.5), 1.3) * 0.20;
+
+          vec3 deepOcean = vec3(0.02, 0.08, 0.19);
+          vec3 shallowTeal = vec3(0.06, 0.38, 0.52);
+          vec3 seaBase = mix(deepOcean, shallowTeal, ambSwell * 0.35);
+          seaBase += vec3(caustics * 0.65, caustics * 0.9, caustics * 1.1);
+
+          // 4. Wave Mound 3D Shading & Subsurface Scattering
+          vec3 crestLuminous = vec3(0.08, 0.58, 0.68);
+          float troughBehind = smoothstep(0.0, backThick * 1.5, -dCrest) * (1.0 - smoothstep(backThick * 1.5, backThick * 4.5, -dCrest)) * latEnvelope * swellAmp;
+          
+          vec3 waterCol = mix(seaBase, crestLuminous, clamp(h0 * 1.35, 0.0, 1.0));
+          waterCol = mix(waterCol, deepOcean * 0.65, troughBehind * 0.55); // Trough shadow depression
+
+          // Surface relief normal & sun glint
+          vec3 N = normalize(vec3(-gradH * 12.0, 1.0));
+          vec3 L = normalize(vec3(fwd * 0.50 - perp * 0.30, 0.82));
+          vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
+          float specular = pow(max(0.0, dot(N, H)), 32.0) * h0 * 2.8 * uSunGlint;
+          float slopeDiff = dot(N, L);
+          waterCol *= mix(0.85, 1.15, slopeDiff);
+
+          // 5. Breaking Foaming Crest at the Peak
+          // Breaking window: wave steepens and breaks between age 0.15 and 0.80, peaking around 0.45
+          float breakWindow = smoothstep(0.15, 0.35, age) * (1.0 - smoothstep(0.65, 0.95, age));
+
+          // Lip band: thin forward ridge curling over
+          float lipBand = smoothstep(frontThick * 0.85, 0.0, abs(dCrest));
+
+          // Aerated boiling bubbles at the peak
+          vec2 boilUv = (distortedPos - fwd * (uTime * 28.0)) * 0.14;
+          float v1 = voronoiBubbles(boilUv);
+          float v2 = voronoiBubbles(boilUv * 2.2 + vec2(uTime * 0.3, -uTime * 0.2) + 31.4);
+          float bubbleLace = 1.0 - abs(v1 - v2) * 2.4;
+          bubbleLace = smoothstep(0.15, 0.70, bubbleLace);
+
+          float churnNoise = noise2(distortedPos * 0.25 - fwd * (uTime * 45.0));
+          float bubblingTexture = bubbleLace * (churnNoise * 0.45 + 0.55);
+
+          // Apex bias: peak breaks thickest at the center (apex), tapering toward horns
+          float apexPower = pow(latEnvelope, 0.7);
+          float whiteFoamLip = lipBand * bubblingTexture * breakWindow * apexPower * foamDensity * 1.4;
+
+          // Glowing aerated turquoise halo under the curling foam
+          float aeratedHalo = smoothstep(frontThick * 2.8, 0.0, abs(dCrest - 1.5)) * apexPower * breakWindow * foamDensity;
+
+          // 6. Trailing Wake Streamers & Horn Spray Particles
+          float distBehind = -dCrest;
+          float wakeSpray = 0.0;
+          float wakeStreamers = 0.0;
+          float wakeMist = 0.0;
+          float apexWakeFoam = 0.0;
+
+          if (distBehind > 0.0 && absXi < 1.45) {
+            // Outward sliding vector along parabolic crescent horns
+            vec2 hornTangent = normalize(sign(along) * perp - 2.0 * curv * abs(along) * fwd);
+            vec2 slideFlow = -fwd * 0.65 + hornTangent * 0.75;
+
+            // Coordinate advected along the wake streamline
+            vec2 wakeFrame = pixelPos - slideFlow * (uTime * 50.0 + age * 40.0);
+
+            float trailReach = 75.0 * sprayIntensity;
+            float behindDecay = smoothstep(1.0, 5.0, distBehind) * (1.0 - smoothstep(12.0, trailReach, distBehind));
+            float hornZone = smoothstep(0.35, 0.70, absXi) * smoothstep(1.35, 0.95, absXi);
+            float sprayLife = smoothstep(0.25, 0.45, age) * (1.0 - smoothstep(0.75, 0.98, age));
+
+            // A. Wake Streamers (frothy streaks trailing along the horn flare)
+            float streamerCoord = (abs(along) - distBehind * 0.42) * 0.18 + noise2(wakeFrame * 0.09) * 2.2;
+            float streamerBand = pow(sin(streamerCoord) * 0.5 + 0.5, 6.0);
+            wakeStreamers = streamerBand * behindDecay * hornZone * sprayLife * sprayIntensity * 0.75;
+
+            // B. Cellular Droplet Flecks (jittered spray particles)
+            vec2 pCell = wakeFrame / 8.5;
+            vec2 iCell = floor(pCell);
+            vec2 fCell = fract(pCell);
+            vec2 rnd = hash22(iCell);
+            vec2 dropCenter = rnd * 0.65 + 0.175;
+            float dropDist = length(fCell - dropCenter);
+            float dropRadius = mix(0.12, 0.32, rnd.y);
+            float droplet = smoothstep(dropRadius, dropRadius * 0.25, dropDist);
+            float sparkle = sin(rnd.x * 6.28 + uTime * 6.0) * 0.3 + 0.7;
+
+            // C. Fine Wind Spume / Micro-mist
+            vec2 mistCell = (wakeFrame + fwd * (uTime * 30.0)) / 4.5;
+            vec2 iMist = floor(mistCell);
+            vec2 fMist = fract(mistCell);
+            vec2 rndM = hash22(iMist + 47.3);
+            float mistDrop = smoothstep(0.20, 0.05, length(fMist - rndM * 0.7));
+
+            wakeSpray = (droplet * 1.1 + mistDrop * 0.55) * behindDecay * hornZone * sprayLife * sprayIntensity * sparkle;
+
+            // D. Soft Trailing Foam Wash (diffused mist behind horns)
+            float mistField = noise2(wakeFrame * 0.12 + vec2(uTime * 0.2, -uTime * 0.15));
+            wakeMist = mistField * behindDecay * hornZone * sprayLife * 0.35 * sprayIntensity;
+
+            // E. Apex Aerated Churn Wake (dissolving froth directly behind the curling peak)
+            float apexWakeDecay = smoothstep(0.0, 2.0, distBehind) * (1.0 - smoothstep(3.0, 22.0, distBehind));
+            float apexWakeZone = smoothstep(0.45, 0.10, absXi) * apexWakeDecay * breakWindow * foamDensity;
+            apexWakeFoam = apexWakeZone * bubblingTexture * 0.70;
+          }
+
+          // 7. Composite Surface Composition
+          // Aerated turquoise glow around crest and wake
+          vec3 seafoamTurquoise = vec3(0.18, 0.84, 0.90);
+          waterCol = mix(waterCol, seafoamTurquoise, clamp(aeratedHalo * 0.75 + wakeMist * 0.55, 0.0, 0.85));
+
+          // Diamond white foam, crest lip, and spray particles
+          float totalWhite = whiteFoamLip + apexWakeFoam + wakeSpray * 1.45 + wakeStreamers * 0.95;
+          vec3 whiteFoam = vec3(0.97, 0.99, 1.0);
+          waterCol = mix(waterCol, whiteFoam, clamp(totalWhite, 0.0, 1.0));
+
+          // Sun Specular glint on crest peak
+          waterCol += vec3(0.98, 0.99, 1.0) * specular;
+
+          gl_FragColor = vec4(waterCol, 1.0);
+          return;
+        }
+
+        // --- MODE 7: LIVING SEAFOAM MECHANICS (Multi-Core, Tendrils, Depth Mask & Merging) ---
+        if (uMode > 6.5 && uMode < 7.5) {
+          vec3 dryGround = vec3(0.55, 0.48, 0.36) + (fbm(pixelPos * 0.04) - 0.5) * 0.08;
+          if (isWater < 0.5) {
+            gl_FragColor = vec4(dryGround, 1.0);
+            return;
+          }
+
+          // Unpack uniforms
+          vec2 foamCenter = uFoamPosDir.xy;
+          vec2 foamFwd = normalize(uFoamPosDir.zw);
+          float expandRate = uFoamParams1.x;
+          float perforateRate = uFoamParams1.y;
+          float laceFineness = uFoamParams1.z;
+          float decayRate = uFoamParams1.w;
+
+          float waveSync = uFoamParams2.x;
+          float patchScale = uFoamParams2.y;
+          float age = uFoamParams2.z;
+          float driftSpeed = uFoamParams2.w;
+
+          float tendrilStrength = uFoamParams3.x;
+          float depthMaskStrength = uFoamParams3.y;
+          float pinchRate = uFoamParams3.z;
+
+          // =========================================================================
+          // 1. UNDERLYING OCEAN WAVE FIELD & ORBITAL FLUID ADVECTION
+          // =========================================================================
+          float k1 = 0.024; // wavelength ~ 260px
+          float spd1 = 1.35;
+          vec2 dir1 = normalize(vec2(1.0, 0.42));
+          float phase1 = dot(pixelPos, dir1) * k1 - uTime * spd1;
+
+          float k2 = 0.048; // wavelength ~ 130px
+          float spd2 = 1.85;
+          vec2 dir2 = normalize(vec2(0.85, -0.52));
+          float phase2 = dot(pixelPos, dir2) * k2 - uTime * spd2 + 18.3;
+
+          float s1 = sin(phase1); float c1 = cos(phase1);
+          float s2 = sin(phase2); float c2 = cos(phase2);
+
+          float waveElevation = s1 * 0.65 + s2 * 0.35;
+          // Orbital horizontal displacement (elliptical fluid particle motion)
+          vec2 orbitalDisp = (-dir1 * c1 * 16.0 - dir2 * c2 * 8.0) * waveSync;
+
+          // Water position advected by wave orbital motion
+          vec2 waterPos = pixelPos + orbitalDisp;
+
+          // Capillary wave ripples
+          vec2 capUv = waterPos * 0.12;
+          float cap1 = noise2(capUv + dir1 * (uTime * 0.8));
+          float cap2 = noise2(capUv * 1.8 - dir2 * (uTime * 0.6) + 31.7);
+          float capillaries = (cap1 * 0.6 + cap2 * 0.4) - 0.5;
+
+          // Normal vector of the water surface (subtle slopes, not harsh cliffs)
+          vec2 waveGrad = (dir1 * c1 * k1 * 0.65 + dir2 * c2 * k2 * 0.35) * 8.0;
+          vec2 capGrad = vec2(
+            noise2(capUv * 1.5 + vec2(uTime * 0.4, 0.0)) - 0.5,
+            noise2(capUv * 1.5 - vec2(0.0, uTime * 0.4) + 47.1) - 0.5
+          ) * 0.08;
+          vec3 N = normalize(vec3(-(waveGrad + capGrad), 1.0));
+
+          // Soft skylight sheen + gentle capillary glints
+          vec3 L = normalize(vec3(dir1 * 0.3 + vec2(-0.15, 0.35), 0.90));
+          vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
+          float specular = pow(max(0.0, dot(N, H)), 24.0) * 0.15;
+          float glint = pow(max(0.0, dot(N, H)), 8.0) * (capillaries + 0.5) * 0.12;
+
+          // Deep inky ocean water color (matching reference stills)
+          vec3 deepInkyNavy = vec3(0.010, 0.022, 0.042);
+          vec3 crestShallow = vec3(0.022, 0.052, 0.095);
+          float swellShading = waveElevation * 0.5 + 0.5;
+          vec3 oceanColor = mix(deepInkyNavy, crestShallow, swellShading * 0.60);
+          oceanColor *= (dot(N, L) * 0.20 + 0.85); // Gentle slope shading
+          oceanColor += vec3(0.65, 0.78, 0.92) * (specular + glint);
+
+          // Ambient patch centers
+          vec2 ambCenter1 = foamCenter + vec2(-240.0, 140.0);
+          float ambAge1 = fract(age + 0.38);
+          vec2 ambCenter2 = foamCenter + vec2(270.0, -120.0);
+          float ambAge2 = fract(age + 0.72);
+
+          // Evaluate wave elevation at patch centers for swell surge & wave crest lunges
+          float clumpPhase1 = dot(foamCenter, dir1) * k1 - uTime * spd1;
+          float clumpPhase2 = dot(foamCenter, dir2) * k2 - uTime * spd2;
+          float clumpS1 = pow(sin(clumpPhase1) * 0.5 + 0.5, 2.6);
+          float clumpS2 = pow(sin(clumpPhase2) * 0.5 + 0.5, 2.2);
+          float waveAtClump1 = (clumpS1 * 0.65 + clumpS2 * 0.35) * waveSync;
+
+          float waveAtClump2 = (pow(sin(dot(ambCenter1, dir1) * k1 - uTime * spd1) * 0.5 + 0.5, 2.6) * 0.65 + pow(sin(dot(ambCenter1, dir2) * k2 - uTime * spd2) * 0.5 + 0.5, 2.2) * 0.35) * waveSync;
+          float waveAtClump3 = (pow(sin(dot(ambCenter2, dir1) * k1 - uTime * spd1) * 0.5 + 0.5, 2.6) * 0.65 + pow(sin(dot(ambCenter2, dir2) * k2 - uTime * spd2) * 0.5 + 0.5, 2.2) * 0.35) * waveSync;
+
+          // Patch 1: Primary interactive eruption
+          vec2 patchRes1 = evalPatchCoreEnergy(waterPos, foamCenter, foamFwd, age, patchScale, expandRate, pinchRate, vec4(0.25, 0.45, 0.65, 0.85), foamFwd, waveAtClump1);
+
+          // Patch 2: Ambient upstream patch
+          vec2 patchRes2 = evalPatchCoreEnergy(waterPos, ambCenter1, foamFwd, ambAge1, patchScale * 0.88, expandRate, pinchRate, vec4(0.72, 0.22, 0.38, 0.54), foamFwd, waveAtClump2);
+
+          // Patch 3: Ambient downstream patch
+          vec2 patchRes3 = evalPatchCoreEnergy(waterPos, ambCenter2, foamFwd, ambAge2, patchScale * 1.10, expandRate, pinchRate, vec4(0.41, 0.88, 0.79, 0.31), foamFwd, waveAtClump3);
+
+          float e1 = patchRes1.x; float fLip1 = patchRes1.y;
+          float e2 = patchRes2.x * 0.85; float fLip2 = patchRes2.y * 0.85;
+          float e3 = patchRes3.x * 0.90; float fLip3 = patchRes3.y * 0.90;
+
+          // Unified energy field (metaballs coalesce seamlessly!)
+          float rawEnergy = e1 + e2 + e3;
+          float rawFront = fLip1 + fLip2 + fLip3;
+
+          // Early exit if no foam energy anywhere near this pixel
+          if (rawEnergy < 0.01) {
+            gl_FragColor = vec4(oceanColor, 1.0);
+            return;
+          }
+
+          // Blended effective age across merged junctions
+          float blendedAge = (e1 * age + e2 * ambAge1 + e3 * ambAge2) / max(rawEnergy, 0.001);
+
+          // =========================================================================
+          // 3. CONTINUOUS OCEAN DEPTH / SWELL MASK (User Suggestion)
+          // =========================================================================
+          // Ocean convergence lines along wave crests and Langmuir circulation channels
+          float channelNoise = noise2(waterPos / 120.0 + dir1 * (uTime * 0.16));
+          float oceanConvergence = waveElevation * 0.70 + (channelNoise - 0.5) * 0.75;
+          float swellMask = smoothstep(-0.35, 0.45, oceanConvergence);
+
+          // Depth mask carves valleys between patches and pinches necks in wave troughs
+          float depthModulator = mix(1.0, swellMask * 1.35 + 0.20, clamp(depthMaskStrength * 0.65, 0.0, 1.0));
+          float modulatedEnergy = rawEnergy * depthModulator;
+
+          // =========================================================================
+          // 4. BRANCHING TENDRIL FIELD (Ridged Streamline Noise)
+          // =========================================================================
+          // Dual-octave ridged noise produces thin, winding spiderweb filaments
+          vec2 tendrilCoord = waterPos / 65.0 + vec2(uTime * 0.04, -uTime * 0.03);
+          float rNoise1 = abs(noise2(tendrilCoord) * 2.0 - 1.0);
+          float rNoise2 = abs(noise2(tendrilCoord * 2.1 + 37.4) * 2.0 - 1.0);
+          float ridgedTendril = 1.0 - (rNoise1 * 0.60 + rNoise2 * 0.40);
+          ridgedTendril = pow(ridgedTendril, 2.0);
+
+          // Tendrils reach outward strictly from the patch perimeter (sprouting fingers into surrounding water)
+          float tendrilSprout = smoothstep(0.08, 0.35, rawEnergy) * (1.0 - smoothstep(0.45, 0.85, rawEnergy));
+          float tendrilProjection = ridgedTendril * tendrilSprout * 0.85 * tendrilStrength;
+          float totalEnergy = clamp(modulatedEnergy + tendrilProjection, 0.0, 2.5);
+
+          // Macro outer envelope: low threshold allows delicate spindrift wisps to dissolve into open water
+          float outerEnvelope = smoothstep(0.02, 0.32, totalEnergy);
+          if (outerEnvelope <= 0.001) {
+            gl_FragColor = vec4(oceanColor, 1.0);
+            return;
+          }
+
+          // =========================================================================
+          // 5. UNIFIED CELLULAR VORONOI LACE & PERFORATION PASS
+          // =========================================================================
+          // Voronoi cellular network spans seamlessly across merged patches!
+          float voroMacro = voronoiBubbles(waterPos * 0.036);
+          float voroMeso = voronoiBubbles(waterPos * 0.078 + 19.4);
+          float voroMicro = voronoiBubbles(waterPos * 0.18 + 73.1);
+
+          float cloudFbm = fbm(waterPos * 0.055) * 0.55 + fbm(waterPos * 0.11 + 31.2) * 0.45;
+
+          // Hollow bubble perforation
+          float perforateProgress = smoothstep(0.08, 0.72, blendedAge) * perforateRate;
+          float cellInterior = voroMacro * 0.50 + voroMeso * 0.50;
+          float holeCutoff = mix(0.72, 0.20, clamp(perforateProgress, 0.0, 1.0));
+          float holeMask = smoothstep(holeCutoff, holeCutoff + 0.22, cellInterior);
+
+          // Lacy filaments
+          float wallWidth = mix(0.40, 0.12 / max(laceFineness, 0.4), smoothstep(0.12, 0.80, blendedAge));
+          wallWidth *= mix(0.55, 1.0, smoothstep(0.02, 0.25, totalEnergy));
+          float filamentLace = 1.0 - smoothstep(0.0, wallWidth, voroMeso);
+          float detailedLace = filamentLace * (voroMicro * 0.40 + 0.60);
+
+          // Transition from early cloud to lace
+          float earlyCloud = smoothstep(0.28, 0.65, cloudFbm) * (voroMeso * 0.4 + 0.6);
+          float morphProgress = smoothstep(0.12, 0.50, blendedAge);
+          float foamBody = mix(earlyCloud, detailedLace, morphProgress);
+
+          // Apply holes
+          foamBody = clamp(foamBody - holeMask * smoothstep(0.15, 0.60, blendedAge) * 0.95, 0.0, 1.0);
+
+          // Add fine tendril wisps along filament ridges
+          float edgeWisps = filamentLace * smoothstep(0.35, 0.60, cloudFbm) * 0.45;
+          foamBody = clamp(foamBody + edgeWisps * (1.0 - holeMask), 0.0, 1.0);
+
+          // =========================================================================
+          // 6. DISSOLVING INTO FLOATING CRUMBS
+          // =========================================================================
+          float decayProgress = smoothstep(0.35, 1.0, blendedAge) * decayRate;
+          float crumbNoise = noise2(waterPos * 0.22 + vec2(uTime * 0.15, -uTime * 0.1));
+          float dissolveCutoff = decayProgress * 0.88;
+          float crumbPersistence = smoothstep(dissolveCutoff, dissolveCutoff + 0.24, crumbNoise);
+
+          // Edge feather falloff: preserves full density at advancing lip while softly tapering trailing skirt down to zero
+          float edgeFeather = smoothstep(0.01, 0.28, totalEnergy);
+          float laceFoam = foamBody * outerEnvelope * crumbPersistence * edgeFeather * (1.0 - smoothstep(0.86, 1.0, blendedAge));
+          float totalFoam = clamp(laceFoam + rawFront * 0.95, 0.0, 2.0);
+          float totalHalo = outerEnvelope * smoothstep(0.02, 0.45, blendedAge) * (1.0 - smoothstep(0.65, 0.95, blendedAge)) * (1.0 - holeMask * 0.6) * 0.28;
+
+          // =========================================================================
+          // 7. COMPOSITION & REALISTIC COLORING
+          // =========================================================================
+          vec3 seafoamTurquoise = vec3(0.09, 0.48, 0.55);
+          oceanColor = mix(oceanColor, seafoamTurquoise, totalHalo * 0.75);
+
+          vec3 foamShadow = vec3(0.72, 0.80, 0.86);
+          vec3 foamHighlight = vec3(0.98, 0.99, 1.0);
+          vec3 foamColor = mix(foamShadow, foamHighlight, smoothstep(0.18, 0.65, totalFoam));
+
+          oceanColor = mix(oceanColor, foamColor, clamp(totalFoam * 0.95, 0.0, 0.96));
+
+          gl_FragColor = vec4(oceanColor, 1.0);
+          return;
+        }
+
         // --- GAME ENGINE & RIVER SHORELINE MODE ---
-        // Base ground colors (sand, gravel, wet sand)
         vec3 dryGround = vec3(0.55, 0.48, 0.36) + (fbm(pixelPos * 0.04) - 0.5) * 0.08;
-        vec3 wetGround = dryGround * 0.52; // Darkened wet sand
+        vec3 wetGround = dryGround * 0.48; // Darkened wet sand/mud
 
         // Organic distortion for wave crests
         float nOrganic = fbm(pixelPos * 0.025 + uTime * 0.04);
         float perturbedDist = rawDistPx + (nOrganic - 0.5) * 16.0;
 
-        // Swash surge cycle (wave washing up shore past 0 into dry ground)
-        float swashPeriod = uTime * uSpeed * 0.75 + nOrganic * 2.0;
-        float swashSurge = sin(swashPeriod);
-        float swashDist = perturbedDist - swashSurge * uSwash;
+        // Wave packet segmentation along the shore contour
+        float alongShore = dot(pixelPos, shoreTangent);
+        float packetNoise1 = noise2(vec2(alongShore * 0.008 + uTime * 0.12, rawDistPx * 0.02));
+        float packetNoise2 = noise2(vec2(alongShore * 0.022 - uTime * 0.07, rawDistPx * 0.05 + 30.0));
+        float packetEnv = packetNoise1 * 0.65 + packetNoise2 * 0.35;
+        float discreteMask = smoothstep(0.38, 0.68, packetEnv);
+        float wavePacketGate = mix(1.0, discreteMask, uWaveSegment);
+        float packetPhaseOffset = packetNoise1 * 6.2831 * uWaveSegment;
 
-        // Wet sand fringe on dry shore (swash residue)
+        // Swash surge cycle (washing OVER the top of the boundary onto land)
+        float swashPeriod = uTime * uSpeed * 0.75 + nOrganic * 2.0 + packetPhaseOffset;
+        float swashSurge = sin(swashPeriod);
+
+        // Calculate signed distance: positive inside water, negative outside on land
+        float signedDist = isWater > 0.5 ? perturbedDist : (-rawDistPx);
+        float swashDist = signedDist - swashSurge * uSwash;
+
+        // Wet sand / ground fringe on land where previous wave receded
         float isWetSand = (1.0 - smoothstep(0.0, uWetFringe, -swashDist)) * (1.0 - isWater);
         vec3 groundColor = mix(dryGround, wetGround, isWetSand);
 
@@ -660,10 +2516,14 @@
         vec3 shallowWater = vec3(0.14, 0.65, 0.72);
         vec3 waterTint = mix(shallowWater, deepWater, smoothstep(2.0, 75.0, rawDistPx));
 
-        // Subsurface caustics
-        float c1 = voronoiBubbles(pixelPos * 0.04 + vec2(uTime * 0.15, 0.0));
-        float c2 = voronoiBubbles(pixelPos * 0.07 - vec2(0.0, uTime * 0.12));
-        float caustics = smoothstep(0.1, 0.5, (c1 + c2) * 0.5) * 0.22;
+        // Subsurface caustics with organic domain noise and blurred edges
+        vec2 cWarp1 = vec2(noise2(pixelPos / 95.0 + vec2(uTime * 0.08, -uTime * 0.06)) - 0.5, noise2(pixelPos / 95.0 + vec2(-uTime * 0.07, uTime * 0.09) + 43.1) - 0.5) * 8.0;
+        vec2 cWarp2 = vec2(noise2(pixelPos / 60.0 - vec2(uTime * 0.06, uTime * 0.08) + 71.4) - 0.5, noise2(pixelPos / 60.0 + vec2(uTime * 0.09, -uTime * 0.05) + 18.9) - 0.5) * 6.0;
+        float c1 = voronoiBubbles((pixelPos + cWarp1) * 0.038 + vec2(uTime * 0.12, uTime * 0.08));
+        float c2 = voronoiBubbles((pixelPos + cWarp2) * 0.065 + vec2(-uTime * 0.09, uTime * 0.11) + 24.3);
+        float softC1 = smoothstep(0.04, 0.48, c1);
+        float softC2 = smoothstep(0.03, 0.44, c2);
+        float caustics = pow(softC1 * 0.55 + softC2 * 0.45, 1.35) * 0.24;
         waterTint += vec3(caustics) * smoothstep(12.0, 60.0, rawDistPx);
 
         // --- MODE 0: OCEAN/COVE GAME SHORELINE ---
@@ -676,22 +2536,21 @@
           float localK = uFreq * (1.0 + uShoaling * depthFactor);
 
           // Inward shoreward rolling phase (+dist * localK - t * speed)
-          // Notice: direction of motion is towards shore (dist -> 0)
-          float wavePhase = perturbedDist * localK - uTime * uSpeed * 2.2;
-          float crestShape = pow(max(0.0, sin(wavePhase)), 4.0); // Asymmetric peaked crest
+          float wavePhase = perturbedDist * localK - uTime * uSpeed * 2.2 + packetPhaseOffset;
+          float crestShape = pow(max(0.0, sin(wavePhase)), 4.0);
 
-          // Wave crest envelope (disappears in deep ocean and right on the beach)
+          // Wave crest envelope (disappears in deep ocean, peaks near shore)
           float waveEnvelope = smoothstep(6.0, 24.0, rawDistPx) * smoothstep(uMaxDist * 0.95, 45.0, rawDistPx);
-          waveCrest = crestShape * waveEnvelope;
+          waveCrest = crestShape * waveEnvelope * wavePacketGate;
 
           // Cellular Voronoi foam mask
           float voro = voronoiBubbles(pixelPos * 0.10 + shoreNormal * uTime * 0.35);
           float foamNoise = fbm(pixelPos * 0.06 - vec2(uTime * 0.1));
 
-          // Surf / Swash band at the leading waterline
+          // Swash surf band washing OVER the boundary onto land
           float surfBand = 1.0 - smoothstep(0.0, uFoamWidth, swashDist);
-          float bubbleCells = smoothstep(0.35 * uCellular, 0.72, voro * 0.65 + foamNoise * 0.35);
-          float swashFoam = surfBand * bubbleCells;
+          float bubbleCells = smoothstep(0.30 * uCellular, 0.70, voro * 0.65 + foamNoise * 0.35);
+          float swashFoam = surfBand * bubbleCells * wavePacketGate;
 
           // Breaking foam on the wave crests near shore
           float breakingFoam = waveCrest * smoothstep(55.0, 12.0, rawDistPx) * smoothstep(0.3, 0.7, foamNoise);
@@ -701,38 +2560,34 @@
 
         // --- MODE 1: RIVER BANK FLOW & SHEAR ---
         if (uMode > 0.5 && uMode < 1.5) {
-          // Flow direction vector
           float rad = uFlowAngle * 3.14159 / 180.0;
           vec2 flowDir = vec2(cos(rad), sin(rad));
           vec2 flowPerp = vec2(-flowDir.y, flowDir.x);
 
-          // Bank friction drag: flow speed drops to zero within uBankDrag of shore
           float dragFactor = smoothstep(2.0, uBankDrag, rawDistPx);
           vec2 localFlow = flowDir * dragFactor;
 
-          // Downstream current streamlines
-          float riverWave = sin(dot(pixelPos, flowDir) * uFreq * 0.8 - uTime * uSpeed * 3.0 * dragFactor);
+          float riverWave = sin(dot(pixelPos, flowDir) * uFreq * 0.8 - uTime * uSpeed * 3.0 * dragFactor + packetPhaseOffset * 0.5);
           riverWave = pow(riverWave * 0.5 + 0.5, 2.5);
 
-          // Bank lapping ripples (small stationary transverse ripples along the shore)
-          float bankLapPhase = dot(pixelPos, flowPerp) * 0.12 - uTime * 1.6;
+          float bankLapPhase = dot(pixelPos, flowPerp) * 0.12 - uTime * 1.6 + packetPhaseOffset;
           float bankLap = pow(sin(bankLapPhase) * 0.5 + 0.5, 3.0) * (1.0 - dragFactor);
 
-          waveCrest = riverWave * 0.4 * dragFactor + bankLap * 0.6;
+          waveCrest = (riverWave * 0.4 * dragFactor + bankLap * 0.6) * wavePacketGate;
 
-          // River froth near rocky banks
           float frothVoro = voronoiBubbles(pixelPos * 0.12 + localFlow * uTime * 0.5);
-          float frothBand = 1.0 - smoothstep(0.0, uFoamWidth * 0.65, rawDistPx);
-          foam = frothBand * smoothstep(0.25 * uCellular, 0.65, frothVoro);
+          float frothBand = 1.0 - smoothstep(0.0, uFoamWidth * 0.65, swashDist);
+          foam = frothBand * smoothstep(0.25 * uCellular, 0.65, frothVoro) * wavePacketGate;
         }
 
-        // Final composition: blend ground with water
-        // Alpha of water fades smoothly at shallowest edge
-        float waterAlpha = smoothstep(-1.0, 6.0, swashDist);
-        if (isWater < 0.5 && swashDist > 0.0) waterAlpha = 0.0;
+        // Water Alpha: If inside water, solid water; if on land, alpha reaches past boundary where wave swashed!
+        float waterAlpha = 1.0;
+        if (isWater < 0.5) {
+          // Lapping wave edging OUT of its assumed boundary onto the land
+          waterAlpha = smoothstep(0.0, -uSwash * 0.8, swashDist) * wavePacketGate;
+        }
 
         vec3 waterColor = waterTint + vec3(waveCrest * 0.32);
-        // Add white foam
         waterColor = mix(waterColor, vec3(0.96, 0.98, 1.0), foam * 0.92);
 
         vec3 finalColor = mix(groundColor, waterColor, waterAlpha);
@@ -743,7 +2598,7 @@
 
     // --- WebGL Initialization ---
     function initGL() {
-      gl = canvas.getContext('webgl');
+      gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
       if (!gl) {
         alert('WebGL not supported');
         return;
@@ -802,6 +2657,21 @@
       uWetFLoc = gl.getUniformLocation(program, 'uWetFringe');
       uFlowAngleLoc = gl.getUniformLocation(program, 'uFlowAngle');
       uBankDragLoc = gl.getUniformLocation(program, 'uBankDrag');
+      uWaveSegmentLoc = gl.getUniformLocation(program, 'uWaveSegment');
+      uChopLoc = gl.getUniformLocation(program, 'uChop');
+      uWhitecapsLoc = gl.getUniformLocation(program, 'uWhitecaps');
+      uSwellScaleLoc = gl.getUniformLocation(program, 'uSwellScale');
+      uSunGlintLoc = gl.getUniformLocation(program, 'uSunGlint');
+      uSpindriftWakeLoc = gl.getUniformLocation(program, 'uSpindriftWake');
+      uCrestBoundLoc = gl.getUniformLocation(program, 'uCrestBound');
+      uFoamHfWeightLoc = gl.getUniformLocation(program, 'uFoamHfWeight');
+      uCSpritePosDirLoc = gl.getUniformLocation(program, 'uCSpritePosDir');
+      uCSpriteParams1Loc = gl.getUniformLocation(program, 'uCSpriteParams1');
+      uCSpriteParams2Loc = gl.getUniformLocation(program, 'uCSpriteParams2');
+      uFoamPosDirLoc = gl.getUniformLocation(program, 'uFoamPosDir');
+      uFoamParams1Loc = gl.getUniformLocation(program, 'uFoamParams1');
+      uFoamParams2Loc = gl.getUniformLocation(program, 'uFoamParams2');
+      uFoamParams3Loc = gl.getUniformLocation(program, 'uFoamParams3');
 
       // SDF Texture
       sdfTexture = gl.createTexture();
@@ -811,7 +2681,7 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-      setPresetRiver();
+      setPresetFoam();
       resizeCanvas();
     }
 
@@ -854,18 +2724,62 @@
       if (changed) computeEDT();
     }
 
+    let isAimingCSprite = false;
+
     canvas.addEventListener('pointerdown', (e) => {
+      if (state.mode === 7) {
+        const rect = canvas.getBoundingClientRect();
+        state.foamX = Math.max(0.05, Math.min(0.95, (e.clientX - rect.left) / rect.width));
+        state.foamY = Math.max(0.05, Math.min(0.95, (e.clientY - rect.top) / rect.height));
+        state.foamAge = 0.0;
+        const slAge = document.getElementById('slFoamAge');
+        const valAge = document.getElementById('valFoamAge');
+        if (slAge && valAge) {
+          slAge.value = 0.0;
+          valAge.textContent = '0.00';
+        }
+        return;
+      }
+      if (state.mode === 6) {
+        isAimingCSprite = true;
+        const rect = canvas.getBoundingClientRect();
+        state.cSpriteX = Math.max(0.05, Math.min(0.95, (e.clientX - rect.left) / rect.width));
+        state.cSpriteY = Math.max(0.05, Math.min(0.95, (e.clientY - rect.top) / rect.height));
+        return;
+      }
       if (!state.paintMode) return;
       isDrawing = true;
       applyBrush(e.clientX, e.clientY, e.button !== 2);
     });
 
     window.addEventListener('pointermove', (e) => {
+      if (isAimingCSprite && state.mode === 6) {
+        const rect = canvas.getBoundingClientRect();
+        const curX = (e.clientX - rect.left) / rect.width;
+        const curY = (e.clientY - rect.top) / rect.height;
+        const dx = (curX - state.cSpriteX) * rect.width;
+        const dy = (curY - state.cSpriteY) * rect.height;
+        if (Math.hypot(dx, dy) > 8) {
+          let deg = Math.atan2(dy, dx) * 180.0 / Math.PI;
+          if (deg < 0) deg += 360.0;
+          state.cSpriteAngle = deg;
+          const slAngle = document.getElementById('slCSpriteAngle');
+          const valAngle = document.getElementById('valCSpriteAngle');
+          if (slAngle && valAngle) {
+            slAngle.value = deg;
+            valAngle.textContent = `${deg.toFixed(0)}°`;
+          }
+        }
+        return;
+      }
       if (!isDrawing || !state.paintMode) return;
       applyBrush(e.clientX, e.clientY, e.buttons !== 2);
     });
 
-    window.addEventListener('pointerup', () => { isDrawing = false; });
+    window.addEventListener('pointerup', () => {
+      isDrawing = false;
+      isAimingCSprite = false;
+    });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // --- Render Loop ---
@@ -903,6 +2817,71 @@
       gl.uniform1f(uWetFLoc, state.wetFringe);
       gl.uniform1f(uFlowAngleLoc, state.flowAngle);
       gl.uniform1f(uBankDragLoc, state.bankDrag);
+      gl.uniform1f(uWaveSegmentLoc, state.waveSegment);
+      gl.uniform1f(uChopLoc, state.chop);
+      gl.uniform1f(uWhitecapsLoc, state.whitecaps);
+      gl.uniform1f(uSwellScaleLoc, state.swellScale);
+      gl.uniform1f(uSunGlintLoc, state.sunGlint);
+      gl.uniform1f(uSpindriftWakeLoc, state.spindriftWake ? 1.0 : 0.0);
+      gl.uniform1f(uCrestBoundLoc, state.crestBound ? 1.0 : 0.0);
+      gl.uniform1f(uFoamHfWeightLoc, state.foamHfWeight);
+
+      // C-Wave Sprite position and lifecycle calculations
+      let cAge = state.cSpriteAge;
+      let cPosX = state.cSpriteX * canvas.width;
+      let cPosY = state.cSpriteY * canvas.height;
+      const angleRad = state.cSpriteAngle * Math.PI / 180.0;
+      const dirX = Math.cos(angleRad);
+      const dirY = Math.sin(angleRad);
+
+      if (state.cSpriteAutoPlay && state.mode === 6) {
+        const cyclePeriod = 3.6; // seconds per wave lifecycle
+        const tCycle = (timeSec % cyclePeriod) / cyclePeriod;
+        cAge = tCycle;
+        const travelDist = (cAge - 0.5) * (state.cSpriteSpeed * 2.8);
+        cPosX = (state.cSpriteX * canvas.width) + dirX * travelDist;
+        cPosY = (state.cSpriteY * canvas.height) + dirY * travelDist;
+
+        const ageSlider = document.getElementById('slCSpriteAge');
+        const ageLabel = document.getElementById('valCSpriteAge');
+        if (ageSlider && ageLabel) {
+          ageSlider.value = cAge;
+          ageLabel.textContent = cAge.toFixed(2);
+        }
+      }
+
+      gl.uniform4f(uCSpritePosDirLoc, cPosX, cPosY, dirX, dirY);
+      gl.uniform4f(uCSpriteParams1Loc, state.cSpriteSpan, state.cSpriteCurv, cAge, state.cSpriteLens);
+      gl.uniform4f(uCSpriteParams2Loc, state.cSpriteFoam, state.cSpriteSpray, state.cSpriteFrontThick, state.cSpriteSpeed);
+
+      // Seafoam position and lifecycle calculations (Mode 7)
+      let fAge = state.foamAge;
+      let fPosX = state.foamX * canvas.width;
+      let fPosY = state.foamY * canvas.height;
+      const foamAngleRad = state.foamAngle * Math.PI / 180.0;
+      const fDirX = Math.cos(foamAngleRad);
+      const fDirY = Math.sin(foamAngleRad);
+
+      if (state.foamAutoPlay && state.mode === 7) {
+        const cyclePeriod = 5.0; // 5.0 seconds per foam lifecycle
+        const tCycle = (timeSec % cyclePeriod) / cyclePeriod;
+        fAge = tCycle;
+        // Fixed starting point of the wave front eruption:
+        fPosX = state.foamX * canvas.width;
+        fPosY = state.foamY * canvas.height;
+
+        const ageSlider = document.getElementById('slFoamAge');
+        const ageLabel = document.getElementById('valFoamAge');
+        if (ageSlider && ageLabel) {
+          ageSlider.value = fAge;
+          ageLabel.textContent = fAge.toFixed(2);
+        }
+      }
+
+      gl.uniform4f(uFoamPosDirLoc, fPosX, fPosY, fDirX, fDirY);
+      gl.uniform4f(uFoamParams1Loc, state.foamExpand, state.foamPerforate, state.foamLace, state.foamDecay);
+      gl.uniform4f(uFoamParams2Loc, state.foamWaveSync, state.foamScale, fAge, state.foamSpeed);
+      gl.uniform4f(uFoamParams3Loc, state.foamTendrils, state.foamDepthMask, state.foamPinch, 0.0);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
 
@@ -915,6 +2894,9 @@
 
       // Mode buttons
       const modeButtons = [
+        { btn: 'btnModeFoam', mode: 7 },
+        { btn: 'btnModeCSprite', mode: 6 },
+        { btn: 'btnModeOcean', mode: 5 },
         { btn: 'btnModeGame', mode: 0 },
         { btn: 'btnModeRiver', mode: 1 },
         { btn: 'btnModeOld', mode: 2 },
@@ -922,7 +2904,12 @@
         { btn: 'btnModeDebugNormals', mode: 4 }
       ];
 
-      function setActiveTab(activeMode) {
+      setActiveTab = function(activeMode) {
+        state.mode = activeMode;
+      };
+      window.setActiveTab = setActiveTab;
+      window.state = state;
+      setActiveTab = function(activeMode) {
         state.mode = activeMode;
         modeButtons.forEach(({ btn, mode }) => {
           const el = document.getElementById(btn);
@@ -932,13 +2919,20 @@
             el.className = 'px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition';
           }
         });
-      }
+        const foamSection = document.getElementById('foamControls');
+        const cSpriteSection = document.getElementById('cSpriteControls');
+        if (foamSection) foamSection.style.display = activeMode === 7 ? 'block' : 'none';
+        if (cSpriteSection) cSpriteSection.style.display = activeMode === 6 ? 'block' : 'none';
+      };
 
       modeButtons.forEach(({ btn, mode }) => {
         document.getElementById(btn).addEventListener('click', () => setActiveTab(mode));
       });
 
       // Presets
+      document.getElementById('presetFoam').addEventListener('click', () => { setPresetFoam(); setActiveTab(7); });
+      document.getElementById('presetCSprite').addEventListener('click', () => { setPresetCSprite(); setActiveTab(6); });
+      document.getElementById('presetOcean').addEventListener('click', () => { setPresetOcean(); setActiveTab(5); });
       document.getElementById('presetRiver').addEventListener('click', () => { setPresetRiver(); setActiveTab(1); });
       document.getElementById('presetCoast').addEventListener('click', () => { setPresetCoast(); setActiveTab(0); });
       document.getElementById('presetIslands').addEventListener('click', () => { setPresetIslands(); setActiveTab(0); });
@@ -960,16 +2954,101 @@
       linkSlider('slFreq', 'valFreq', 'waveFreq', v => v.toFixed(3));
       linkSlider('slShoaling', 'valShoaling', 'waveShoaling', v => v.toFixed(1));
       linkSlider('slSwash', 'valSwash', 'swashReach', v => `${v.toFixed(0)}px`);
+      linkSlider('slSegment', 'valSegment', 'waveSegment', v => v === 0 ? 'Uniform Halo' : `${v.toFixed(2)} (Discrete)`);
       linkSlider('slFoamWidth', 'valFoamWidth', 'foamWidth', v => `${v.toFixed(0)}px`);
       linkSlider('slCellular', 'valCellular', 'cellularBreakup', v => v.toFixed(2));
       linkSlider('slWetFringe', 'valWetFringe', 'wetFringe', v => `${v.toFixed(0)}px`);
       linkSlider('slFlowAngle', 'valFlowAngle', 'flowAngle', v => `${v.toFixed(0)}°`);
       linkSlider('slBankDrag', 'valBankDrag', 'bankDrag', v => `${v.toFixed(0)}px`);
+      linkSlider('slChop', 'valChop', 'chop', v => v.toFixed(2));
+      linkSlider('slWhitecaps', 'valWhitecaps', 'whitecaps', v => v.toFixed(2));
+      linkSlider('slSwellScale', 'valSwellScale', 'swellScale', v => `${v.toFixed(0)}px`);
+      linkSlider('slSunGlint', 'valSunGlint', 'sunGlint', v => v.toFixed(2));
+      linkSlider('slFoamHfWeight', 'valFoamHfWeight', 'foamHfWeight', v => v.toFixed(2));
+
+      const chkWake = document.getElementById('chkSpindriftWake');
+      if (chkWake) {
+        chkWake.checked = state.spindriftWake;
+        chkWake.addEventListener('change', (e) => {
+          state.spindriftWake = e.target.checked;
+        });
+      }
+      const chkCrest = document.getElementById('chkCrestBound');
+      if (chkCrest) {
+        chkCrest.checked = state.crestBound;
+        chkCrest.addEventListener('change', (e) => {
+          state.crestBound = e.target.checked;
+        });
+      }
+
+      // Seafoam Mechanics Sliders (Mode 7)
+      linkSlider('slFoamScale', 'valFoamScale', 'foamScale', v => `${v.toFixed(0)}px`);
+      linkSlider('slFoamExpand', 'valFoamExpand', 'foamExpand', v => `${v.toFixed(2)}x`);
+      linkSlider('slFoamPerforate', 'valFoamPerforate', 'foamPerforate', v => v.toFixed(2));
+      linkSlider('slFoamLace', 'valFoamLace', 'foamLace', v => v.toFixed(2));
+      linkSlider('slFoamDecay', 'valFoamDecay', 'foamDecay', v => v.toFixed(2));
+      linkSlider('slFoamWaveSync', 'valFoamWaveSync', 'foamWaveSync', v => v.toFixed(2));
+      linkSlider('slFoamTendrils', 'valFoamTendrils', 'foamTendrils', v => v.toFixed(2));
+      linkSlider('slFoamDepthMask', 'valFoamDepthMask', 'foamDepthMask', v => v.toFixed(2));
+      linkSlider('slFoamPinch', 'valFoamPinch', 'foamPinch', v => v.toFixed(2));
+      linkSlider('slFoamAge', 'valFoamAge', 'foamAge', v => v.toFixed(2));
+
+      const btnFoamAuto = document.getElementById('btnFoamAuto');
+      if (btnFoamAuto) {
+        btnFoamAuto.addEventListener('click', () => {
+          state.foamAutoPlay = !state.foamAutoPlay;
+          if (state.foamAutoPlay) {
+            btnFoamAuto.textContent = 'Auto Loop: ON';
+            btnFoamAuto.className = 'px-2.5 py-1 rounded text-xs font-semibold bg-cyan-500 text-slate-950 shadow-sm transition';
+          } else {
+            btnFoamAuto.textContent = 'Auto Loop: PAUSED';
+            btnFoamAuto.className = 'px-2.5 py-1 rounded text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 transition';
+          }
+        });
+      }
+
+      // C-Wave Sprite Sliders
+      linkSlider('slCSpriteWidth', 'valCSpriteWidth', 'cSpriteSpan', v => `${v.toFixed(0)}px`);
+      linkSlider('slCSpriteCurv', 'valCSpriteCurv', 'cSpriteCurv', v => v.toFixed(4));
+      linkSlider('slCSpriteLens', 'valCSpriteLens', 'cSpriteLens', v => v.toFixed(2));
+      linkSlider('slCSpriteFoam', 'valCSpriteFoam', 'cSpriteFoam', v => v.toFixed(2));
+      linkSlider('slCSpriteSpray', 'valCSpriteSpray', 'cSpriteSpray', v => v.toFixed(2));
+      linkSlider('slCSpriteSpeed', 'valCSpriteSpeed', 'cSpriteSpeed', v => `${v.toFixed(0)} px/s`);
+      linkSlider('slCSpriteAngle', 'valCSpriteAngle', 'cSpriteAngle', v => `${v.toFixed(0)}°`);
+      linkSlider('slCSpriteAge', 'valCSpriteAge', 'cSpriteAge', v => v.toFixed(2));
+
+      const btnAuto = document.getElementById('btnCSpriteAuto');
+      if (btnAuto) {
+        btnAuto.addEventListener('click', () => {
+          state.cSpriteAutoPlay = !state.cSpriteAutoPlay;
+          if (state.cSpriteAutoPlay) {
+            btnAuto.textContent = 'Auto Loop: ON';
+            btnAuto.className = 'px-2.5 py-1 rounded text-xs font-semibold bg-cyan-500 text-slate-950 shadow-sm transition';
+          } else {
+            btnAuto.textContent = 'Auto Loop: PAUSED';
+            btnAuto.className = 'px-2.5 py-1 rounded text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 transition';
+          }
+        });
+      }
     }
 
     // Start
     initGL();
     setupUI();
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('preset') === 'foam' || urlParams.get('mode') === '7') {
+      setPresetFoam();
+      setActiveTab(7);
+    } else if (urlParams.get('preset') === 'csprite' || urlParams.get('mode') === '6') {
+      setPresetCSprite();
+      setActiveTab(6);
+    } else if (urlParams.get('preset') === 'ocean' || urlParams.get('mode') === '5') {
+      setPresetOcean();
+      setActiveTab(5);
+    } else {
+      setPresetFoam();
+      setActiveTab(7);
+    }
     requestAnimationFrame(render);
   </script>
 </body>

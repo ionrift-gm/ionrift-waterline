@@ -1,4 +1,3 @@
-import { BorderControls } from './border/BorderControls.js';
 import { WaterManager } from './water/WaterManager.js';
 import { WaterConfigDialog } from './water/WaterConfigDialog.js';
 import { WakeManager } from './water/WakeManager.js';
@@ -39,18 +38,6 @@ Hooks.once('init', async () => {
     ]);
 
     // ── Hidden / world settings ──────────────────────────────────────────────
-    game.settings.register(MODULE_ID, 'borderConfig', {
-        scope: 'world',
-        config: false,
-        type: Object,
-        default: {
-            totalVertices: 29,
-            amplitude: 244,
-            jitter: 0.5,
-            inset: 7
-        }
-    });
-
     game.settings.register(MODULE_ID, 'waterCustomPresets', {
         scope: 'world',
         config: false,
@@ -80,9 +67,9 @@ Hooks.once('init', async () => {
         name: 'IonriftWaterline.SettingsRippleTuning',
         label: 'IonriftWaterline.SettingsRippleTuningLabel',
         hint: 'IonriftWaterline.SettingsRippleTuningHint',
-        icon: 'fas fa-sliders-h',
+        icon: 'fas fa-water',
         type: class extends FormApplication {
-            render() { WaterlineStudioApp.show({ tab: 'wake' }); return this; }
+            render() { WaterlineStudioApp.show(); return this; }
             async _updateObject() {}
             get template() { return ''; }
         },
@@ -90,7 +77,15 @@ Hooks.once('init', async () => {
     });
 
     // ── Footer: SettingsLayout wires Discord, Wiki, and places debug last ─────
-    const SettingsLayout = game.ionrift?.library?.SettingsLayout;
+    let SettingsLayout = game.ionrift?.library?.SettingsLayout;
+    if (!SettingsLayout) {
+        try {
+            const mod = await import('../../ionrift-library/scripts/utils/SettingsLayout.js');
+            SettingsLayout = mod?.SettingsLayout;
+        } catch (e) {
+            console.warn('Ionrift Waterline | SettingsLayout unavailable:', e);
+        }
+    }
     if (SettingsLayout) {
         SettingsLayout.registerFooter(MODULE_ID, {
             wiki: 'https://github.com/ionrift-gm/ionrift-waterline/wiki'
@@ -119,8 +114,7 @@ Hooks.on('updateSetting', (setting) => {
     }
 });
 // ---------------------------------------------------------------
-// Scene Controls: Add border tools to the Walls palette,
-// and Waterline on the Regions palette
+// Scene Controls: Waterline on the Regions palette.
 // ---------------------------------------------------------------
 Hooks.on('getSceneControlButtons', (controls) => {
     if (!game.user.isGM) return;
@@ -128,28 +122,6 @@ Hooks.on('getSceneControlButtons', (controls) => {
     const isV13 = !Array.isArray(controls);
 
     if (isV13) {
-        // Inject border tools into the walls control group
-        if (controls.walls?.tools) {
-            controls.walls.tools['generate-border'] = {
-                name: 'generate-border',
-                title: 'Generate Border Walls',
-                icon: 'fas fa-mountain',
-                order: 20,
-                button: true,
-                onClick: () => BorderControls.showDialog(),
-                onChange: () => {}
-            };
-            controls.walls.tools['clear-border'] = {
-                name: 'clear-border',
-                title: 'Clear Border Walls',
-                icon: 'fas fa-trash-alt',
-                order: 21,
-                button: true,
-                onClick: () => BorderControls.confirmClear(),
-                onChange: () => {}
-            };
-        }
-
         // Inject Waterline into the regions control group
         if (controls.regions?.tools) {
             controls.regions.tools['waterline-studio'] = {
@@ -163,17 +135,6 @@ Hooks.on('getSceneControlButtons', (controls) => {
             };
         }
     } else {
-        // v12: find the walls control and inject tools
-        const wallsControl = controls.find(c => c.name === 'walls');
-        if (wallsControl?.tools) {
-            wallsControl.tools.push(
-                { name: 'generate-border', title: 'Generate Border Walls',
-                  icon: 'fas fa-mountain', onClick: () => BorderControls.showDialog(), button: true },
-                { name: 'clear-border', title: 'Clear Border Walls',
-                  icon: 'fas fa-trash-alt', onClick: () => BorderControls.confirmClear(), button: true }
-            );
-        }
-
         // v12: inject Waterline into the regions control
         const regionsControl = controls.find(c => c.name === 'regions');
         if (regionsControl?.tools) {

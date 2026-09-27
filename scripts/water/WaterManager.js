@@ -1,4 +1,4 @@
-import { WaterMesh } from './WaterMesh.js';
+import { WaterMesh } from './WaterMesh.js?v=0.2.9.1';
 
 const MODULE_ID = 'ionrift-waterline';
 const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
@@ -6,16 +6,104 @@ const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) c
 /**
  * Water body type presets. Each maps to a set of uniform defaults.
  */
+/**
+ * Tabletop Fluid Archetypes with distinct visual identities and fantasy roles.
+ */
+export const WATER_ARCHETYPES = {
+    ocean: {
+        key: 'ocean',
+        label: 'Ocean',
+        icon: 'fas fa-sailboat',
+        accentColor: '#3b82f6',
+        defaultPreset: 'ocean_choppy',
+        description: 'Vast rolling swells, deep ocean chop, and seafoam whitecaps.'
+    },
+    coast: {
+        key: 'coast',
+        label: 'Coastline',
+        icon: 'fas fa-umbrella-beach',
+        accentColor: '#0d9488',
+        defaultPreset: 'coast',
+        description: 'Breaking coastal surf, tidal swash surges, and shallow reefs.'
+    },
+    lake: {
+        key: 'lake',
+        label: 'Lake',
+        icon: 'fas fa-compass',
+        accentColor: '#0284c7',
+        defaultPreset: 'lake',
+        description: 'Placid mirror glass, gentle wind ruffles, and bottomless tarns.'
+    },
+    river: {
+        key: 'river',
+        label: 'River',
+        icon: 'fas fa-water',
+        accentColor: '#06b6d4',
+        defaultPreset: 'river',
+        description: 'Directional current, tumbling white-water rapids, and forest creeks.'
+    },
+    pond: {
+        key: 'pond',
+        label: 'Pond',
+        icon: 'fas fa-spa',
+        accentColor: '#059669',
+        defaultPreset: 'pond_woodland',
+        description: 'Small inland pools, garden springs, hot springs, and cavern grottos.'
+    },
+    puddle: {
+        key: 'puddle',
+        label: 'Puddle',
+        icon: 'fas fa-tint',
+        accentColor: '#d97706',
+        defaultPreset: 'puddle_rain',
+        description: 'Rain ruts, shallow damp cobblestones, murky slimes, and spilled liquid.'
+    }
+};
+
+/**
+ * Water body type presets organized by Tabletop Archetype.
+ */
 export const WATER_PRESETS = {
-    custom:  { label: 'Custom',          opacity: 0.20, speed: 0.80, distortion: 0.020, intensity: 0.50, fadeWidth: 50, scale: 110, flowAngle: 0,   shoreWaves: 0.10 },
-    torrent: { label: 'Mountain Rapids', opacity: 0.12, speed: 1.85, distortion: 0.038, intensity: 0.30, fadeWidth: 45, scale: 75,  flowAngle: 90,  shoreWaves: 0.40 },
-    river:   { label: 'River / Stream',  opacity: 0.15, speed: 1.40, distortion: 0.035, intensity: 0.25, fadeWidth: 60, scale: 90,  flowAngle: 90,  shoreWaves: 0.15 },
-    coast:   { label: 'Coastal Surf',    opacity: 0.20, speed: 0.85, distortion: 0.020, intensity: 0.65, fadeWidth: 65, scale: 135, flowAngle: 270, shoreWaves: 0.55 },
-    lake:    { label: 'Calm Lake',       opacity: 0.16, speed: 0.55, distortion: 0.015, intensity: 0.45, fadeWidth: 50, scale: 110, flowAngle: 0,   shoreWaves: 0.08 },
-    deep:    { label: 'Ocean Swell',     opacity: 0.32, speed: 0.70, distortion: 0.024, intensity: 0.80, fadeWidth: 90, scale: 160, flowAngle: 45,  shoreWaves: 0.20 },
-    swamp:   { label: 'Murky Bayou',     opacity: 0.28, speed: 0.40, distortion: 0.018, intensity: 0.12, fadeWidth: 40, scale: 100, flowAngle: 180, shoreWaves: 0.00, colorOverride: '#2e3a1f' },
-    cistern: { label: 'Dungeon Cistern', opacity: 0.16, speed: 0.50, distortion: 0.015, intensity: 0.40, fadeWidth: 30, scale: 80,  flowAngle: 15,  shoreWaves: 0.05 },
-    puddle:  { label: 'Rain Puddle',     opacity: 0.14, speed: 0.85, distortion: 0.025, intensity: 0.25, fadeWidth: 20, scale: 50,  flowAngle: 0,   shoreWaves: 0.00 }
+    // Custom fallback
+    custom:         { label: 'Custom',            archetype: 'ocean',  opacity: 0.20, speed: 0.80, distortion: 0.020, intensity: 0.50, fadeWidth: 50, scale: 110, flowAngle: 0,   shoreWaves: 0.10, waveSegment: 0.85, waveRegularity: 0.60, swashSurge: 24.0, choppySeas: 0.00, whitecaps: 0.00, sunGlint: 0.00 },
+
+    // 1. Open Sea / Ocean
+    ocean_choppy:   { label: 'Choppy Sea',        archetype: 'ocean',  opacity: 0.34, speed: 0.85, distortion: 0.026, intensity: 0.75, fadeWidth: 85, scale: 130, flowAngle: 45,  shoreWaves: 0.15, waveSegment: 0.85, waveRegularity: 0.50, swashSurge: 28.0, choppySeas: 0.90, whitecaps: 0.75, sunGlint: 0.80, colorOverride: '#0b2648' },
+    ocean_swell:    { label: 'Ocean Swells',      archetype: 'ocean',  opacity: 0.32, speed: 0.70, distortion: 0.022, intensity: 0.75, fadeWidth: 85, scale: 160, flowAngle: 30,  shoreWaves: 0.12, waveSegment: 0.85, waveRegularity: 0.70, swashSurge: 26.0, choppySeas: 0.65, whitecaps: 0.35, sunGlint: 0.75, colorOverride: '#0a3055' },
+    ocean_storm:    { label: 'Stormy Sea',        archetype: 'ocean',  opacity: 0.36, speed: 1.20, distortion: 0.035, intensity: 0.85, fadeWidth: 90, scale: 220, flowAngle: 60,  shoreWaves: 0.25, waveSegment: 0.90, waveRegularity: 0.35, swashSurge: 42.0, choppySeas: 1.35, whitecaps: 1.25, sunGlint: 0.90, colorOverride: '#16232e' },
+    ocean_calm:     { label: 'Calm Sea',          archetype: 'ocean',  opacity: 0.40, speed: 0.45, distortion: 0.018, intensity: 0.60, fadeWidth: 100, scale: 190, flowAngle: 45, shoreWaves: 0.05, waveSegment: 0.85, waveRegularity: 0.80, swashSurge: 20.0, choppySeas: 0.50, whitecaps: 0.20, sunGlint: 0.40, colorOverride: '#051329' },
+
+    // 2. Shoreline / Coast
+    coast:          { label: 'Coastal Surf',      archetype: 'coast',  opacity: 0.20, speed: 0.85, distortion: 0.020, intensity: 0.65, fadeWidth: 65, scale: 135, flowAngle: 270, shoreWaves: 0.55, waveSegment: 0.90, waveRegularity: 0.60, swashSurge: 34.0, choppySeas: 0.35, whitecaps: 0.30, sunGlint: 0.50 },
+    coast_gentle:   { label: 'Gentle Tide',       archetype: 'coast',  opacity: 0.18, speed: 0.55, distortion: 0.016, intensity: 0.45, fadeWidth: 55, scale: 110, flowAngle: 270, shoreWaves: 0.30, waveSegment: 0.85, waveRegularity: 0.75, swashSurge: 20.0, choppySeas: 0.15, whitecaps: 0.10, sunGlint: 0.45 },
+    bay_chop:       { label: 'Bay Chop',          archetype: 'coast',  opacity: 0.22, speed: 0.90, distortion: 0.018, intensity: 0.60, fadeWidth: 55, scale: 75,  flowAngle: 120, shoreWaves: 0.30, waveSegment: 0.80, waveRegularity: 0.40, swashSurge: 18.0, choppySeas: 0.65, whitecaps: 0.40, sunGlint: 0.60, colorOverride: '#10485c' },
+    coast_crashing: { label: 'Crashing Surf',     archetype: 'coast',  opacity: 0.26, speed: 1.15, distortion: 0.028, intensity: 0.85, fadeWidth: 75, scale: 145, flowAngle: 270, shoreWaves: 0.85, waveSegment: 0.92, waveRegularity: 0.30, swashSurge: 46.0, choppySeas: 0.60, whitecaps: 0.65, sunGlint: 0.70, colorOverride: '#0e3a4d' },
+
+    // 3. Lake / Deep Water
+    lake:           { label: 'Calm Lake',         archetype: 'lake',   opacity: 0.15, speed: 0.20, distortion: 0.010, intensity: 0.35, fadeWidth: 50, scale: 140, flowAngle: 0,   shoreWaves: 0.08, waveSegment: 0.70, waveRegularity: 0.85, swashSurge: 5.0,  choppySeas: 0.00, riverWaves: 0.00, lakeWaves: 0.08, lakeRings: true,  whitecaps: 0.00, sunGlint: 0.20, colorOverride: '#0a2940' },
+    lake_windswept: { label: 'Windy Lake',        archetype: 'lake',   opacity: 0.22, speed: 0.60, distortion: 0.020, intensity: 0.55, fadeWidth: 60, scale: 95,  flowAngle: 60,  shoreWaves: 0.20, waveSegment: 0.75, waveRegularity: 0.45, swashSurge: 11.0, choppySeas: 0.00, riverWaves: 0.00, lakeWaves: 0.65, lakeRings: true,  whitecaps: 0.10, sunGlint: 0.50, colorOverride: '#103d4a' },
+    deep:           { label: 'Deep Lake',         archetype: 'lake',   opacity: 0.30, speed: 0.40, distortion: 0.018, intensity: 0.50, fadeWidth: 80, scale: 150, flowAngle: 45,  shoreWaves: 0.15, waveSegment: 0.80, waveRegularity: 0.65, swashSurge: 10.0, choppySeas: 0.00, riverWaves: 0.00, lakeWaves: 0.30, lakeRings: false, whitecaps: 0.05, sunGlint: 0.40, colorOverride: '#071e33' },
+
+    // 4. River / Stream
+    river:          { label: 'Meandering Stream', archetype: 'river',  opacity: 0.15, speed: 1.40, distortion: 0.035, intensity: 0.25, fadeWidth: 60, scale: 90,  flowAngle: 90,  shoreWaves: 0.20, waveSegment: 0.85, waveRegularity: 0.60, swashSurge: 16.0, choppySeas: 0.00, riverWaves: 0.65, whitecaps: 0.14, sunGlint: 0.35 },
+    torrent:        { label: 'Mountain Rapids',   archetype: 'river',  opacity: 0.12, speed: 1.85, distortion: 0.038, intensity: 0.30, fadeWidth: 45, scale: 75,  flowAngle: 90,  shoreWaves: 0.50, waveSegment: 0.80, waveRegularity: 0.15, swashSurge: 24.0, choppySeas: 0.00, riverWaves: 0.95, whitecaps: 0.42, sunGlint: 0.55 },
+    river_forest:   { label: 'Forest Brook',      archetype: 'river',  opacity: 0.14, speed: 1.05, distortion: 0.025, intensity: 0.20, fadeWidth: 50, scale: 80,  flowAngle: 90,  shoreWaves: 0.12, waveSegment: 0.75, waveRegularity: 0.70, swashSurge: 10.0, choppySeas: 0.00, riverWaves: 0.45, whitecaps: 0.08, sunGlint: 0.25 },
+    canal:          { label: 'Calm Canal',        archetype: 'river',  opacity: 0.18, speed: 0.90, distortion: 0.015, intensity: 0.25, fadeWidth: 20, scale: 85,  flowAngle: 90,  shoreWaves: 0.04, waveSegment: 0.80, waveRegularity: 0.85, swashSurge: 4.0,  choppySeas: 0.00, riverWaves: 0.20, whitecaps: 0.02, sunGlint: 0.20 },
+
+    // 5. Pond / Small Body
+    pond_woodland:  { label: 'Woodland Pond',     archetype: 'pond',   opacity: 0.18, speed: 0.35, distortion: 0.012, intensity: 0.30, fadeWidth: 45, scale: 90,  flowAngle: 30,  shoreWaves: 0.08, waveSegment: 0.70, waveRegularity: 0.65, swashSurge: 8.0,  choppySeas: 0.00, riverWaves: 0.00, lakeWaves: 0.25, lakeRings: true,  whitecaps: 0.00, sunGlint: 0.15, colorOverride: '#144038' },
+    pond_hotspring: { label: 'Hot Springs',       archetype: 'pond',   opacity: 0.22, speed: 0.45, distortion: 0.020, intensity: 0.40, fadeWidth: 35, scale: 85,  flowAngle: 90,  shoreWaves: 0.06, waveSegment: 0.70, waveRegularity: 0.50, swashSurge: 9.0,  choppySeas: 0.00, riverWaves: 0.00, lakeWaves: 0.35, lakeRings: true,  whitecaps: 0.00, sunGlint: 0.30, colorOverride: '#1d5763' },
+    cistern:        { label: 'Cavern Pool',       archetype: 'pond',   opacity: 0.16, speed: 0.25, distortion: 0.010, intensity: 0.35, fadeWidth: 30, scale: 80,  flowAngle: 0,   shoreWaves: 0.06, waveSegment: 0.85, waveRegularity: 0.80, swashSurge: 4.0,  choppySeas: 0.00, riverWaves: 0.00, lakeWaves: 0.15, lakeRings: true,  whitecaps: 0.00, sunGlint: 0.00, colorOverride: '#0d2030' },
+    swamp:          { label: 'Murky Swamp',       archetype: 'pond',   opacity: 0.28, speed: 0.30, distortion: 0.015, intensity: 0.15, fadeWidth: 40, scale: 100, flowAngle: 180, shoreWaves: 0.05, waveSegment: 0.85, waveRegularity: 0.40, swashSurge: 8.0,  choppySeas: 0.00, riverWaves: 0.00, lakeWaves: 0.10, lakeRings: true,  whitecaps: 0.00, sunGlint: 0.00, colorOverride: '#2e3a1f' },
+
+    // 6. Puddle / Standing Water
+    puddle_rain:    { label: 'Rain Puddle',       archetype: 'puddle', opacity: 0.14, speed: 0.85, distortion: 0.025, intensity: 0.25, fadeWidth: 20, scale: 50,  flowAngle: 0,   shoreWaves: 0.06, waveSegment: 0.85, waveRegularity: 0.40, swashSurge: 8.0,  choppySeas: 0.00, whitecaps: 0.00, sunGlint: 0.00 },
+    puddle_mud:     { label: 'Muddy Puddle',      archetype: 'puddle', opacity: 0.30, speed: 0.50, distortion: 0.015, intensity: 0.15, fadeWidth: 15, scale: 45,  flowAngle: 0,   shoreWaves: 0.02, waveSegment: 0.85, waveRegularity: 0.50, swashSurge: 6.0,  choppySeas: 0.00, whitecaps: 0.00, sunGlint: 0.00, colorOverride: '#3d3020' },
+    puddle_slime:   { label: 'Slime Pool',        archetype: 'puddle', opacity: 0.35, speed: 0.65, distortion: 0.030, intensity: 0.35, fadeWidth: 15, scale: 55,  flowAngle: 0,   shoreWaves: 0.04, waveSegment: 0.85, waveRegularity: 0.30, swashSurge: 8.0,  choppySeas: 0.00, whitecaps: 0.00, sunGlint: 0.20, colorOverride: '#235914' },
+    puddle_blood:   { label: 'Crimson Pool',      archetype: 'puddle', opacity: 0.38, speed: 0.55, distortion: 0.020, intensity: 0.25, fadeWidth: 18, scale: 50,  flowAngle: 0,   shoreWaves: 0.03, waveSegment: 0.85, waveRegularity: 0.60, swashSurge: 8.0,  choppySeas: 0.00, whitecaps: 0.00, sunGlint: 0.35, colorOverride: '#540c11' },
+
+    // Legacy alias
+    puddle:         { label: 'Rain Puddle',       archetype: 'puddle', opacity: 0.14, speed: 0.85, distortion: 0.025, intensity: 0.25, fadeWidth: 20, scale: 50,  flowAngle: 0,   shoreWaves: 0.06, waveSegment: 0.85, waveRegularity: 0.40, swashSurge: 8.0,  choppySeas: 0.00, whitecaps: 0.00, sunGlint: 0.00 }
 };
 
 /**
@@ -26,6 +114,13 @@ export class WaterBehaviorType extends foundry.data.regionBehaviors.RegionBehavi
     static defineSchema() {
         const fields = foundry.data.fields;
         return {
+            archetype:     new fields.StringField({
+                initial: 'river',
+                label: 'Archetype',
+                choices: Object.fromEntries(
+                    Object.entries(WATER_ARCHETYPES).map(([k, v]) => [k, v.label])
+                )
+            }),
             intensity:     new fields.NumberField({ initial: 0.25,    min: 0.0,  max: 2.0,   step: 0.05,  label: 'Intensity' }),
             speed:         new fields.NumberField({ initial: 1.40,    min: 0.05, max: 3.0,   step: 0.05,  label: 'Speed' }),
             opacity:       new fields.NumberField({ initial: 0.15,    min: 0.05, max: 0.5,   step: 0.01,  label: 'Opacity' }),
@@ -34,6 +129,17 @@ export class WaterBehaviorType extends foundry.data.regionBehaviors.RegionBehavi
             scale:         new fields.NumberField({ initial: 90,      min: 30,   max: 400,   step: 5,     label: 'Scale' }),
             flowAngle:     new fields.NumberField({ initial: 90,      min: 0,    max: 359,   step: 5,     label: 'Flow Direction' }),
             shoreWaves:    new fields.NumberField({ initial: 0.15,    min: 0.0,  max: 1.0,   step: 0.05,  label: 'Shore Waves' }),
+            waveSegment:   new fields.NumberField({ initial: 0.85,    min: 0.0,  max: 1.0,   step: 0.05,  label: 'Wave Breakup' }),
+            waveRegularity: new fields.NumberField({ initial: 0.60,   min: 0.0,  max: 1.0,   step: 0.05,  label: 'Wave Regularity' }),
+            swashSurge:    new fields.NumberField({ initial: 24.0,    min: 0.0,  max: 60.0,  step: 1.0,   label: 'Surge Reach' }),
+            choppySeas:    new fields.NumberField({ initial: 0.0,     min: 0.0,  max: 1.5,   step: 0.05,  label: 'Open Sea Chop' }),
+            riverWaves:    new fields.NumberField({ initial: 0.0,     min: 0.0,  max: 1.5,   step: 0.05,  label: 'River Waves' }),
+            lakeWaves:     new fields.NumberField({ initial: 0.0,     min: 0.0,  max: 1.5,   step: 0.05,  label: 'Lake Waves' }),
+            lakeRings:     new fields.BooleanField({ initial: true,   label: 'Drop Rings' }),
+            whitecaps:     new fields.NumberField({ initial: 0.5,     min: 0.0,  max: 1.5,   step: 0.05,  label: 'Whitecaps' }),
+            sunGlint:      new fields.NumberField({ initial: 0.6,     min: 0.0,  max: 2.0,   step: 0.05,  label: 'Sun Glint' }),
+            spindriftWake: new fields.BooleanField({ initial: false,   label: 'Trailing Wake' }),
+            crestBound:    new fields.BooleanField({ initial: false,   label: 'Crest-Locked' }),
             waterType:     new fields.StringField({
                 initial: 'river',
                 label: 'Preset',
@@ -83,60 +189,149 @@ export class WaterManager {
         }
     }
 
+    /**
+     * Infer the archetype for a given waterType key.
+     * @param {string} waterType
+     * @returns {string} archetype key ('ocean'|'coast'|'lake'|'river'|'pond'|'puddle')
+     */
+    static inferArchetype(waterType) {
+        if (WATER_PRESETS[waterType]?.archetype) return WATER_PRESETS[waterType].archetype;
+        if (/^ocean/i.test(waterType) || waterType === 'abyssal_depths') return 'ocean';
+        if (/^coast/i.test(waterType) || waterType === 'bay_chop') return 'coast';
+        if (/^lake/i.test(waterType) || waterType === 'deep') return 'lake';
+        if (/^river|^torrent|canal/i.test(waterType)) return 'river';
+        if (/^pond|cistern|swamp/i.test(waterType)) return 'pond';
+        if (/^puddle/i.test(waterType)) return 'puddle';
+        return 'river';
+    }
+
+    /**
+     * Retrieve all WaterMesh instances assigned to a specific region ID.
+     * @param {string} regionId
+     * @returns {WaterMesh[]}
+     */
+    static getMeshesForRegion(regionId) {
+        if (!regionId) return [];
+        const matches = [];
+        for (const [, mesh] of WaterManager.#zones) {
+            if (mesh.regionId === regionId) matches.push(mesh);
+        }
+        return matches;
+    }
+
     static init() {
         LOG('WaterManager init');
 
-        // Expose tuning API on game.ionrift
+        // Expose manager & tuning API on game.ionrift
         game.ionrift ??= {};
+        game.ionrift.waterManager = WaterManager;
+
+        const forMeshes = (targetRegionId, cb) => {
+            for (const [, mesh] of WaterManager.#zones) {
+                if (!targetRegionId || mesh.regionId === targetRegionId) cb(mesh);
+            }
+        };
+
         game.ionrift.waterTune = {
-            /** Cycle blend mode on all water meshes: waterTune.blend('SCREEN') */
-            blend: (mode) => {
-                for (const [, mesh] of WaterManager.#zones) {
-                    mesh.setBlendMode(mode);
-                }
+            /** Cycle blend mode on water meshes: waterTune.blend('SCREEN', regionId) */
+            blend: (mode, regionId) => {
+                forMeshes(regionId, m => m.setBlendMode(mode));
                 LOG(`Blend mode set to: ${mode}`);
             },
-            /** Set opacity: waterTune.opacity(0.4) */
-            opacity: (val) => {
-                for (const [, mesh] of WaterManager.#zones) {
-                    mesh.setOpacity(val);
-                }
+            /** Set opacity: waterTune.opacity(0.4, regionId) */
+            opacity: (val, regionId) => {
+                forMeshes(regionId, m => m.setOpacity(val));
                 LOG(`Opacity set to: ${val}`);
             },
-            /** Set intensity: waterTune.intensity(1.0) */
-            intensity: (val) => {
-                for (const [, mesh] of WaterManager.#zones) {
-                    mesh.setIntensity(val);
-                }
+            /** Set intensity: waterTune.intensity(1.0, regionId) */
+            intensity: (val, regionId) => {
+                forMeshes(regionId, m => m.setIntensity(val));
                 LOG(`Intensity set to: ${val}`);
             },
-            /** Set speed: waterTune.speed(0.8) */
-            speed: (val) => {
-                for (const [, mesh] of WaterManager.#zones) {
-                    mesh.setSpeed(val);
-                }
+            /** Set speed: waterTune.speed(0.8, regionId) */
+            speed: (val, regionId) => {
+                forMeshes(regionId, m => m.setSpeed(val));
                 LOG(`Speed set to: ${val}`);
             },
-            /** Set distortion: waterTune.distortion(0.01) */
-            distortion: (val) => {
-                for (const [, mesh] of WaterManager.#zones) {
-                    mesh.setDistortion(val);
-                }
+            /** Set distortion: waterTune.distortion(0.01, regionId) */
+            distortion: (val, regionId) => {
+                forMeshes(regionId, m => m.setDistortion(val));
                 LOG(`Distortion set to: ${val}`);
             },
-            /** Set fadeWidth: waterTune.fadeWidth(50) */
-            fadeWidth: (val) => {
-                for (const [, mesh] of WaterManager.#zones) {
-                    mesh.setFadeWidth(val);
-                }
+            /** Set fadeWidth: waterTune.fadeWidth(50, regionId) */
+            fadeWidth: (val, regionId) => {
+                forMeshes(regionId, m => m.setFadeWidth(val));
                 LOG(`FadeWidth set to: ${val}`);
             },
-            /** Set scale: waterTune.scale(150) */
-            scale: (val) => {
-                for (const [, mesh] of WaterManager.#zones) {
-                    mesh.setScale(val);
-                }
+            /** Set scale: waterTune.scale(150, regionId) */
+            scale: (val, regionId) => {
+                forMeshes(regionId, m => m.setScale(val));
                 LOG(`Scale set to: ${val}`);
+            },
+            /** Set flow angle in degrees: waterTune.flowAngle(90, regionId) */
+            flowAngle: (deg, regionId) => {
+                forMeshes(regionId, m => m.setFlowAngle(deg));
+                LOG(`Flow angle set to: ${deg}°`);
+            },
+            /** Set shore wave intensity: waterTune.shoreWaves(0.5, regionId) */
+            shoreWaves: (val, regionId) => {
+                forMeshes(regionId, m => m.setShoreWaves(val));
+                LOG(`Shore waves set to: ${val}`);
+            },
+            /** Set wave packet breakup: waterTune.waveSegment(0.85, regionId) */
+            waveSegment: (val, regionId) => {
+                forMeshes(regionId, m => m.setWaveSegment(val));
+                LOG(`Wave breakup set to: ${val}`);
+            },
+            /** Set wave regularity: waterTune.waveRegularity(0.60, regionId) */
+            waveRegularity: (val, regionId) => {
+                forMeshes(regionId, m => m.setWaveRegularity(val));
+                LOG(`Wave regularity set to: ${val}`);
+            },
+            /** Set swash surge reach: waterTune.swashSurge(24, regionId) */
+            swashSurge: (val, regionId) => {
+                forMeshes(regionId, m => m.setSwashSurge(val));
+                LOG(`Surge reach set to: ${val}`);
+            },
+            /** Set open sea chop intensity: waterTune.choppySeas(0.85, regionId) */
+            choppySeas: (val, regionId) => {
+                forMeshes(regionId, m => m.setChoppySeas(val));
+                LOG(`Open sea chop set to: ${val}`);
+            },
+            /** Set river waves intensity: waterTune.riverWaves(0.65, regionId) */
+            riverWaves: (val, regionId) => {
+                forMeshes(regionId, m => m.setRiverWaves(val));
+                LOG(`River waves set to: ${val}`);
+            },
+            /** Set lake waves intensity: waterTune.lakeWaves(0.65, regionId) */
+            lakeWaves: (val, regionId) => {
+                forMeshes(regionId, m => m.setLakeWaves(val));
+                LOG(`Lake waves set to: ${val}`);
+            },
+            /** Toggle drop rings: waterTune.lakeRings(true, regionId) */
+            lakeRings: (val, regionId) => {
+                forMeshes(regionId, m => m.setLakeRings(val));
+                LOG(`Lake rings set to: ${val}`);
+            },
+            /** Set whitecaps intensity: waterTune.whitecaps(0.65, regionId) */
+            whitecaps: (val, regionId) => {
+                forMeshes(regionId, m => m.setWhitecaps(val));
+                LOG(`Whitecaps set to: ${val}`);
+            },
+            /** Set sun glint intensity: waterTune.sunGlint(0.80, regionId) */
+            sunGlint: (val, regionId) => {
+                forMeshes(regionId, m => m.setSunGlint(val));
+                LOG(`Sun glint set to: ${val}`);
+            },
+            /** Toggle or set wave-triggered wake: waterTune.spindriftWake(true, regionId) */
+            spindriftWake: (val, regionId) => {
+                forMeshes(regionId, m => m.setSpindriftWake(val));
+                LOG(`Spindrift wake set to: ${val}`);
+            },
+            /** Toggle or set crest-locked foam: waterTune.crestBound(true, regionId) */
+            crestBound: (val, regionId) => {
+                forMeshes(regionId, m => m.setCrestBound(val));
+                LOG(`Crest-locked foam set to: ${val}`);
             },
             /** List available blend modes */
             modes: () => {
@@ -154,36 +349,15 @@ export class WaterManager {
             help: () => {
                 console.log(`
 Water Tuning API:
-  game.ionrift.waterTune.blend('SCREEN')    - Set blend mode
-  game.ionrift.waterTune.opacity(0.35)      - Set water tint opacity (0-1)
-  game.ionrift.waterTune.intensity(0.8)     - Set caustic intensity (0-2)
-  game.ionrift.waterTune.speed(0.5)         - Set animation speed (0-2)
-  game.ionrift.waterTune.distortion(0.01)   - Set refraction strength (0-0.05)
-  game.ionrift.waterTune.flowAngle(90)      - Set flow direction in degrees
-  game.ionrift.waterTune.shoreWaves(0.5)    - Set shore wave intensity (0-1)
-  game.ionrift.waterTune.modes()            - List all blend modes
+  game.ionrift.waterTune.blend('SCREEN', regionId)
+  game.ionrift.waterTune.opacity(0.35, regionId)
+  game.ionrift.waterTune.intensity(0.8, regionId)
+  game.ionrift.waterTune.speed(0.5, regionId)
+  game.ionrift.waterTune.distortion(0.01, regionId)
+  game.ionrift.waterTune.flowAngle(90, regionId)
+  game.ionrift.waterTune.shoreWaves(0.5, regionId)
+  game.ionrift.waterTune.modes()
                 `);
-            },
-            /** Set distortion: waterTune.distortion(0.01) */
-            distortion: (val) => {
-                for (const [, mesh] of WaterManager.#zones) {
-                    mesh.setDistortion(val);
-                }
-                LOG(`Distortion set to: ${val}`);
-            },
-            /** Set flow angle in degrees: waterTune.flowAngle(90) */
-            flowAngle: (deg) => {
-                for (const [, mesh] of WaterManager.#zones) {
-                    mesh.setFlowAngle(deg);
-                }
-                LOG(`Flow angle set to: ${deg}°`);
-            },
-            /** Set shore wave intensity: waterTune.shoreWaves(0.5) */
-            shoreWaves: (val) => {
-                for (const [, mesh] of WaterManager.#zones) {
-                    mesh.setShoreWaves(val);
-                }
-                LOG(`Shore waves set to: ${val}`);
             }
         };
         LOG('Water tuning API available: game.ionrift.waterTune.help()');
@@ -219,6 +393,15 @@ Water Tuning API:
                     'system.scale': preset.scale,
                     'system.flowAngle': preset.flowAngle,
                     'system.shoreWaves': preset.shoreWaves,
+                    'system.waveSegment': preset.waveSegment ?? 0.85,
+                    'system.waveRegularity': preset.waveRegularity ?? 0.60,
+                    'system.swashSurge': preset.swashSurge ?? 24.0,
+                    'system.choppySeas': preset.choppySeas ?? 0.0,
+                    'system.riverWaves': preset.riverWaves ?? 0.0,
+                    'system.lakeWaves': preset.lakeWaves ?? 0.0,
+                    'system.lakeRings': preset.lakeRings ?? true,
+                    'system.whitecaps': preset.whitecaps ?? 0.5,
+                    'system.sunGlint': preset.sunGlint ?? 0.6,
                     'system.colorOverride': preset.colorOverride ?? ''
                 };
 
@@ -284,16 +467,28 @@ Water Tuning API:
         if (!allPoints.length) return;
 
         // Resolve water type preset as base defaults
-        const preset = WATER_PRESETS[config.waterType] ?? WATER_PRESETS.custom;
+        const waterType = config.waterType === 'abyssal_depths' ? 'ocean_calm' : config.waterType;
+        const preset = WATER_PRESETS[waterType] ?? WATER_PRESETS.custom;
         const resolvedConfig = {
-            speed:      config.speed      ?? preset.speed,
-            intensity:  config.intensity  ?? preset.intensity,
-            opacity:    config.opacity    ?? preset.opacity,
-            distortion: config.distortion ?? preset.distortion,
-            fadeWidth:  config.fadeWidth  ?? preset.fadeWidth,
-            scale:      config.scale      ?? preset.scale,
-            flowAngle:  config.flowAngle  ?? preset.flowAngle ?? 0,
-            shoreWaves: config.shoreWaves ?? preset.shoreWaves ?? 0
+            speed:       config.speed       ?? preset.speed,
+            intensity:   config.intensity   ?? preset.intensity,
+            opacity:     config.opacity     ?? preset.opacity,
+            distortion:  config.distortion  ?? preset.distortion,
+            fadeWidth:   config.fadeWidth   ?? preset.fadeWidth,
+            scale:       config.scale       ?? preset.scale,
+            flowAngle:   config.flowAngle   ?? preset.flowAngle ?? 0,
+            shoreWaves:  config.shoreWaves  ?? preset.shoreWaves ?? 0,
+            waveSegment: config.waveSegment ?? preset.waveSegment ?? 0.85,
+            waveRegularity: config.waveRegularity ?? preset.waveRegularity ?? 0.60,
+            swashSurge:  config.swashSurge  ?? preset.swashSurge ?? 24.0,
+            choppySeas:  config.choppySeas  ?? preset.choppySeas ?? 0.0,
+            riverWaves:  config.riverWaves  ?? preset.riverWaves ?? 0.0,
+            lakeWaves:   config.lakeWaves   ?? preset.lakeWaves ?? 0.0,
+            lakeRings:   config.lakeRings   ?? preset.lakeRings ?? true,
+            whitecaps:   config.whitecaps   ?? preset.whitecaps ?? 0.5,
+            sunGlint:    config.sunGlint    ?? preset.sunGlint ?? 0.6,
+            spindriftWake: config.spindriftWake ?? preset.spindriftWake ?? false,
+            crestBound:    config.crestBound    ?? preset.crestBound ?? false
         };
 
         // Determine water color: manual override, preset override, or auto-sample
@@ -361,18 +556,27 @@ Water Tuning API:
 
         for (const points of allPoints) {
             const waterMesh = new WaterMesh(points, {
-                speed:      resolvedConfig.speed,
-                intensity:  resolvedConfig.intensity,
-                opacity:    resolvedConfig.opacity,
-                distortion: resolvedConfig.distortion,
-                fadeWidth:  resolvedConfig.fadeWidth,
-                scale:      resolvedConfig.scale,
-                flowAngle:  resolvedConfig.flowAngle,
-                shoreWaves: resolvedConfig.shoreWaves,
-                bgTexture:  bgTexture,
-                waterColor: waterColor,
-                elevation:  meshElevation,
-                sortLayer:  100,
+                speed:       resolvedConfig.speed,
+                intensity:   resolvedConfig.intensity,
+                opacity:     resolvedConfig.opacity,
+                distortion:  resolvedConfig.distortion,
+                fadeWidth:   resolvedConfig.fadeWidth,
+                scale:       resolvedConfig.scale,
+                flowAngle:   resolvedConfig.flowAngle,
+                shoreWaves:  resolvedConfig.shoreWaves,
+                waveSegment: resolvedConfig.waveSegment,
+                waveRegularity: resolvedConfig.waveRegularity,
+                swashSurge:  resolvedConfig.swashSurge,
+                choppySeas:  resolvedConfig.choppySeas,
+                riverWaves:  resolvedConfig.riverWaves,
+                lakeWaves:   resolvedConfig.lakeWaves,
+                lakeRings:   resolvedConfig.lakeRings,
+                whitecaps:   resolvedConfig.whitecaps,
+                sunGlint:    resolvedConfig.sunGlint,
+                bgTexture:   bgTexture,
+                waterColor:  waterColor,
+                elevation:   meshElevation,
+                sortLayer:   100,
                 highlightColor: [
                     Math.min(waterColor[0] + 0.15, 1.0),
                     Math.min(waterColor[1] + 0.15, 1.0),
@@ -381,6 +585,7 @@ Water Tuning API:
             });
 
             if (waterMesh.mesh) {
+                waterMesh.regionId = regionDoc.id;
                 waterMesh.mesh.elevation = meshElevation;
                 waterMesh.mesh.sortLayer = 100;
                 const layer = WaterManager.#getTargetLayer();
@@ -466,7 +671,7 @@ Water Tuning API:
             const offscreen = document.createElement('canvas');
             offscreen.width = img.width;
             offscreen.height = img.height;
-            const ctx = offscreen.getContext('2d');
+            const ctx = offscreen.getContext('2d', { willReadFrequently: true });
             ctx.drawImage(img, 0, 0);
 
             const dims = canvas.dimensions;
@@ -548,7 +753,11 @@ Water Tuning API:
 
     static destroyAll() {
         for (const [, mesh] of WaterManager.#zones) {
-            mesh.destroy();
+            try {
+                mesh.destroy();
+            } catch (err) {
+                console.warn('Waterline | Error destroying water mesh:', err);
+            }
         }
         WaterManager.#zones.clear();
         WaterManager.#polygons = [];
@@ -584,15 +793,22 @@ Water Tuning API:
      * Push wake ripple uniforms to every active water mesh (shader refraction).
      * @param {Float32Array} buf - 32 floats (8 vec4: cx, cy, ringR, amp)
      * @param {number} count - Active slots 0-8
-     */
-    /**
-     * @param {Float32Array} buf
-     * @param {number} count
      * @param {object} [tuning] - Optional wake tuning for shader globals
      */
     static syncWakeUniforms(buf, count, tuning) {
         for (const mesh of WaterManager.#zones.values()) {
             mesh.setWakeData(buf, count, tuning);
+        }
+    }
+
+    /**
+     * Push wet token position uniforms to every active water mesh (emanating wavelets).
+     * @param {Float32Array} buf - 16 floats (4 vec4: cx, cy, tokR, isWet)
+     * @param {number} count - Active slots 0-4
+     */
+    static syncTokenUniforms(buf, count) {
+        for (const mesh of WaterManager.#zones.values()) {
+            mesh.setTokenData?.(buf, count);
         }
     }
 

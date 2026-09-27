@@ -188,7 +188,8 @@ Token wake (client):
         if (!inWater) return;
 
         const moveDist = oldPos ? Math.hypot(newX - oldPos.x, newY - oldPos.y) : 0;
-        if (oldPos && moveDist < tu.minMoveDist) return;
+        const gridScale = Math.max((canvas.grid?.size ?? 100) / 100, 0.2);
+        if (oldPos && moveDist < tu.minMoveDist * gridScale) return;
 
         // Compute unit travel direction so the ripple can be nudged ahead
         let dirX = 0, dirY = 0;
@@ -200,7 +201,7 @@ Token wake (client):
         const tokR = WakeManager.#tokenRadiusPx(placeable);
         WakeManager.#spawnRipple(newX, newY, { tokenId, dirX, dirY, tokenRadiusPx: tokR });
 
-        if (oldPos && moveDist > tu.longMoveMidPx) {
+        if (oldPos && moveDist > tu.longMoveMidPx * gridScale) {
             const midX = (oldPos.x + newX) / 2;
             const midY = (oldPos.y + newY) / 2;
             if (WaterManager.isPointInWater(midX, midY, tokenElevation)) {
@@ -279,14 +280,15 @@ Token wake (client):
         }
 
         // --- Ripple trail ---
-        if (dist < tu.refreshMinDist || dist > tu.refreshMaxDist) {
+        const gridScale = Math.max((canvas.grid?.size ?? 100) / 100, 0.2);
+        if (dist < tu.refreshMinDist * gridScale || dist > tu.refreshMaxDist * gridScale) {
             WakeManager.#lastPositions.set(tokenId, { x: cx, y: cy });
             return;
         }
         WakeManager.#lastPositions.set(tokenId, { x: cx, y: cy });
         if (!inWater) return;
         if (WakeManager.#isGmHiddenFromPlayers(token.document)) return;
-        if (WakeManager.#rippleTooClose(cx, cy, tu.spawnCooldownPx, tokenId)) return;
+        if (WakeManager.#rippleTooClose(cx, cy, tu.spawnCooldownPx * gridScale, tokenId)) return;
 
         const dirX = dist > 0.5 ? dx / dist : 0;
         const dirY = dist > 0.5 ? dy / dist : 0;
@@ -330,7 +332,8 @@ Token wake (client):
         const dirX = vs.vx / vl; // ensure unit length
         const dirY = vs.vy / vl;
 
-        const interval = Number(tu.wakeStampIntervalPx ?? 48);
+        const gridScale = Math.max((canvas.grid?.size ?? 100) / 100, 0.2);
+        const interval = Number(tu.wakeStampIntervalPx ?? 48) * gridScale;
         const sinceLastX = isNaN(vs.lastStampX)
             ? Infinity
             : Math.hypot(cx - vs.lastStampX, cy - vs.lastStampY);
@@ -363,9 +366,10 @@ Token wake (client):
         if (WakeManager.#stamps.length >= pool) {
             WakeManager.#stamps.shift()?.destroy();
         }
+        const gridScale = Math.max((canvas.grid?.size ?? 100) / 100, 0.2);
         WakeManager.#stamps.push(new WakeStamp(cx, cy, dirX, dirY, {
             strength,
-            trailLengthPx: Number(tu.wakeTrailLengthPx ?? 200),
+            trailLengthPx: Number(tu.wakeTrailLengthPx ?? 160) * gridScale,
             lifetime: Number(tu.wakeStampLifetime ?? 2.5)
         }));
     }
@@ -469,6 +473,34 @@ Token wake (client):
         // Blend shader wave speed down when only idle ripples are active
         const effectiveTu = speedMul === 1.0 ? tu : { ...tu, shaderRippleSpeed: tu.shaderRippleSpeed * speedMul };
         WaterManager.syncWakeUniforms(buf, count, effectiveTu);
+
+        const { buf: tokBuf, count: tokCount } = WakeManager.#packTokenPositions();
+        WaterManager.syncTokenUniforms(tokBuf, tokCount);
+    }
+
+    /**
+     * Collect up to 4 wet tokens in water to drive continuous emanating wavelets in shader.
+     * @returns {{ buf: Float32Array, count: number }}
+     */
+    static #packTokenPositions() {
+        const buf = new Float32Array(16);
+        let n = 0;
+        for (const token of (canvas.tokens?.placeables ?? [])) {
+            if (n >= 4) break;
+            const tid = token.document?.id ?? token.id;
+            if (!WakeManager.#lastWet.get(tid)) continue;
+            if (token.document?.getFlag?.(MODULE_ID, 'noRipple')) continue;
+            if (WakeManager.#isGmHiddenFromPlayers(token.document)) continue;
+            const c = WakeManager.#placeableCenter(token);
+            if (!c) continue;
+            const tokR = WakeManager.#tokenRadiusPx(token);
+            buf[n * 4]     = c.x;
+            buf[n * 4 + 1] = c.y;
+            buf[n * 4 + 2] = tokR;
+            buf[n * 4 + 3] = 1.0;
+            n++;
+        }
+        return { buf, count: n };
     }
 
     /**
@@ -480,8 +512,10 @@ Token wake (client):
         const idleMul = Number(tu.idleRippleStrength ?? 0.75);
         if (idleMul <= 0) return;   // slider at 0 = feature disabled
 
-        const minSec = Number(tu.idleRippleMinSec ?? 1.0);
-        const maxSec = Number(tu.idleRippleMaxSec ?? 2.0);
+        let minSec = Number(tu.idleRippleMinSec ?? 3.5);
+        let maxSec = Number(tu.idleRippleMaxSec ?? 8.5);
+        if (minSec < 3.0) minSec = 3.5;
+        if (maxSec < minSec + 2.0) maxSec = minSec + 5.0;
 
         for (const token of (canvas.tokens?.placeables ?? [])) {
             const tokenId = token.document?.id ?? token.id;
@@ -667,8 +701,8 @@ Token wake (client):
     /** Token radius in px (half the token's grid footprint). */
     static #tokenRadiusPx(placeable) {
         const gridSize = canvas.grid?.size ?? 100;
-        const tokenW   = placeable?.document?.width ?? 1;
-        return tokenW * gridSize * 0.5;
+        const w = placeable?.w || ((placeable?.document?.width ?? 1) * gridSize);
+        return w * 0.5;
     }
 
     static #snapshotPositions() {

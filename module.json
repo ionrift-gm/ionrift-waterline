@@ -1,7 +1,7 @@
 {
     "id": "ionrift-waterline",
     "title": "Ionrift Waterline",
-    "description": "Click on water in your map and Waterline traces the shape, then renders animated caustics with live-tunable speed, distortion, and opacity. Includes presets for rivers, lakes, coastlines, and more. Also generates procedural border walls along the canvas edge.",
+    "description": "Traces water from scene maps to render animated shaders with live-tunable currents, waves, and caustics. Includes presets for oceans, coastlines, rivers, lakes, and ponds.",
     "version": "0.2.8",
     "url": "https://github.com/ionrift-gm/ionrift-waterline",
     "bugs": "https://discord.gg/vFGXf7Fncj",

@@ -1,3 +1,6 @@
+import { WaterShapeEstimator } from './WaterShapeEstimator.js';
+import { WATER_ARCHETYPES, WATER_PRESETS } from './WaterManager.js';
+
 const MODULE_ID = 'ionrift-waterline';
 const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
 
@@ -140,12 +143,14 @@ export class WaterDetector {
                 cy += scenePoints[i + 1];
             }
 
-            candidates.push({
+            const cand = {
                 points: scenePoints,
                 area: component.length,
                 centroid: { x: cx / vertCount, y: cy / vertCount },
                 vertexCount: vertCount
-            });
+            };
+            cand.estimation = WaterShapeEstimator.estimate(cand, dims);
+            candidates.push(cand);
         }
 
         return candidates;
@@ -161,9 +166,26 @@ export class WaterDetector {
         const scene = canvas.scene;
         if (!scene || !game.user.isGM) return null;
 
+        const est = candidate.estimation ?? WaterShapeEstimator.estimate(candidate);
+        const archetype = est?.archetype || 'river';
+        const presetKey = est?.preset || 'river';
+        const preset = WATER_PRESETS[presetKey] ?? {};
+        const flowAngle = est?.flowAngle ?? preset.flowAngle ?? 90;
+
+        let regionName = name;
+        if (!regionName || regionName === 'Water') {
+            const allRegions = scene.regions?.contents ?? scene.regions ?? [];
+            const existingCount = allRegions.filter(r => {
+                const beh = r.behaviors?.find ? r.behaviors.find(b => b.type === `${MODULE_ID}.waterFX`) : null;
+                return beh?.system?.archetype === archetype;
+            }).length;
+            const archLabel = est?.archetypeLabel || 'Water';
+            regionName = `${archLabel} ${existingCount + 1}`;
+        }
+
         const regionData = {
-            name,
-            color: '#2a6496',
+            name: regionName,
+            color: preset.colorOverride || WATER_ARCHETYPES[archetype]?.accentColor || '#2a6496',
             shapes: [{
                 type: 'polygon',
                 points: candidate.points
@@ -176,7 +198,29 @@ export class WaterDetector {
             if (created.length && CONFIG.RegionBehavior.dataModels[`${MODULE_ID}.waterFX`]) {
                 await created[0].createEmbeddedDocuments('RegionBehavior', [{
                     type: `${MODULE_ID}.waterFX`,
-                    name: 'Water FX'
+                    name: 'Water FX',
+                    system: {
+                        archetype,
+                        waterType: presetKey,
+                        flowAngle,
+                        speed: preset.speed ?? 1.0,
+                        intensity: preset.intensity ?? 0.3,
+                        opacity: preset.opacity ?? 0.2,
+                        distortion: preset.distortion ?? 0.02,
+                        fadeWidth: preset.fadeWidth ?? 50,
+                        scale: preset.scale ?? 90,
+                        shoreWaves: preset.shoreWaves ?? 0.2,
+                        swashSurge: preset.swashSurge ?? 16.0,
+                        waveSegment: preset.waveSegment ?? 0.85,
+                        waveRegularity: preset.waveRegularity ?? 0.60,
+                        choppySeas: preset.choppySeas ?? 0.0,
+                        riverWaves: preset.riverWaves ?? (archetype === 'river' ? 0.65 : 0.0),
+                        lakeWaves: preset.lakeWaves ?? (archetype === 'lake' || archetype === 'pond' ? 0.25 : 0.0),
+                        lakeRings: preset.lakeRings ?? true,
+                        whitecaps: preset.whitecaps ?? 0.1,
+                        sunGlint: preset.sunGlint ?? 0.3,
+                        colorOverride: preset.colorOverride || ''
+                    }
                 }]);
             }
             return created[0] ?? null;
@@ -340,6 +384,113 @@ export class WaterDetector {
     }
 
     /**
+     * Build maskData from an existing RegionDocument by rasterizing its shapes onto the grid.
+     * @param {RegionDocument} region
+     * @param {number} [gridStep=4]
+     * @returns {Promise<object|null>} maskData { mask, cols, rows, gridStep }
+     */
+    static async maskFromRegion(region, gridStep = 4) {
+        if (!await WaterDetector.#ensureImageCache()) return null;
+
+        const imgW = WaterDetector.#cachedImgW;
+        const imgH = WaterDetector.#cachedImgH;
+        const dims = canvas.dimensions;
+        if (!dims || !imgW || !imgH) return null;
+
+        const cols = Math.ceil(imgW / gridStep);
+        const rows = Math.ceil(imgH / gridStep);
+        const mask = new Uint8Array(cols * rows);
+
+        const canvasEl = document.createElement('canvas');
+        canvasEl.width = cols;
+        canvasEl.height = rows;
+        const ctx = canvasEl.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+
+        // Extract shapes from region
+        const shapes = region.shapes?.contents ?? region.shapes ?? [];
+        if (!shapes.length) return null;
+
+        let hasDrawn = false;
+        for (const shape of shapes) {
+            const isHole = Boolean(shape.hole);
+            ctx.globalCompositeOperation = isHole ? 'destination-out' : 'source-over';
+
+            const shapeType = shape.type ?? shape.constructor?.name ?? '';
+
+            // Polygon
+            if (shapeType === 'polygon' || shapeType === 'PolygonShapeData' || shape.points) {
+                const pts = shape.points ?? shape.coordinates ?? [];
+                if (pts.length >= 6) {
+                    ctx.beginPath();
+                    for (let i = 0; i < pts.length; i += 2) {
+                        const sx = pts[i];
+                        const sy = pts[i + 1];
+                        const gx = ((sx - dims.sceneX) / dims.sceneWidth) * (imgW / gridStep);
+                        const gy = ((sy - dims.sceneY) / dims.sceneHeight) * (imgH / gridStep);
+                        if (i === 0) ctx.moveTo(gx, gy);
+                        else ctx.lineTo(gx, gy);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    hasDrawn = true;
+                    continue;
+                }
+            }
+
+            // Rectangle
+            if (shapeType === 'rectangle' || shapeType === 'RectangleShapeData') {
+                const sx = shape.x ?? 0, sy = shape.y ?? 0;
+                const sw = shape.width ?? 0, sh = shape.height ?? 0;
+                if (sw > 0 && sh > 0) {
+                    const gx = ((sx - dims.sceneX) / dims.sceneWidth) * (imgW / gridStep);
+                    const gy = ((sy - dims.sceneY) / dims.sceneHeight) * (imgH / gridStep);
+                    const gw = (sw / dims.sceneWidth) * (imgW / gridStep);
+                    const gh = (sh / dims.sceneHeight) * (imgH / gridStep);
+                    ctx.fillRect(gx, gy, gw, gh);
+                    hasDrawn = true;
+                    continue;
+                }
+            }
+
+            // Ellipse / Circle
+            if (shapeType === 'ellipse' || shapeType === 'circle' || shapeType === 'EllipseShapeData' || shapeType === 'CircleShapeData') {
+                const radX = shape.radiusX ?? shape.radius ?? 0;
+                const radY = shape.radiusY ?? shape.radius ?? 0;
+                const cx = (shape.x ?? 0) + radX;
+                const cy = (shape.y ?? 0) + radY;
+                if (radX > 0 && radY > 0) {
+                    const gcx = ((cx - dims.sceneX) / dims.sceneWidth) * (imgW / gridStep);
+                    const gcy = ((cy - dims.sceneY) / dims.sceneHeight) * (imgH / gridStep);
+                    const grx = (radX / dims.sceneWidth) * (imgW / gridStep);
+                    const gry = (radY / dims.sceneHeight) * (imgH / gridStep);
+                    ctx.beginPath();
+                    ctx.ellipse(gcx, gcy, Math.max(1, grx), Math.max(1, gry), 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    hasDrawn = true;
+                    continue;
+                }
+            }
+        }
+
+        if (!hasDrawn) return null;
+
+        const imgData = ctx.getImageData(0, 0, cols, rows);
+        const d = imgData.data;
+        let filledCount = 0;
+        for (let i = 0; i < mask.length; i++) {
+            if (d[i * 4 + 3] > 64) {
+                mask[i] = 1;
+                filledCount++;
+            }
+        }
+
+        if (filledCount < 5) return null;
+
+        return { mask, cols, rows, gridStep };
+    }
+
+    /**
      * Generate a candidate polygon from a cell mask.
      * Public so it can be called after refinement.
      * @param {object} maskData - { mask, cols, rows, gridStep }
@@ -392,12 +543,14 @@ export class WaterDetector {
             cy += scenePoints[i + 1];
         }
 
-        return {
+        const candidate = {
             points: scenePoints,
             area,
             centroid: { x: cx / vertCount, y: cy / vertCount },
             vertexCount: vertCount
         };
+        candidate.estimation = WaterShapeEstimator.estimate(candidate, dims);
+        return candidate;
     }
 
     /**

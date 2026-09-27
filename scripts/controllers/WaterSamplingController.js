@@ -12,6 +12,9 @@ export class WaterSamplingController {
     /** @type {boolean} */
     #active = false;
 
+    /** @type {string|null} ID of RegionDocument currently being edited */
+    #editingRegionId = null;
+
     /** @type {object|null} Current flood fill candidate */
     #currentCandidate = null;
 
@@ -52,6 +55,10 @@ export class WaterSamplingController {
         return this.#active;
     }
 
+    get editingRegionId() {
+        return this.#editingRegionId;
+    }
+
     get candidate() {
         return this.#currentCandidate;
     }
@@ -83,7 +90,7 @@ export class WaterSamplingController {
         this.#keyHandler = (ev) => this.#onKeyDown(ev);
         document.addEventListener('keydown', this.#keyHandler);
 
-        this.#callbacks.onStatus?.('Click on water in the scene. Shift+Click to add, Ctrl+Click to subtract.');
+        this.#callbacks.onStatus?.('Click on water in the scene to sample. Shift+Click to add, Ctrl+Click to subtract.');
     }
 
     /**
@@ -118,21 +125,130 @@ export class WaterSamplingController {
     }
 
     /**
-     * Set smoothing and trigger debounced re-fill if a seed point exists.
+     * Set smoothing and trigger contour update on current mask or debounced re-fill.
      * @param {number} val
      */
     setSmoothing(val) {
         this.smoothing = Number(val);
-        if (this.#seedPoint) this.#debouncedFill();
+        if (this.#currentMaskData) {
+            const candidate = WaterDetector.candidateFromMask(this.#currentMaskData, this.smoothing);
+            if (candidate) {
+                candidate.maskData = this.#currentMaskData;
+                this.#currentCandidate = candidate;
+                this.#showPolyPreview(candidate);
+                this.#callbacks.onCandidate?.(candidate);
+            }
+        } else if (this.#seedPoint) {
+            this.#debouncedFill();
+        }
     }
 
     /**
-     * Accept current candidate and create a RegionDocument on the active scene.
-     * @param {string} name
+     * Load an existing water Region into the sampler for boundary editing.
+     * @param {string} regionId
+     * @param {object} [callbacks]
+     * @returns {Promise<boolean>}
+     */
+    async loadRegionForEditing(regionId, callbacks = {}) {
+        if (!game.user.isGM) return false;
+
+        const region = canvas.scene?.regions?.get(regionId);
+        if (!region) {
+            ui.notifications.warn(`Waterline | Region "${regionId}" not found on scene.`);
+            return false;
+        }
+
+        // Start sampler if not already started
+        if (!this.#active) {
+            this.start({ tolerance: this.tolerance, smoothing: this.smoothing }, callbacks);
+        } else if (callbacks) {
+            this.#callbacks = { ...this.#callbacks, ...callbacks };
+        }
+
+        const maskData = await WaterDetector.maskFromRegion(region, 4);
+        if (!maskData) {
+            ui.notifications.warn(`Waterline | Could not extract shape from "${region.name}".`);
+            return false;
+        }
+
+        // Extract raw points from existing region's primary shape
+        const shapes = region.shapes?.contents ?? region.shapes ?? [];
+        const polyShape = shapes.find(s => (s.points?.length >= 6) || (s.coordinates?.length >= 6));
+        const rawPts = polyShape ? Array.from(polyShape.points ?? polyShape.coordinates ?? []) : null;
+
+        let candidate = WaterDetector.candidateFromMask(maskData, this.smoothing);
+        if (candidate && rawPts && rawPts.length >= 6) {
+            // Keep the exact original boundary vertices until modified by user
+            candidate.points = rawPts;
+            candidate.vertexCount = Math.round(rawPts.length / 2);
+        } else if (!candidate && rawPts && rawPts.length >= 6) {
+            let cx = 0, cy = 0;
+            const vertCount = rawPts.length / 2;
+            for (let i = 0; i < rawPts.length; i += 2) {
+                cx += rawPts[i];
+                cy += rawPts[i + 1];
+            }
+            candidate = {
+                points: rawPts,
+                area: vertCount * 10,
+                centroid: { x: cx / vertCount, y: cy / vertCount },
+                vertexCount: vertCount
+            };
+        }
+
+        if (!candidate) {
+            ui.notifications.warn(`Waterline | Failed to trace boundary for "${region.name}".`);
+            return false;
+        }
+
+        candidate.maskData = maskData;
+        this.#currentCandidate = candidate;
+        this.#currentMaskData = maskData;
+        this.#editingRegionId = regionId;
+        this.#undoStack = [];
+        this.#seedPoint = candidate.centroid;
+
+        this.clearPreviews();
+
+        const sprite = WaterDetector.previewFromMask(maskData);
+        if (sprite) {
+            const layer = canvas.controls ?? canvas.stage;
+            layer.addChild(sprite);
+            this.#previewSprite = sprite;
+        }
+
+        this.#showPolyPreview(this.#currentCandidate);
+        this.#callbacks.onCandidate?.(this.#currentCandidate);
+        this.#callbacks.onStatus?.(`Editing "${region.name}": Shift+Click map to add water, Ctrl+Click to subtract.`);
+        return true;
+    }
+
+    /**
+     * Accept current candidate and create or update a RegionDocument on the active scene.
+     * @param {string} [name]
      * @returns {Promise<RegionDocument|null>}
      */
     async acceptCandidate(name) {
         if (!this.#currentCandidate) return null;
+
+        if (this.#editingRegionId) {
+            const region = canvas.scene?.regions?.get(this.#editingRegionId);
+            if (region) {
+                const updateData = {
+                    shapes: [{
+                        type: 'polygon',
+                        points: this.#currentCandidate.points
+                    }]
+                };
+                if (name && name.trim() && name.trim() !== region.name) {
+                    updateData.name = name.trim();
+                }
+                await region.update(updateData);
+                ui.notifications.info(`Waterline | Updated boundary for "${region.name}".`);
+                this.discardCandidate();
+                return region;
+            }
+        }
 
         const region = await WaterDetector.createRegionFromCandidate(
             this.#currentCandidate, name
@@ -150,6 +266,7 @@ export class WaterSamplingController {
         this.#currentMaskData = null;
         this.#undoStack.length = 0;
         this.#seedPoint = null;
+        this.#editingRegionId = null;
         this.clearPreviews();
         this.#callbacks.onClear?.();
     }
@@ -229,6 +346,12 @@ export class WaterSamplingController {
         if (this.#currentMaskData && (shiftKey || ctrlKey)) {
             const mode = shiftKey ? 'add' : 'subtract';
             await this.#runRefine(pos.x, pos.y, mode);
+            return;
+        }
+
+        // When editing an existing region, default click to 'add' to protect existing boundary
+        if (this.#editingRegionId && this.#currentMaskData) {
+            await this.#runRefine(pos.x, pos.y, 'add');
             return;
         }
 

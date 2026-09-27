@@ -10,9 +10,13 @@
     "IonriftWaterline.SettingsEnableTokenWake": "Token water wake (ripples)",
     "IonriftWaterline.SettingsEnableTokenWakeHint": "When enabled, tokens moving through Ionrift water regions emit expanding ring ripples on your client.",
 
-    "IonriftWaterline.SettingsRippleTuning": "Ripple Tuning",
-    "IonriftWaterline.SettingsRippleTuningLabel": "Open Ripple Tuning",
-    "IonriftWaterline.SettingsRippleTuningHint": "Fine-tune ripple lifetime, radius, variance, and shader parameters. Client-local; safe to adjust mid-session.",
+    "IonriftWaterline.SettingsWaterlineStudio": "Waterline",
+    "IonriftWaterline.SettingsWaterlineStudioLabel": "Open Waterline",
+    "IonriftWaterline.SettingsWaterlineStudioHint": "Configure water zones, wakes, and ripples.",
+
+    "IonriftWaterline.SettingsRippleTuning": "Waterline",
+    "IonriftWaterline.SettingsRippleTuningLabel": "Open Waterline",
+    "IonriftWaterline.SettingsRippleTuningHint": "Configure water zones, wakes, and ripples.",
 
     "IonriftWaterline.SettingsDebug": "Debug Logging",
     "IonriftWaterline.SettingsDebugHint": "Enable verbose console logging for water and ripple state. Useful for troubleshooting; can be chatty in combat.",

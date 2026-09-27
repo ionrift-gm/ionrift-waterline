@@ -1,4 +1,4 @@
-﻿const MODULE_ID = 'ionrift-waterline';
+const MODULE_ID = 'ionrift-waterline';
 
 /**
  * Client-side wake tuning defaults (merged with saved settings).
@@ -65,8 +65,8 @@ export const WAKE_TUNING_DEFAULTS = {
     idleShaderSpeedMul: 0.35,
 
     /** Idle ripple interval for stationary tokens in water (seconds, random between min and max) */
-    idleRippleMinSec: 0.5,
-    idleRippleMaxSec: 3.8,
+    idleRippleMinSec: 3.5,
+    idleRippleMaxSec: 8.5,
 
     shaderBandPx: 32,
     shaderPhaseScale: 0.30,
@@ -147,6 +147,18 @@ export class WakeTuning {
         const cur = WakeTuning.get();
         const next = foundry.utils.mergeObject(cur, partial, { inplace: false });
         await game.settings.set(MODULE_ID, 'wakeTuning', next);
+    }
+
+    /**
+     * Set a single tuning property or partial object.
+     * @param {string|Record<string, *>} keyOrPartial
+     * @param {*} [val]
+     */
+    static async set(keyOrPartial, val) {
+        if (typeof keyOrPartial === 'string') {
+            return WakeTuning.setPartial({ [keyOrPartial]: val });
+        }
+        return WakeTuning.setPartial(keyOrPartial);
     }
 
     static async reset() {

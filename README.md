@@ -5,7 +5,7 @@
 ![Foundry Version](https://img.shields.io/badge/Foundry-v12%20%7C%20v13-333333?style=flat&logo=foundryvirtualtabletop)
 ![Systems](https://img.shields.io/badge/systems-dnd5e%20%7C%20daggerheart-blue)
 
-**Animated water overlays and procedural border walls for Foundry VTT.**
+**Animated water overlays for Foundry VTT.**
 
 ### Support Ionrift
 
@@ -24,17 +24,11 @@ You can tune everything with sliders that update in real time: speed, intensity,
 
 Shift+Click adds area. Ctrl+Click subtracts. Ctrl+Z undoes the last change.
 
-## Border Walls
-
-When you can see the exact edges of a map, you know the whole space. Your curiosity switches off. Even hiding those boundaries by a few pixels keeps players wondering what is around the corner or past the treeline.
-
-Procedural wall generation along the canvas boundary with noise-based variation. Set vertex count, amplitude, jitter, and inset, then generate. Straight-wall mode also available.
-
 ## Installation
 
 1. Install via Foundry VTT Module Browser or manifest URL.
 2. Enable the module in your world.
-3. Water tools appear in the Regions palette. Border tools appear in the Walls palette.
+3. Water tools appear in the Regions palette. Border walls are in Cartographer, on the Walls palette.
 
 ## Dependencies
 

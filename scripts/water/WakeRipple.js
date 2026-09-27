@@ -71,7 +71,8 @@ export class WakeRipple {
         const rng = () => Math.random() * 2 - 1; // -1..+1
 
         // Lead offset: nudge spawn slightly ahead of the direction of travel
-        const leadPx = Number(tu.rippleLeadPx ?? 8);
+        const gridScale = Math.max((canvas.grid?.size ?? 100) / 100, 0.2);
+        const leadPx = Number(tu.rippleLeadPx ?? 8) * gridScale;
         const ldx = (spawnOpts.dirX ?? 0) * leadPx;
         const ldy = (spawnOpts.dirY ?? 0) * leadPx;
 
@@ -79,7 +80,7 @@ export class WakeRipple {
         const variance = Math.max(0, Number(tu.rippleVariance ?? 1.0));
 
         // Origin jitter: random XY scatter on top of lead offset
-        const posJitterPx = Number(tu.rippleOriginJitterPx ?? 6) * variance;
+        const posJitterPx = Number(tu.rippleOriginJitterPx ?? 6) * variance * gridScale;
         const ox = ldx + rng() * posJitterPx;
         const oy = ldy + rng() * posJitterPx;
 
@@ -105,16 +106,18 @@ export class WakeRipple {
     #effectiveParams() {
         const tu  = WakeTuning.get();
         const tokR = this.#spawnOpts.tokenRadiusPx ?? 50;
+        const gridScale = Math.max((canvas.grid?.size ?? 100) / 100, 0.2);
 
         // idleMul scales size + alpha for stationary-token ripples
         const idleMul  = this.#spawnOpts.idleMul  ?? 1.0;
         const idleEase = this.#spawnOpts.idleEase ?? false;
 
-        // Radii are multiples of token radius (not fixed px)
+        // Radii are multiples of token radius (capped so colossal vehicle tokens don't flood the whole map)
         const startMul = Number(tu.rippleStartMul ?? 0.9);
         const maxMul   = Number(tu.rippleMaxMul   ?? 2.5);
-        const startPx  = tokR * startMul;
-        const maxPx    = Math.max(startPx + 10, tokR * maxMul * this.#radiusMul * idleMul);
+        const cappedTokR = Math.min(tokR, 120 * gridScale);
+        const startPx  = Math.min(startMul * tokR, 140 * gridScale);
+        const maxPx    = Math.min(Math.max(startPx + 10 * gridScale, cappedTokR * maxMul * this.#radiusMul * idleMul), 260 * gridScale);
 
         const baseDur   = this.#spawnOpts.duration  ?? tu.duration;
         const baseAlpha = this.#spawnOpts.baseAlpha ?? tu.baseAlpha;

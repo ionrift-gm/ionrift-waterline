@@ -241,7 +241,7 @@ export class ParticlePlacementPanel extends Application {
         // Highlight canvas marker
         import('./DrawingFX.js').then(({ DrawingFX }) => DrawingFX._highlightMarker(drawingId));
 
-        ui.notifications.info(`Editing ${fx.type} emitter - adjust sliders then click "Update Emitter".`);
+        ui.notifications.info(`Editing ${fx.type} effect.`);
     }
 
     async _saveEditTarget(type, root) {
@@ -249,7 +249,7 @@ export class ParticlePlacementPanel extends Application {
         const newConfig = { type, ...this._pending[type] };
         await this._editTarget.setFlag(MODULE_ID, 'fx', newConfig);
         this._editTarget = null;
-        ui.notifications.info('Emitter updated.');
+        ui.notifications.info('Effect updated.');
         this.render(false);
     }
 

@@ -206,7 +206,7 @@ export class DrawingFX {
 
         const label = type === 'smoke' ? 'Smoke Plume' : 'Waterfall Spray';
         ui.notifications.info(
-            `📍 ${label} - click anywhere on the canvas to place. Press Escape to cancel.`,
+            `📍 Place ${label} (Escape to cancel)`,
             { permanent: false, console: false }
         );
 

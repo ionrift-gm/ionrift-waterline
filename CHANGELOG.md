@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Removed
+- Border walls moved to Cartographer. The Walls palette there has Border walls. Older borders on a scene still clear from that sheet.
+
 ## [0.2.8] - 2026-09-22
 
 ### Restored

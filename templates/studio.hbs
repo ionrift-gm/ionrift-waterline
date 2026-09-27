@@ -8,9 +8,6 @@
         <button type="button" class="waterline-tab-btn {{#if (eq activeTab 'wake')}}active{{/if}}" data-tab="wake">
             <i class="fas fa-wave-square"></i> <span>Wake & Ripples</span>
         </button>
-        <button type="button" class="waterline-tab-btn {{#if (eq activeTab 'borders')}}active{{/if}}" data-tab="borders">
-            <i class="fas fa-mountain"></i> <span>Shoreline Borders</span>
-        </button>
     </nav>
 
     <div class="waterline-tab-body">
@@ -19,124 +16,165 @@
         <!-- TAB 1: WATER ZONES & FX                                   -->
         <!-- ========================================================= -->
         <section class="tab {{#if (eq activeTab 'water')}}active{{/if}}" data-tab="water">
-            
-            <!-- Zone Management Section -->
-            <div class="wc-section">
-                <div class="wc-section-header">
-                    <h3><i class="fas fa-map-marked-alt"></i> Scene Water Zones</h3>
-                    <span class="wc-zone-count-badge">{{zones.length}} active</span>
-                </div>
 
-                {{#if zones.length}}
-                <div class="wc-zone-list ionrift-list">
-                    {{#each zones as |z idx|}}
-                    <div class="wc-zone-item" data-index="{{idx}}">
-                        <i class="fas fa-check-circle wc-zone-status"></i>
-                        <span class="zone-name" title="{{z.name}}">{{z.name}}</span>
-                        {{#if z.verts}}<span class="zone-meta">{{z.verts}} pts</span>{{/if}}
-                        <button type="button" class="wc-zone-delete" data-action="deleteZone" data-index="{{idx}}" title="Delete this water zone">
-                            <i class="fas fa-trash"></i>
-                        </button>
+            <!-- 1. Scene Waterbodies Entity Deck -->
+            <div class="wc-entity-deck">
+                <div class="wc-deck-header">
+                    <div class="wc-deck-title">
+                        <i class="fas fa-layer-group"></i>
+                        <span>Scene Waterbodies</span>
+                        <span class="wc-zone-count-badge">{{zones.length}}</span>
                     </div>
-                    {{/each}}
+                    <button type="button" class="cartograph-btn-mini {{#if pickActive}}pick-active{{/if}}" data-action="togglePick" title="{{#if pickActive}}Stop sampling{{else}}Sample water from map (Shift to add, Ctrl to subtract){{/if}}">
+                        {{#if pickActive}}
+                        <i class="fas fa-stop-circle"></i> Stop
+                        {{else}}
+                        <i class="fas fa-crosshairs"></i> New Waterbody
+                        {{/if}}
+                    </button>
                 </div>
-                {{else}}
-                <p class="wc-empty-hint">No water zones on this scene. Click "Sample Water from Map" below to create one.</p>
-                {{/if}}
-            </div>
-
-            <!-- Add Zone / Sampling Section -->
-            <div class="wc-section wc-add-section">
-                <button type="button" class="cartograph-btn cartograph-btn-pick {{#if pickActive}}pick-active{{/if}}" data-action="togglePick">
-                    {{#if pickActive}}
-                    <i class="fas fa-stop-circle"></i> Stop Sampling
-                    {{else}}
-                    <i class="fas fa-crosshairs"></i> Sample Water from Map
-                    {{/if}}
-                </button>
 
                 <!-- Pick Mode Controls -->
                 {{#if pickActive}}
-                <div class="wc-pick-controls">
-                    <div class="form-group">
-                        <label title="How far from the clicked color the fill spreads">Tolerance</label>
+                <div class="wc-pick-controls ionrift-subcard">
+                    <div class="form-group-compact">
+                        <label title="How far from clicked color the fill spreads">Tolerance</label>
                         <input type="range" name="pickTolerance" min="1" max="120" value="{{pickTolerance}}" step="1" />
-                        <span class="range-value">{{pickTolerance}}</span>
+                        <span class="range-val">{{pickTolerance}}</span>
                     </div>
-                    <div class="form-group">
-                        <label title="Edge smoothing. Lower = detailed, higher = cleaner">Smoothing</label>
+                    <div class="form-group-compact">
+                        <label title="Edge smoothing: lower = detailed, higher = cleaner">Smoothing</label>
                         <input type="range" name="pickSmoothing" min="0.5" max="15" value="{{pickSmoothing}}" step="0.5" />
-                        <span class="range-value">{{pickSmoothing}}</span>
+                        <span class="range-val">{{pickSmoothing}}</span>
+                    </div>
+                    <div class="wc-refine-hint">
+                        <i class="fas fa-mouse-pointer"></i> Click map to sample. <kbd>Shift</kbd>+Click to add, <kbd>Ctrl</kbd>+Click to subtract.
                     </div>
                 </div>
                 {{/if}}
 
                 <!-- Live Candidate Card -->
                 {{#if candidate}}
-                <div class="wc-candidate">
+                <div class="wc-candidate ionrift-subcard {{#if editingRegionName}}editing{{/if}}">
                     <div class="wc-candidate-header">
-                        <i class="fas fa-water"></i>
-                        <span class="wc-candidate-info">{{candidate.vertexCount}} vertices, ~{{candidate.area}} cells</span>
+                        <i class="fas {{#if editingRegionName}}fa-pen-nib{{else}}fa-magic{{/if}}"></i>
+                        {{#if editingRegionName}}
+                        <span>Refining: <strong>{{editingRegionName}}</strong> ({{candidate.vertexCount}} pts)</span>
+                        {{else}}
+                        <span>Sampled: {{candidate.vertexCount}} pts</span>
+                        {{/if}}
+                        {{#if candidate.estimation}}
+                        <span class="wc-candidate-tag" title="{{candidate.estimation.explanation}}">
+                            <i class="{{candidate.estimation.icon}}" style="color: {{candidate.estimation.accentColor}};"></i>
+                            {{candidate.estimation.archetypeLabel}}
+                            {{#if candidate.estimation.hasDirection}}
+                            &bull; {{candidate.estimation.flowAngle}}°
+                            {{/if}}
+                        </span>
+                        {{/if}}
                     </div>
                     {{#if (gt candidate.vertexCount 60)}}
                     <p class="wc-vert-warning">
                         <i class="fas fa-exclamation-triangle"></i>
-                        Complex boundary ({{candidate.vertexCount}} pts). Consider increasing Smoothing to reduce.
+                        Complex boundary ({{candidate.vertexCount}} pts). Increase Smoothing to optimize.
                     </p>
                     {{/if}}
+                    <div class="wc-refine-hint">
+                        <i class="fas fa-layer-group"></i> <kbd>Shift</kbd>+Click map to add regions, <kbd>Ctrl</kbd>+Click to subtract.
+                    </div>
                     <div class="wc-candidate-actions">
                         <button type="button" class="cartograph-btn cartograph-btn-accept" data-action="acceptCandidate">
-                            <i class="fas fa-check"></i> Accept Zone
+                            <i class="fas fa-check"></i> {{#if editingRegionName}}Update Waterbody{{else}}Accept{{/if}}
                         </button>
                         <button type="button" class="cartograph-btn cartograph-btn-discard" data-action="discardCandidate">
-                            <i class="fas fa-times"></i> Discard
+                            <i class="fas fa-times"></i> {{#if editingRegionName}}Cancel{{else}}Discard{{/if}}
                         </button>
-                        <button type="button" class="cartograph-btn cartograph-btn-undo" data-action="undoCandidate" title="Undo last adjustment">
-                            <i class="fas fa-undo"></i> Undo
+                        <button type="button" class="cartograph-btn cartograph-btn-undo" data-action="undoCandidate" title="Undo adjustment (Ctrl+Z)">
+                            <i class="fas fa-undo"></i>
                         </button>
                     </div>
-                    <p class="wc-refine-hint">
-                        <i class="fas fa-mouse-pointer"></i>
-                        <strong>Shift+Click</strong> add &bull; <strong>Ctrl+Click</strong> subtract &bull; <strong>Ctrl+Z</strong> undo
-                    </p>
                 </div>
+                {{/if}}
+
+                <!-- Waterbody List -->
+                {{#if zones.length}}
+                <div class="wc-entity-list">
+                    {{#each zones as |z|}}
+                    <div class="wc-entity-card {{#if z.isActive}}active{{/if}}" data-action="selectZone" data-region-id="{{z.id}}">
+                        <div class="wc-card-archetype-icon" style="color: {{z.archetypeColor}};" title="{{z.archetypeLabel}}">
+                            <i class="{{z.archetypeIcon}}"></i>
+                        </div>
+                        <div class="wc-card-details">
+                            <span class="wc-zone-name" data-region-id="{{z.id}}" title="Rename">{{z.name}}</span>
+                            <span class="wc-zone-meta">{{z.archetypeLabel}} &bull; {{z.verts}} pts</span>
+                        </div>
+                        <div class="wc-card-actions">
+                            <button type="button" class="wc-card-btn wc-card-btn-edit {{#if (eq ../editingRegionId z.id)}}active{{/if}}" data-action="editZoneBoundary" data-region-id="{{z.id}}" title="{{#if (eq ../editingRegionId z.id)}}Cancel boundary editing{{else}}Refine boundary (Add/subtract water with sampler){{/if}}">
+                                <i class="fas fa-pen-nib"></i>
+                            </button>
+                            <button type="button" class="wc-card-btn" data-action="focusZone" data-region-id="{{z.id}}" title="Focus on Canvas">
+                                <i class="fas fa-crosshairs"></i>
+                            </button>
+                            <button type="button" class="wc-card-btn wc-card-btn-delete" data-action="deleteZone" data-region-id="{{z.id}}" title="Delete Waterbody">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {{/each}}
+                </div>
+                {{else}}
+                <p class="wc-empty-hint">No waterbodies on this scene.</p>
                 {{/if}}
             </div>
 
-            <!-- Animation FX Controls -->
-            <div class="wc-section wc-fx-section">
-                <h3><i class="fas fa-sliders-h"></i> Water Animation & Appearance</h3>
-
-                <!-- Presets -->
-                <div class="wc-preset-row">
-                    <label>Preset</label>
-                    <select name="waterPreset">
-                        <optgroup label="Built-in">
-                            {{#each builtInPresets as |p k|}}
-                            <option value="{{k}}" {{#if (eq ../activePreset k)}}selected{{/if}}>{{p.label}}</option>
+            {{#if zones.length}}
+            <!-- 2. Active Waterbody Archetype & Preset Selector (Unified Row) -->
+            <div class="wc-archetype-bar ionrift-card">
+                <div class="wc-archetype-preset-row">
+                    <div class="wc-bar-col wc-archetype-col">
+                        <label title="Fundamental waterbody fluid dynamics and environment classification">
+                            <i class="fas fa-shapes"></i> Archetype
+                        </label>
+                        <select name="waterArchetype" class="ionrift-select">
+                            {{#each archetypes as |arch key|}}
+                            <option value="{{key}}" {{#if (eq ../activeArchetype key)}}selected{{/if}}>{{arch.label}}</option>
                             {{/each}}
-                        </optgroup>
-                        {{#if customPresetsList.length}}
-                        <optgroup label="Custom">
-                            {{#each customPresetsList as |p|}}
-                            <option value="{{p.key}}" {{#if (eq ../activePreset p.key)}}selected{{/if}}>{{p.name}}</option>
-                            {{/each}}
-                        </optgroup>
-                        {{/if}}
-                    </select>
-                    <button type="button" class="wc-preset-btn wc-preset-save" data-action="promptSavePreset" title="Save current settings as a new preset">
-                        <i class="fas fa-save"></i>
-                    </button>
-                    {{#if isCustomPresetSelected}}
-                    <button type="button" class="wc-preset-btn wc-preset-delete" data-action="deleteWaterPreset" title="Delete this custom preset">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    {{/if}}
+                        </select>
+                    </div>
+                    <div class="wc-bar-col wc-preset-col">
+                        <label title="Atmospheric preset profiles curated for this archetype">
+                            <i class="fas fa-bookmark"></i> Preset
+                        </label>
+                        <div class="wc-preset-select-wrap">
+                            <select name="waterPreset" class="ionrift-select">
+                                <optgroup label="{{activeArchetypeMeta.label}} Presets">
+                                    {{#each currentArchetypePresets as |p k|}}
+                                    <option value="{{k}}" {{#if (eq ../activePreset k)}}selected{{/if}}>{{p.label}}</option>
+                                    {{/each}}
+                                </optgroup>
+                                {{#if customPresetsList.length}}
+                                <optgroup label="Custom Presets">
+                                    {{#each customPresetsList as |p|}}
+                                    <option value="{{p.key}}" {{#if (eq ../activePreset p.key)}}selected{{/if}}>{{p.name}}</option>
+                                    {{/each}}
+                                </optgroup>
+                                {{/if}}
+                            </select>
+                            <button type="button" class="wc-preset-btn wc-preset-save" data-action="promptSavePreset" title="Save current settings as a new custom preset">
+                                <i class="fas fa-save"></i>
+                            </button>
+                            {{#if isCustomPresetSelected}}
+                            <button type="button" class="wc-preset-btn wc-preset-delete" data-action="deleteWaterPreset" title="Delete this custom preset">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {{/if}}
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Save Preset Inline Prompt -->
                 <div class="wc-preset-save-prompt {{#unless showPresetPrompt}}hidden{{/unless}}">
-                    <input type="text" name="newPresetName" class="wc-preset-name" placeholder="Preset name..." maxlength="30" />
+                    <input type="text" name="newPresetName" class="wc-preset-name" placeholder="New preset name..." maxlength="30" />
                     <button type="button" class="cartograph-btn wc-preset-confirm" data-action="confirmSavePreset" title="Confirm Save">
                         <i class="fas fa-check"></i>
                     </button>
@@ -144,73 +182,202 @@
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
+            </div>
 
-                <!-- Sliders -->
-                <div class="form-group">
-                    <label title="Wave animation speed">Speed</label>
-                    <input type="range" name="speed" min="0.05" max="3.0" value="{{fx.speed}}" step="0.05" />
-                    <span class="range-value">{{numberFormat fx.speed decimals=2}}</span>
+            <!-- 3. Curated Hero Sliders -->
+            <div class="wc-hero-controls ionrift-card">
+                <div class="wc-hero-header">
+                    <h4>
+                        <i class="{{activeArchetypeMeta.icon}}" style="color: {{activeArchetypeMeta.accentColor}};"></i>
+                        {{activeArchetypeMeta.label}} Controls
+                    </h4>
+                    <span class="wc-hero-hint">{{activeArchetypeMeta.description}}</span>
                 </div>
 
-                <div class="form-group">
-                    <label title="Wave amplitude and prominence">Intensity</label>
-                    <input type="range" name="intensity" min="0.0" max="2.0" value="{{fx.intensity}}" step="0.1" />
-                    <span class="range-value">{{numberFormat fx.intensity decimals=2}}</span>
-                </div>
-
-                <div class="form-group">
-                    <label title="Surface caustics overlay opacity">Opacity</label>
-                    <input type="range" name="opacity" min="0.05" max="0.5" value="{{fx.opacity}}" step="0.05" />
-                    <span class="range-value">{{numberFormat fx.opacity decimals=2}}</span>
-                </div>
-
-                <div class="form-group">
-                    <label title="Background refraction and distortion">Distortion</label>
-                    <input type="range" name="distortion" min="0.0" max="0.05" value="{{fx.distortion}}" step="0.001" />
-                    <span class="range-value">{{numberFormat fx.distortion decimals=3}}</span>
-                </div>
-
-                <div class="form-group">
-                    <label title="Width of the transparent edge blend in pixels">Edge Fade</label>
-                    <input type="range" name="fadeWidth" min="0" max="200" value="{{fx.fadeWidth}}" step="5" />
-                    <span class="range-value">{{fx.fadeWidth}}</span>
-                </div>
-
-                <div class="form-group">
-                    <label title="Intensity of breaking foam waves near the water edge">Shore Waves</label>
-                    <input type="range" name="shoreWaves" min="0.0" max="1.0" value="{{fx.shoreWaves}}" step="0.05" />
-                    <span class="range-value">{{numberFormat fx.shoreWaves decimals=2}}</span>
-                </div>
-
-                <div class="form-group">
-                    <label title="Texture pattern scale">Scale</label>
-                    <input type="range" name="scale" min="30" max="400" value="{{fx.scale}}" step="10" />
-                    <span class="range-value">{{fx.scale}}</span>
-                </div>
-
-                <div class="form-group">
-                    <label title="Direction of water flow in degrees (0 = right, 90 = down, 180 = left, 270 = up)">Flow Direction</label>
-                    <input type="range" name="flowAngle" min="0" max="355" value="{{fx.flowAngle}}" step="5" />
-                    <span class="range-value">{{fx.flowAngle}}&deg;</span>
-                </div>
-
-                <div class="form-group">
-                    <label title="Tint color for the water overlay">Color</label>
-                    <input type="color" name="colorOverride" value="{{fx.colorOverride}}" {{#if fx.autoColor}}disabled{{/if}} />
-                    <label class="color-auto-label">
-                        <input type="checkbox" name="autoColor" {{#if fx.autoColor}}checked{{/if}} /> Auto
-                    </label>
+                <div class="wc-hero-sliders-body">
+                    {{#if hasDirection}}
+                    <!-- Directional Archetypes: Sliders on Left, Directional Arrow Dial on Right -->
+                    <div class="wc-hero-split-wrap wc-river-hero-wrap">
+                        <div class="wc-hero-sliders-col wc-river-sliders-col">
+                            {{#each heroSliders as |slider|}}
+                            {{#unless slider.isDirection}}
+                            <div class="form-group hero-slider-group">
+                                <label title="{{slider.tooltip}}">{{slider.label}}</label>
+                                <div class="hero-input-wrap">
+                                    <input type="range" name="hero_{{slider.id}}" min="{{slider.min}}" max="{{slider.max}}" value="{{slider.value}}" step="{{slider.step}}" data-hero-id="{{slider.id}}" />
+                                    <span class="range-val">{{slider.displayValue}}</span>
+                                </div>
+                            </div>
+                            {{/unless}}
+                            {{/each}}
+                        </div>
+                        <div class="wc-hero-direction-col wc-river-direction-col">
+                            {{#each heroSliders as |slider|}}
+                            {{#if slider.isDirection}}
+                            <div class="direction-widget" title="{{slider.tooltip}}">
+                                <div class="direction-header">
+                                    <label><i class="{{#if slider.icon}}{{slider.icon}}{{else}}fas fa-location-arrow{{/if}}"></i> {{slider.label}}</label>
+                                    <span class="direction-angle-badge">{{slider.displayValue}}</span>
+                                </div>
+                                <div class="direction-dial">
+                                    <div class="direction-arrow-pivot" style="transform: rotate({{slider.value}}deg);">
+                                        <div class="direction-arrow"></div>
+                                    </div>
+                                    <div class="direction-center-dot"></div>
+                                </div>
+                            </div>
+                            {{/if}}
+                            {{/each}}
+                        </div>
+                    </div>
+                    {{else}}
+                    <!-- Standard 2-Column Grid for Non-Directional Archetypes (Pond, Puddle) -->
+                    <div class="wc-hero-grid-2col">
+                        {{#each heroSliders as |slider|}}
+                        <div class="form-group hero-slider-group">
+                            <label title="{{slider.tooltip}}">{{slider.label}}</label>
+                            <div class="hero-input-wrap">
+                                <input type="range" name="hero_{{slider.id}}" min="{{slider.min}}" max="{{slider.max}}" value="{{slider.value}}" step="{{slider.step}}" data-hero-id="{{slider.id}}" />
+                                <span class="range-val">{{slider.displayValue}}</span>
+                            </div>
+                        </div>
+                        {{/each}}
+                    </div>
+                    {{/if}}
                 </div>
             </div>
 
+            {{!-- 4. Expandable Advanced FX Tuning Drawer (Disabled/Hidden for now)
+            <details class="wc-advanced-drawer ionrift-card" {{#if drawerOpen}}open{{/if}}>
+                <summary class="wc-drawer-summary">
+                    <div class="summary-left">
+                        <i class="fas fa-sliders-h"></i>
+                        <span>Advanced Shader Levers</span>
+                    </div>
+                    <i class="fas fa-chevron-down drawer-chevron"></i>
+                </summary>
+
+                <div class="wc-drawer-content">
+                    <!-- Subsection A: Wave & Mesh Dynamics -->
+                    <div class="drawer-group-title"><i class="fas fa-wave-square"></i> Wave & Texture Dynamics</div>
+                    <div class="drawer-grid-2col">
+                        <div class="form-group-compact">
+                            <label title="Base texture pattern scale">Scale</label>
+                            <input type="range" name="scale" min="30" max="400" value="{{fx.scale}}" step="5" />
+                            <span class="range-val">{{fx.scale}}</span>
+                        </div>
+                        <div class="form-group-compact">
+                            <label title="Background refraction distortion strength">Distortion</label>
+                            <input type="range" name="distortion" min="0.0" max="0.05" value="{{fx.distortion}}" step="0.001" />
+                            <span class="range-val">{{numberFormat fx.distortion decimals=3}}</span>
+                        </div>
+                        <div class="form-group-compact">
+                            <label title="Base animation speed">Speed</label>
+                            <input type="range" name="speed" min="0.05" max="3.0" value="{{fx.speed}}" step="0.05" />
+                            <span class="range-val">{{numberFormat fx.speed decimals=2}}</span>
+                        </div>
+                        <div class="form-group-compact">
+                            <label title="Caustic brightness and prominence">Intensity</label>
+                            <input type="range" name="intensity" min="0.0" max="2.0" value="{{fx.intensity}}" step="0.05" />
+                            <span class="range-val">{{numberFormat fx.intensity decimals=2}}</span>
+                        </div>
+                    </div>
+
+                    <!-- Subsection B: Shoreline & Swash Physics -->
+                    <div class="drawer-group-title"><i class="fas fa-umbrella-beach"></i> Shoreline & Swash Physics</div>
+                    <div class="drawer-grid-2col">
+                        <div class="form-group-compact">
+                            <label title="Width of the transparent edge blend in pixels">Edge Fade</label>
+                            <input type="range" name="fadeWidth" min="0" max="200" value="{{fx.fadeWidth}}" step="5" />
+                            <span class="range-val">{{fx.fadeWidth}}px</span>
+                        </div>
+                        <div class="form-group-compact">
+                            <label title="Breaking shore wave foam intensity">Shore Waves</label>
+                            <input type="range" name="shoreWaves" min="0.0" max="1.0" value="{{fx.shoreWaves}}" step="0.05" />
+                            <span class="range-val">{{numberFormat fx.shoreWaves decimals=2}}</span>
+                        </div>
+                        <div class="form-group-compact">
+                            <label title="Breaks continuous waves into traveling sets">Wave Breakup</label>
+                            <input type="range" name="waveSegment" min="0.0" max="1.0" value="{{fx.waveSegment}}" step="0.05" />
+                            <span class="range-val">{{numberFormat fx.waveSegment decimals=2}}</span>
+                        </div>
+                        <div class="form-group-compact">
+                            <label title="Distance waves lap past shoreline onto dry land">Surge Reach</label>
+                            <input type="range" name="swashSurge" min="0" max="60" value="{{fx.swashSurge}}" step="2" />
+                            <span class="range-val">{{fx.swashSurge}}px</span>
+                        </div>
+                    </div>
+
+                    <!-- Subsection C: Open Sea & Aeration -->
+                    <div class="drawer-group-title"><i class="fas fa-water"></i> Open Sea & Foam Aeration</div>
+                    <div class="drawer-grid-2col">
+                        <div class="form-group-compact">
+                            <label title="Multi-directional chop across open water">Open Sea Chop</label>
+                            <input type="range" name="choppySeas" min="0.0" max="1.5" value="{{fx.choppySeas}}" step="0.05" />
+                            <span class="range-val">{{numberFormat fx.choppySeas decimals=2}}</span>
+                        </div>
+                        <div class="form-group-compact">
+                            <label title="Aerated foam crests on swells">Whitecaps</label>
+                            <input type="range" name="whitecaps" min="0.0" max="1.5" value="{{fx.whitecaps}}" step="0.05" />
+                            <span class="range-val">{{numberFormat fx.whitecaps decimals=2}}</span>
+                        </div>
+                        <div class="form-group-compact">
+                            <label title="Sun highlights on wave crests">Sun Glint</label>
+                            <input type="range" name="sunGlint" min="0.0" max="2.0" value="{{fx.sunGlint}}" step="0.05" />
+                            <span class="range-val">{{numberFormat fx.sunGlint decimals=2}}</span>
+                        </div>
+                        <div class="form-group-compact">
+                            <label title="Water flow direction in degrees">Flow Direction</label>
+                            <input type="range" name="flowAngle" min="0" max="355" value="{{fx.flowAngle}}" step="5" />
+                            <span class="range-val">{{fx.flowAngle}}&deg;</span>
+                        </div>
+                        <div class="form-group-compact checkbox-compact-group">
+                            <label title="Foam wakes trailing behind traveling crests">
+                                <input type="checkbox" name="spindriftWake" {{#if fx.spindriftWake}}checked{{/if}} /> Trailing Wake
+                            </label>
+                            <label title="Confines foam strictly to crest summits">
+                                <input type="checkbox" name="crestBound" {{#if fx.crestBound}}checked{{/if}} /> Crest-Locked
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Subsection D: Color & Tint -->
+                    <div class="drawer-group-title"><i class="fas fa-palette"></i> Color & Opacity</div>
+                    <div class="drawer-color-row">
+                        <div class="color-picker-wrap">
+                            <input type="color" name="colorOverride" value="{{fx.colorOverride}}" {{#if fx.autoColor}}disabled{{/if}} />
+                            <label class="color-auto-label">
+                                <input type="checkbox" name="autoColor" {{#if fx.autoColor}}checked{{/if}} /> Auto Sample Map
+                            </label>
+                        </div>
+                        <div class="form-group-compact opacity-compact">
+                            <label title="Water overlay tint opacity">Opacity</label>
+                            <input type="range" name="opacity" min="0.05" max="0.5" value="{{fx.opacity}}" step="0.01" />
+                            <span class="range-val">{{numberFormat fx.opacity decimals=2}}</span>
+                        </div>
+                    </div>
+                </div>
+            </details>
+            --}}
+            {{/if}}
+
             <!-- Tab 1 Footer -->
             <div class="wc-footer-actions">
-                <button type="button" class="cartograph-btn" data-action="previewLayer">
-                    <i class="fas fa-eye"></i> View on Token Layer
-                </button>
-                <button type="button" class="cartograph-btn cartograph-btn-save-fx" data-action="saveWaterFX">
-                    <i class="fas fa-save"></i> Save FX to Scene
-                </button>
+                {{#if zones.length}}
+                <div class="wc-footer-batch-row">
+                    <label class="wc-batch-label" title="When checked, saves these settings to all waterbodies sharing this archetype on the scene">
+                        <input type="checkbox" name="applyToAllSameArchetype" {{#if applyToAllSameArchetype}}checked{{/if}} />
+                        <span>Apply to all <strong>{{activeArchetypeMeta.label}}</strong> bodies</span>
+                    </label>
+                </div>
+                {{/if}}
+                <div class="wc-footer-buttons">
+                    {{#if zones.length}}
+                    <button type="button" class="cartograph-btn cartograph-btn-save-fx" data-action="saveWaterFX">
+                        <i class="fas fa-save"></i> Save to Waterbody
+                    </button>
+                    {{/if}}
+                </div>
             </div>
         </section>
 
@@ -264,7 +431,6 @@
                                 <option value="sprites" {{#if (eq wake.visualMode 'sprites')}}selected{{/if}}>Crest rings only</option>
                                 <option value="both" {{#if (eq wake.visualMode 'both')}}selected{{/if}}>Combined (Refraction + Rings)</option>
                             </select>
-                            <span class="wake-tg-val"></span>
                         </div>
                     </div>
                 </details>
@@ -274,32 +440,32 @@
                     <summary>Wave Shape & Lifetime</summary>
                     <div class="wake-tg-details-body">
                         <div class="form-group wake-tg-row">
-                            <label title="duration">Lifetime (s)</label>
+                            <label title="Lifespan of motion ripples">Lifetime (s)</label>
                             <input type="range" name="wake_duration" min="0.35" max="4" step="0.05" value="{{wake.duration}}" />
                             <span class="wake-tg-val">{{numberFormat wake.duration decimals=2}}</span>
                         </div>
                         <div class="form-group wake-tg-row">
-                            <label title="rippleStartMul">Start radius (x token)</label>
+                            <label title="Initial ring radius relative to token size">Start radius (x token)</label>
                             <input type="range" name="wake_rippleStartMul" min="0.2" max="2.0" step="0.05" value="{{wake.rippleStartMul}}" />
                             <span class="wake-tg-val">{{numberFormat wake.rippleStartMul decimals=2}}</span>
                         </div>
                         <div class="form-group wake-tg-row">
-                            <label title="rippleMaxMul">Max radius (x token)</label>
+                            <label title="Maximum ring expansion relative to token size">Max radius (x token)</label>
                             <input type="range" name="wake_rippleMaxMul" min="1.0" max="5.0" step="0.1" value="{{wake.rippleMaxMul}}" />
                             <span class="wake-tg-val">{{numberFormat wake.rippleMaxMul decimals=2}}</span>
                         </div>
                         <div class="form-group wake-tg-row">
-                            <label title="ringCount">Ring count</label>
+                            <label title="Number of concentric rings per ripple">Ring count</label>
                             <input type="range" name="wake_ringCount" min="1" max="6" step="1" value="{{wake.ringCount}}" />
                             <span class="wake-tg-val">{{wake.ringCount}}</span>
                         </div>
                         <div class="form-group wake-tg-row">
-                            <label title="baseAlpha">Strength</label>
+                            <label title="Peak opacity of ripple crests">Strength</label>
                             <input type="range" name="wake_baseAlpha" min="0.1" max="1" step="0.05" value="{{wake.baseAlpha}}" />
                             <span class="wake-tg-val">{{numberFormat wake.baseAlpha decimals=2}}</span>
                         </div>
                         <div class="form-group wake-tg-row">
-                            <label title="rippleVariance">Wave Dispersion</label>
+                            <label title="Variation in ring spacing and decay">Wave Dispersion</label>
                             <input type="range" name="wake_rippleVariance" min="0" max="2" step="0.05" value="{{wake.rippleVariance}}" />
                             <span class="wake-tg-val">{{numberFormat wake.rippleVariance decimals=2}}</span>
                         </div>
@@ -311,32 +477,32 @@
                     <summary>Motion Burst & Trail Ripples</summary>
                     <div class="wake-tg-details-body">
                         <div class="form-group wake-tg-row">
-                            <label title="rippleLeadPx">Lead ahead (px)</label>
+                            <label title="Pixel lead ahead of moving tokens">Lead ahead (px)</label>
                             <input type="range" name="wake_rippleLeadPx" min="0" max="30" step="1" value="{{wake.rippleLeadPx}}" />
                             <span class="wake-tg-val">{{wake.rippleLeadPx}}</span>
                         </div>
                         <div class="form-group wake-tg-row">
-                            <label title="minMoveDist">Min move for burst (px)</label>
+                            <label title="Minimum movement distance to trigger ripple burst">Min move for burst (px)</label>
                             <input type="range" name="wake_minMoveDist" min="0" max="80" step="1" value="{{wake.minMoveDist}}" />
                             <span class="wake-tg-val">{{wake.minMoveDist}}</span>
                         </div>
                         <div class="form-group wake-tg-row">
-                            <label title="spawnCooldownPx">Spawn cooldown (px)</label>
+                            <label title="Distance traveled between ripple emissions">Spawn cooldown (px)</label>
                             <input type="range" name="wake_spawnCooldownPx" min="5" max="100" step="1" value="{{wake.spawnCooldownPx}}" />
                             <span class="wake-tg-val">{{wake.spawnCooldownPx}}</span>
                         </div>
                         <div class="form-group wake-tg-row">
-                            <label title="maxRipplesPool">Total ripple budget</label>
+                            <label title="Maximum concurrent active ripples allowed">Total ripple budget</label>
                             <input type="range" name="wake_maxRipplesPool" min="10" max="120" step="1" value="{{wake.maxRipplesPool}}" />
                             <span class="wake-tg-val">{{wake.maxRipplesPool}}</span>
                         </div>
                         <div class="form-group wake-tg-row">
-                            <label title="refreshDuration">Trail lifetime (s)</label>
+                            <label title="Duration movement wake persists">Trail lifetime (s)</label>
                             <input type="range" name="wake_refreshDuration" min="0.4" max="3" step="0.05" value="{{wake.refreshDuration}}" />
                             <span class="wake-tg-val">{{numberFormat wake.refreshDuration decimals=2}}</span>
                         </div>
                         <div class="form-group wake-tg-row">
-                            <label title="refreshBaseAlpha">Trail strength</label>
+                            <label title="Opacity of trailing movement wake">Trail strength</label>
                             <input type="range" name="wake_refreshBaseAlpha" min="0.1" max="1" step="0.05" value="{{wake.refreshBaseAlpha}}" />
                             <span class="wake-tg-val">{{numberFormat wake.refreshBaseAlpha decimals=2}}</span>
                         </div>
@@ -350,60 +516,6 @@
                     <i class="fas fa-undo"></i> Reset Default Physics
                 </button>
             </div>
-        </section>
-
-        <!-- ========================================================= -->
-        <!-- TAB 3: SHORELINE BORDERS                                  -->
-        <!-- ========================================================= -->
-        <section class="tab {{#if (eq activeTab 'borders')}}active{{/if}}" data-tab="borders">
-            
-            <div class="wc-section">
-                <h3><i class="fas fa-border-all"></i> Procedural Perimeter Walls</h3>
-                <p class="wc-layer-hint">
-                    Generate organic natural boundary walls or clean straight edges along the canvas perimeter to prevent players from seeing beyond the battlemap.
-                </p>
-
-                <div class="form-group">
-                    <label title="Number of wall segments around the perimeter">Vertices</label>
-                    <input type="range" name="border_totalVertices" min="16" max="80" value="{{border.totalVertices}}" step="1" />
-                    <span class="range-value">{{border.totalVertices}}</span>
-                </div>
-
-                <div class="form-group">
-                    <label title="How far walls deviate inward from the edge">Amplitude</label>
-                    <input type="range" name="border_amplitude" min="20" max="400" value="{{border.amplitude}}" step="1" />
-                    <span class="range-value">{{border.amplitude}}</span>
-                </div>
-
-                <div class="form-group">
-                    <label title="Randomness of vertex spacing">Jitter</label>
-                    <input type="range" name="border_jitter" min="0" max="0.8" value="{{border.jitter}}" step="0.1" />
-                    <span class="range-value">{{numberFormat border.jitter decimals=1}}</span>
-                </div>
-
-                <div class="form-group">
-                    <label title="Pixel offset inward from the scene edge">Inset</label>
-                    <input type="range" name="border_inset" min="0" max="100" value="{{border.inset}}" step="1" />
-                    <span class="range-value">{{border.inset}}</span>
-                </div>
-            </div>
-
-            <div class="wc-footer-actions border-actions">
-                <button type="button" class="cartograph-btn cartograph-btn-organic" data-action="generateOrganicBorder" title="Generate organic border (re-rolls each click)">
-                    <i class="fas fa-mountain"></i> Organic
-                </button>
-                <button type="button" class="cartograph-btn cartograph-btn-straight" data-action="generateStraightBorder" title="Generate 4 straight walls">
-                    <i class="fas fa-vector-square"></i> Straight
-                </button>
-                <button type="button" class="cartograph-btn border-btn-clear" data-action="clearBorders" title="Remove all border walls">
-                    <i class="fas fa-trash-alt"></i> Clear
-                </button>
-            </div>
-
-            <p class="wc-layer-hint">
-                <i class="fas fa-info-circle"></i>
-                Click Organic repeatedly to re-roll. Adjust sliders between clicks.
-            </p>
         </section>
 
     </div>
