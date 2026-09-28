@@ -1,4 +1,5 @@
 import { WaterShapeEstimator } from './WaterShapeEstimator.js';
+import { MapBorderDetector } from './MapBorderDetector.js';
 import { WATER_ARCHETYPES, WATER_PRESETS } from './WaterManager.js';
 
 const MODULE_ID = 'ionrift-waterline';
@@ -183,12 +184,16 @@ export class WaterDetector {
             regionName = `${archLabel} ${existingCount + 1}`;
         }
 
+        const regionPoints = (est?.touches?.count > 0)
+            ? MapBorderDetector.snap(candidate.points, scene?.dimensions || canvas?.dimensions)
+            : candidate.points;
+
         const regionData = {
             name: regionName,
             color: preset.colorOverride || WATER_ARCHETYPES[archetype]?.accentColor || '#2a6496',
             shapes: [{
                 type: 'polygon',
-                points: candidate.points
+                points: regionPoints
             }],
             behaviors: []
         };

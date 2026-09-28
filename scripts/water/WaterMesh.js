@@ -4,6 +4,7 @@
  */
 
 import { ShoreSdfGenerator } from './ShoreSdfGenerator.js';
+import { MapBorderDetector } from './MapBorderDetector.js';
 import { createWaterShader } from './shaders/WaterShader.js';
 
 const LOG = (...args) => { try { if (game.settings?.get?.('ionrift-waterline', 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
@@ -22,6 +23,9 @@ export class WaterMesh {
 
     /** @type {PIXI.Texture|null} */
     #sdfTexture = null;
+
+    /** @type {object|null} */
+    #borderSignature = null;
 
     /**
      * @param {number[]} flatPoints - Flat array [x, y, x, y, ...]
@@ -47,7 +51,24 @@ export class WaterMesh {
             n = pts.length / 2;
         }
 
-        const indices = earcut(pts, null, 2);
+        // Scene dimensions for UV mapping and boundary analysis
+        const dims = canvas?.dimensions;
+        const sceneW = dims?.sceneWidth || dims?.width || 4000;
+        const sceneH = dims?.sceneHeight || dims?.height || 3000;
+        const sceneX = dims?.sceneX ?? 0;
+        const sceneY = dims?.sceneY ?? 0;
+
+        // Detect border contact signature and bleed polygon past map edges to eliminate animation seams
+        const borderSig = MapBorderDetector.detect(pts, dims);
+        this.#borderSignature = borderSig;
+
+        let meshPts = pts;
+        if (borderSig.hasBorderContact) {
+            meshPts = MapBorderDetector.bleed(pts, dims, 64.0);
+            n = meshPts.length / 2;
+        }
+
+        const indices = earcut(meshPts, null, 2);
         if (!indices.length) {
             LOG('ERROR: Triangulation produced no indices');
             return;
@@ -57,31 +78,24 @@ export class WaterMesh {
 
         // Compute bounds
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (let i = 0; i < pts.length; i += 2) {
-            minX = Math.min(minX, pts[i]);
-            minY = Math.min(minY, pts[i + 1]);
-            maxX = Math.max(maxX, pts[i]);
-            maxY = Math.max(maxY, pts[i + 1]);
+        for (let i = 0; i < meshPts.length; i += 2) {
+            minX = Math.min(minX, meshPts[i]);
+            minY = Math.min(minY, meshPts[i + 1]);
+            maxX = Math.max(maxX, meshPts[i]);
+            maxY = Math.max(maxY, meshPts[i + 1]);
         }
         const boundsW = maxX - minX || 1;
         const boundsH = maxY - minY || 1;
 
         // Generate Signed Distance Field (SDF) texture for organic shorelines
-        const sdfResult = ShoreSdfGenerator.generate(pts);
+        const sdfResult = ShoreSdfGenerator.generate(meshPts);
         this.#sdfTexture = sdfResult?.texture ?? null;
         const sdfBounds = sdfResult?.sdfBounds ?? new Float32Array([minX, minY, boundsW, boundsH]);
         const sdfMaxDist = sdfResult?.maxDist ?? ShoreSdfGenerator.DEFAULT_MAX_DIST;
 
         // Build extruded skirt geometry allowing waves to surge onto dry bank
         const skirtMargin = 45.0;
-        const skirtGeom = ShoreSdfGenerator.buildSkirtGeometry(pts, indices, skirtMargin);
-
-        // Scene dimensions for UV mapping
-        const dims = canvas.dimensions;
-        const sceneW = dims.sceneWidth || dims.width;
-        const sceneH = dims.sceneHeight || dims.height;
-        const sceneX = dims.sceneX ?? 0;
-        const sceneY = dims.sceneY ?? 0;
+        const skirtGeom = ShoreSdfGenerator.buildSkirtGeometry(meshPts, indices, skirtMargin);
 
         const geometry = new PIXI.Geometry()
             .addAttribute('aVertexPosition', skirtGeom.vertices, 2)
@@ -196,6 +210,11 @@ export class WaterMesh {
             this.mesh.parent.removeChild(this.mesh);
         }
         this.mesh?.destroy(true);
+    }
+
+    /** @type {object|null} Border signature detected for this water mesh */
+    get borderSignature() {
+        return this.#borderSignature;
     }
 
     setBlendMode(mode) {

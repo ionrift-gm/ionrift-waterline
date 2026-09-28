@@ -1,4 +1,5 @@
 import { WATER_ARCHETYPES, WATER_PRESETS } from './WaterManager.js';
+import { MapBorderDetector } from './MapBorderDetector.js';
 
 /**
  * WaterShapeEstimator
@@ -65,65 +66,9 @@ export class WaterShapeEstimator {
         const coverage = sceneArea > 0 ? polyArea / sceneArea : 0;
 
         // ── 1. Map Edge Boundary Contact Analysis ─────────────────────────────
-        const marginX = Math.max(28, (dims.sceneWidth ?? 4000) * 0.02);
-        const marginY = Math.max(28, (dims.sceneHeight ?? 3000) * 0.02);
-
-        let touchLeftCount = 0, touchRightCount = 0, touchTopCount = 0, touchBottomCount = 0;
-        let minTouchY_left = Infinity, maxTouchY_left = -Infinity;
-        let minTouchY_right = Infinity, maxTouchY_right = -Infinity;
-        let minTouchX_top = Infinity, maxTouchX_top = -Infinity;
-        let minTouchX_bottom = Infinity, maxTouchX_bottom = -Infinity;
-
-        for (let i = 0; i < points.length; i += 2) {
-            const x = points[i];
-            const y = points[i + 1];
-
-            if (x - sLeft <= marginX) {
-                touchLeftCount++;
-                if (y < minTouchY_left) minTouchY_left = y;
-                if (y > maxTouchY_left) maxTouchY_left = y;
-            }
-            if (sRight - x <= marginX) {
-                touchRightCount++;
-                if (y < minTouchY_right) minTouchY_right = y;
-                if (y > maxTouchY_right) maxTouchY_right = y;
-            }
-            if (y - sTop <= marginY) {
-                touchTopCount++;
-                if (x < minTouchX_top) minTouchX_top = x;
-                if (x > maxTouchX_top) maxTouchX_top = x;
-            }
-            if (sBottom - y <= marginY) {
-                touchBottomCount++;
-                if (x < minTouchX_bottom) minTouchX_bottom = x;
-                if (x > maxTouchX_bottom) maxTouchX_bottom = x;
-            }
-        }
-
-        const minSpanY = (dims.sceneHeight ?? 3000) * 0.10;
-        const minSpanX = (dims.sceneWidth ?? 4000) * 0.10;
-
-        const touches = {
-            left: touchLeftCount >= 2 && (maxTouchY_left - minTouchY_left) >= minSpanY,
-            right: touchRightCount >= 2 && (maxTouchY_right - minTouchY_right) >= minSpanY,
-            top: touchTopCount >= 2 && (maxTouchX_top - minTouchX_top) >= minSpanX,
-            bottom: touchBottomCount >= 2 && (maxTouchX_bottom - minTouchX_bottom) >= minSpanX
-        };
-        touches.count = (touches.left ? 1 : 0) + (touches.right ? 1 : 0) + (touches.top ? 1 : 0) + (touches.bottom ? 1 : 0);
-
-        // Classify inland vertices (not clamped to a touched map border)
-        const inlandPoints = [];
-        for (let i = 0; i < points.length; i += 2) {
-            const x = points[i];
-            const y = points[i + 1];
-            const isBorder = (touches.left && x <= sLeft + marginX)
-                || (touches.right && x >= sRight - marginX)
-                || (touches.top && y <= sTop + marginY)
-                || (touches.bottom && y >= sBottom - marginY);
-            if (!isBorder) {
-                inlandPoints.push({ x, y });
-            }
-        }
+        const borderSig = MapBorderDetector.detect(points, dims);
+        const touches = borderSig.touches;
+        const inlandPoints = borderSig.inlandPoints;
 
         // ── 2. PCA / Second Moments Analysis (Elongation & Major Axis) ─────────
         let varXX = 0, varYY = 0, covXY = 0;
@@ -238,6 +183,7 @@ export class WaterShapeEstimator {
             coverage: +coverage.toFixed(3),
             area: Math.round(polyArea),
             touches,
+            borderSignature: borderSig,
             explanation
         };
     }
@@ -256,6 +202,7 @@ export class WaterShapeEstimator {
             coverage: 0,
             area: 0,
             touches: { left: false, right: false, top: false, bottom: false, count: 0 },
+            borderSignature: MapBorderDetector.detect(null),
             explanation: 'Default fallback'
         };
     }

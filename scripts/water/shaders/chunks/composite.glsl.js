@@ -56,12 +56,31 @@ export const COMPOSITE_CHUNK = `
             shoreTangent = vec2(-shoreNormal.y, shoreNormal.x);
         }
 
+        // Detect artificial map boundary cuts (shore normal pointing inward away from scene frame)
+        float distToMapLeft   = max(0.0, vWorldPos.x - uSceneDims.x);
+        float distToMapRight  = max(0.0, (uSceneDims.x + uSceneDims.z) - vWorldPos.x);
+        float distToMapTop    = max(0.0, vWorldPos.y - uSceneDims.y);
+        float distToMapBottom = max(0.0, (uSceneDims.y + uSceneDims.w) - vWorldPos.y);
+
+        float cutLeft   = max(0.0, dot(shoreNormal, vec2(1.0, 0.0)))  * (1.0 - smoothstep(0.0, 140.0, distToMapLeft));
+        float cutRight  = max(0.0, dot(shoreNormal, vec2(-1.0, 0.0))) * (1.0 - smoothstep(0.0, 140.0, distToMapRight));
+        float cutTop    = max(0.0, dot(shoreNormal, vec2(0.0, 1.0)))  * (1.0 - smoothstep(0.0, 140.0, distToMapTop));
+        float cutBottom = max(0.0, dot(shoreNormal, vec2(0.0, -1.0))) * (1.0 - smoothstep(0.0, 140.0, distToMapBottom));
+        float mapCutAlignment = max(max(cutLeft, cutRight), max(cutTop, cutBottom));
+
+        // Proximity suppression: suppress shore waves, erosion, and edge seams near map borders
+        float distToMapEdge = min(min(distToMapLeft, distToMapRight), min(distToMapTop, distToMapBottom));
+        float borderSuppress = 1.0 - smoothstep(4.0, 48.0, distToMapEdge);
+
+        // Combined map edge mask: 0.0 on artificial map border cuts, 1.0 on natural inland riverbanks
+        float mapEdgeMask = (1.0 - smoothstep(0.12, 0.65, mapCutAlignment)) * (1.0 - borderSuppress);
+
         // 1. Organic Bank Erosion (Carving into the "Hard Limit" / region edge)
         float reg = clamp(uWaveRegularity, 0.0, 1.0);
         float er1 = noise21(vWorldPos * 0.024);
         float er2 = noise21(vWorldPos * 0.068 + vec2(17.3, 41.9));
         float er3 = noise21(vWorldPos * 0.160 - vec2(33.1, 79.4));
-        float bankErosion = (er1 * 0.55 + er2 * 0.32 + er3 * 0.13 - 0.45) * (14.0 * (1.0 - reg * 0.65));
+        float bankErosion = (er1 * 0.55 + er2 * 0.32 + er3 * 0.13 - 0.45) * (14.0 * (1.0 - reg * 0.65)) * mapEdgeMask;
         float softBankDist = signedDist - bankErosion;
 
         // 2. Dynamic Fluid Undulation & Slosh (Water sloshing past the Soft Limit)
@@ -69,7 +88,7 @@ export const COMPOSITE_CHUNK = `
         float slosh1 = sin(sloshPhase + er1 * 3.2);
         float slosh2 = cos(sloshPhase * 1.8 + tAnim * 0.65 + dot(vWorldPos, flowPerp) * 0.035);
         float microSlosh = noise21(vWorldPos * 0.075 + vec2(tAnim * 0.28, -tAnim * 0.22)) - 0.5;
-        float bankSlosh = (slosh1 * 0.58 + slosh2 * 0.27 + microSlosh * 0.35) * (uSwashSurge * 0.35);
+        float bankSlosh = (slosh1 * 0.58 + slosh2 * 0.27 + microSlosh * 0.35) * (uSwashSurge * 0.35) * mapEdgeMask;
 
         // Lake & Pond physical wave simulation, omnidirectional swash, and drop rings
         float lakeFoam;
@@ -92,8 +111,8 @@ export const COMPOSITE_CHUNK = `
         // Effective water reach into the terrain / skirt
         float waterReach = softBankDist + bankSlosh;
 
-        // Discard skirt fragments beyond the maximum reach of water and wet swash
-        if (waterReach <= -12.0) {
+        // Discard skirt fragments beyond the maximum reach of water and wet swash (preserve map edges)
+        if (waterReach <= -12.0 && mapEdgeMask > 0.05) {
             discard;
         }
 
@@ -273,26 +292,6 @@ export const COMPOSITE_CHUNK = `
         // Wave distance transitions to filleted arc at corners
         float waveDist = mix(max(0.0, (signedDist + dR + dL + dU + dD) * 0.2), filletedDist, cornerness * 0.85);
 
-        // Distance to the four map boundaries (scene rectangle)
-        float distToMapLeft   = max(0.0, vWorldPos.x - uSceneDims.x);
-        float distToMapRight  = max(0.0, (uSceneDims.x + uSceneDims.z) - vWorldPos.x);
-        float distToMapTop    = max(0.0, vWorldPos.y - uSceneDims.y);
-        float distToMapBottom = max(0.0, (uSceneDims.y + uSceneDims.w) - vWorldPos.y);
-
-        // Detect artificial map boundary cuts
-        float cutLeft   = max(0.0, dot(shoreNormal, vec2(1.0, 0.0)))  * (1.0 - smoothstep(0.0, 150.0, distToMapLeft));
-        float cutRight  = max(0.0, dot(shoreNormal, vec2(-1.0, 0.0))) * (1.0 - smoothstep(0.0, 150.0, distToMapRight));
-        float cutTop    = max(0.0, dot(shoreNormal, vec2(0.0, 1.0)))  * (1.0 - smoothstep(0.0, 150.0, distToMapTop));
-        float cutBottom = max(0.0, dot(shoreNormal, vec2(0.0, -1.0))) * (1.0 - smoothstep(0.0, 150.0, distToMapBottom));
-        float mapCutAlignment = max(max(cutLeft, cutRight), max(cutTop, cutBottom));
-
-        // Proximity suppression: suppress shore waves near map borders
-        float distToMapEdge = min(min(distToMapLeft, distToMapRight), min(distToMapTop, distToMapBottom));
-        float borderSuppress = 1.0 - smoothstep(5.0, 45.0, distToMapEdge);
-
-        // Combined map edge mask: 0.0 on map border cuts, 1.0 on natural inland riverbanks
-        float mapEdgeMask = (1.0 - smoothstep(0.15, 0.70, mapCutAlignment)) * (1.0 - borderSuppress);
-
         // Shoreline waves with corner softening and map-edge suppression
         float shoreEffect = computeShoreWaves(waveDist, cornerness, vWorldPos, tWave, tAnim) * uShoreWaves * mapEdgeMask;
 
@@ -341,14 +340,15 @@ export const COMPOSITE_CHUNK = `
         vec3 bgOriginal = texture2D(uBackground, clamp(vBgUv, 0.0, 1.0)).rgb;
         vec3 soakedBg = bgOriginal * mix(1.0, 0.52, swashWetness);
 
-        // Soft fluid meniscus edge fade
+        // Soft fluid meniscus edge fade (bleed to full opacity on map cuts to prevent edge seams)
         float fade = smoothstep(0.0, min(uFadeWidth, 10.0), waterReach);
+        fade = mix(1.0, fade, mapEdgeMask);
         color = mix(soakedBg, color, fade);
 
-        // Contact tension meniscus highlight along the undulating waterline
+        // Contact tension meniscus highlight along the undulating waterline (zero on map cuts)
         float contactRidge = smoothstep(0.0, 2.0, waterReach) * smoothstep(5.0, 1.8, waterReach);
         float contactFleck = hash21(floor(vWorldPos * 0.45));
-        float contactHighlight = contactRidge * (0.65 + 0.35 * contactFleck) * (0.35 + 0.35 * uSunGlint);
+        float contactHighlight = contactRidge * (0.65 + 0.35 * contactFleck) * (0.35 + 0.35 * uSunGlint) * mapEdgeMask;
         color += vec3(0.85, 0.95, 1.0) * contactHighlight * fade;
 
         gl_FragColor = vec4(color, 1.0);

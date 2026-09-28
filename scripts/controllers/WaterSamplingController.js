@@ -1,4 +1,6 @@
 import { WaterDetector } from '../water/WaterDetector.js';
+import { MapBorderDetector } from '../water/MapBorderDetector.js';
+import { WaterShapeEstimator } from '../water/WaterShapeEstimator.js';
 
 const MODULE_ID = 'ionrift-waterline';
 
@@ -234,10 +236,16 @@ export class WaterSamplingController {
         if (this.#editingRegionId) {
             const region = canvas.scene?.regions?.get(this.#editingRegionId);
             if (region) {
+                const dims = canvas.dimensions;
+                const est = this.#currentCandidate.estimation ?? WaterShapeEstimator.estimate(this.#currentCandidate, dims);
+                const points = (est?.touches?.count > 0)
+                    ? MapBorderDetector.snap(this.#currentCandidate.points, dims)
+                    : this.#currentCandidate.points;
+
                 const updateData = {
                     shapes: [{
                         type: 'polygon',
-                        points: this.#currentCandidate.points
+                        points
                     }]
                 };
                 if (name && name.trim() && name.trim() !== region.name) {
