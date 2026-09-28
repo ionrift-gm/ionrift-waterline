@@ -99,27 +99,93 @@ export class ShoreSdfGenerator {
         }
 
         // 5. Compute Euclidean Distance Transform (both inside and outside)
-        // insideDist: distance to nearest land pixel for water cells
         const insideDist = ShoreSdfGenerator.#computeEDT(mask, gridW, gridH, 1);
-        // outsideDist: distance to nearest water pixel for land cells
         const outsideDist = ShoreSdfGenerator.#computeEDT(mask, gridW, gridH, 0);
 
-        // 6. Encode into RGBA canvas buffer
-        for (let i = 0; i < totalCells; i++) {
-            const pIdx = i * 4;
-            const isWater = mask[i];
+        // Pre-extract polygon segments for analytical sub-pixel Euclidean distance refinement
+        const numPts = Math.floor(flatPoints.length / 2);
+        const segs = new Float32Array(numPts * 4);
+        for (let s = 0; s < numPts; s++) {
+            const next = (s + 1) % numPts;
+            segs[s * 4 + 0] = flatPoints[s * 2];
+            segs[s * 4 + 1] = flatPoints[s * 2 + 1];
+            segs[s * 4 + 2] = flatPoints[next * 2];
+            segs[s * 4 + 3] = flatPoints[next * 2 + 1];
+        }
 
-            // Convert grid distance to world pixel distance
-            const inDistWorld = insideDist[i] * worldScale;
-            const outDistWorld = outsideDist[i] * worldScale;
+        const pointToSegmentDistSq = (px, py, x1, y1, x2, y2) => {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const l2 = dx * dx + dy * dy;
+            if (l2 < 1e-6) return (px - x1) * (px - x1) + (py - y1) * (py - y1);
+            let t = ((px - x1) * dx + (py - y1) * dy) / l2;
+            if (t < 0) t = 0; else if (t > 1) t = 1;
+            const qx = x1 + t * dx - px;
+            const qy = y1 + t * dy - py;
+            return qx * qx + qy * qy;
+        };
 
-            const normIn = Math.min(inDistWorld / maxDist, 1.0);
-            const normOut = Math.min(outDistWorld / maxDist, 1.0);
+        const isPointInPoly = (px, py) => {
+            let inside = false;
+            for (let i = 0, j = numPts - 1; i < numPts; j = i++) {
+                const xi = flatPoints[i * 2], yi = flatPoints[i * 2 + 1];
+                const xj = flatPoints[j * 2], yj = flatPoints[j * 2 + 1];
+                const intersect = ((yi > py) !== (yj > py))
+                    && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        };
 
-            pixels[pIdx + 0] = Math.floor(normIn * 255);       // R: Inside water distance
-            pixels[pIdx + 1] = Math.floor(normOut * 255);      // G: Outside land distance
-            pixels[pIdx + 2] = isWater ? 255 : 0;              // B: Binary mask
-            pixels[pIdx + 3] = 255;                            // A: Solid alpha
+        // 6. Encode into RGBA canvas buffer with sub-pixel analytical refinement near boundaries
+        for (let gy = 0; gy < gridH; gy++) {
+            const wy = worldMinY + (gy + 0.5) / scaleY;
+            const yOffset = gy * gridW;
+            for (let gx = 0; gx < gridW; gx++) {
+                const i = yOffset + gx;
+                const inD = insideDist[i];
+                const outD = outsideDist[i];
+                const minGridD = Math.min(inD, outD);
+
+                let signedDistWorld;
+
+                if (minGridD <= 4.0) {
+                    // Cell is within 4 grid cells of shoreline: compute exact Euclidean distance to polygon segments
+                    const wx = worldMinX + (gx + 0.5) / scaleX;
+                    let minD2 = Infinity;
+                    for (let s = 0; s < numPts; s++) {
+                        const sIdx = s * 4;
+                        const d2 = pointToSegmentDistSq(wx, wy, segs[sIdx], segs[sIdx + 1], segs[sIdx + 2], segs[sIdx + 3]);
+                        if (d2 < minD2) minD2 = d2;
+                    }
+                    const exactD = Math.sqrt(minD2);
+                    const inside = (pixels[i * 4] === 255) ? true :
+                                   (pixels[i * 4] === 0) ? false :
+                                   isPointInPoly(wx, wy);
+
+                    const analyticalSigned = inside ? exactD : -exactD;
+                    const edtSigned = (mask[i] === 1) ? (inD * worldScale) : (-outD * worldScale);
+
+                    // Smooth blend between exact segment distance near boundary and EDT further out
+                    const blendWeight = Math.min(Math.max((minGridD - 2.0) / 2.0, 0.0), 1.0);
+                    signedDistWorld = analyticalSigned * (1.0 - blendWeight) + edtSigned * blendWeight;
+                } else {
+                    // Deep water or far inland: use EDT distance
+                    signedDistWorld = (mask[i] === 1) ? (inD * worldScale) : (-outD * worldScale);
+                }
+
+                // Encode into RGBA
+                const pIdx = i * 4;
+                const normIn = Math.min(Math.max(0.0, signedDistWorld) / maxDist, 1.0);
+                const normOut = Math.min(Math.max(0.0, -signedDistWorld) / maxDist, 1.0);
+                // Continuous normalized signed distance: 0.0 at -maxDist, 0.5 at shoreline, 1.0 at +maxDist
+                const normSigned = Math.min(Math.max(0.0, (signedDistWorld / maxDist) * 0.5 + 0.5), 1.0);
+
+                pixels[pIdx + 0] = Math.round(normIn * 255);
+                pixels[pIdx + 1] = Math.round(normOut * 255);
+                pixels[pIdx + 2] = Math.round(normSigned * 255);
+                pixels[pIdx + 3] = 255;
+            }
         }
 
         ctx.putImageData(imgData, 0, 0);

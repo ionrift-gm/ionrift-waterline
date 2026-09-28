@@ -24,16 +24,15 @@ export const COMPOSITE_CHUNK = `
         float aabbDist = min(min(edgeL, edgeR), min(edgeT, edgeB));
 
         float hasSdf = (sdfSample.a > 0.5) ? 1.0 : 0.0;
-        float isWater = sdfSample.b;
-        float inDistPx = sdfSample.r * uSdfMaxDist;
-        float outDistPx = sdfSample.g * uSdfMaxDist;
-
-        // signedDist: positive inside water polygon, negative on dry ground or skirt
-        float signedDist = (isWater > 0.5) ? inDistPx : (-outDistPx);
+        // Continuous signed distance: positive inside water polygon, negative on dry ground or skirt
+        float signedDist = (sdfSample.b - 0.5) * (2.0 * uSdfMaxDist);
         if (hasSdf < 0.5) {
             signedDist = aabbDist;
-            isWater = 1.0;
         }
+
+        float isWater = smoothstep(-1.0, 1.0, signedDist);
+        float inDistPx = max(0.0, signedDist);
+        float outDistPx = max(0.0, -signedDist);
 
         // Shore normal vector: multi-texel filter stencil (3.5 texels of the 384-grid)
         vec2 sdfStep = vec2(3.5 / 384.0);
@@ -41,10 +40,10 @@ export const COMPOSITE_CHUNK = `
         vec4 sL = texture2D(uShoreSdf, clamp(sdfUv - vec2(sdfStep.x, 0.0), 0.0, 1.0));
         vec4 sU = texture2D(uShoreSdf, clamp(sdfUv + vec2(0.0, sdfStep.y), 0.0, 1.0));
         vec4 sD = texture2D(uShoreSdf, clamp(sdfUv - vec2(0.0, sdfStep.y), 0.0, 1.0));
-        float dR = (sR.b > 0.5) ? (sR.r * uSdfMaxDist) : (-sR.g * uSdfMaxDist);
-        float dL = (sL.b > 0.5) ? (sL.r * uSdfMaxDist) : (-sL.g * uSdfMaxDist);
-        float dU = (sU.b > 0.5) ? (sU.r * uSdfMaxDist) : (-sU.g * uSdfMaxDist);
-        float dD = (sD.b > 0.5) ? (sD.r * uSdfMaxDist) : (-sD.g * uSdfMaxDist);
+        float dR = (sR.b - 0.5) * (2.0 * uSdfMaxDist);
+        float dL = (sL.b - 0.5) * (2.0 * uSdfMaxDist);
+        float dU = (sU.b - 0.5) * (2.0 * uSdfMaxDist);
+        float dD = (sD.b - 0.5) * (2.0 * uSdfMaxDist);
         vec2 grad = vec2(dR - dL, dU - dD);
         vec2 shoreNormal = length(grad) > 0.001 ? normalize(grad) : vec2(0.0, 1.0);
         vec2 shoreTangent = vec2(-shoreNormal.y, shoreNormal.x);
@@ -176,9 +175,7 @@ export const COMPOSITE_CHUNK = `
             vec2 candSdfUv = (candPos - uSdfBounds.xy) / uSdfBounds.zw;
             vec4 candSample = texture2D(uShoreSdf, clamp(candSdfUv, 0.0, 1.0));
             if (candSample.a > 0.5) {
-                float candInDist = candSample.r * uSdfMaxDist;
-                float candOutDist = candSample.g * uSdfMaxDist;
-                float candSignedDist = (candSample.b > 0.5) ? candInDist : (-candOutDist);
+                float candSignedDist = (candSample.b - 0.5) * (2.0 * uSdfMaxDist);
 
                 if (candSignedDist < minWaterDist) {
                     if (signedDist > minWaterDist) {
@@ -270,10 +267,10 @@ export const COMPOSITE_CHUNK = `
         vec4 sLU = texture2D(uShoreSdf, clamp(sdfUv + vec2(-sdfStep.x, sdfStep.y), 0.0, 1.0));
         vec4 sRD = texture2D(uShoreSdf, clamp(sdfUv + vec2(sdfStep.x, -sdfStep.y), 0.0, 1.0));
         vec4 sLD = texture2D(uShoreSdf, clamp(sdfUv + vec2(-sdfStep.x, -sdfStep.y), 0.0, 1.0));
-        float dRU = (sRU.b > 0.5) ? (sRU.r * uSdfMaxDist) : (-sRU.g * uSdfMaxDist);
-        float dLU = (sLU.b > 0.5) ? (sLU.r * uSdfMaxDist) : (-sLU.g * uSdfMaxDist);
-        float dRD = (sRD.b > 0.5) ? (sRD.r * uSdfMaxDist) : (-sRD.g * uSdfMaxDist);
-        float dLD = (sLD.b > 0.5) ? (sLD.r * uSdfMaxDist) : (-sLD.g * uSdfMaxDist);
+        float dRU = (sRU.b - 0.5) * (2.0 * uSdfMaxDist);
+        float dLU = (sLU.b - 0.5) * (2.0 * uSdfMaxDist);
+        float dRD = (sRD.b - 0.5) * (2.0 * uSdfMaxDist);
+        float dLD = (sLD.b - 0.5) * (2.0 * uSdfMaxDist);
 
         // 9-point Gaussian fillet: rounds off sharp polygon vertices into smooth arcs
         float dCross = (dR + dL + dU + dD) * 0.25;
