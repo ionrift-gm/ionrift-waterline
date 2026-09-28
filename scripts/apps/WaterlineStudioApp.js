@@ -1,5 +1,6 @@
 import { WaterSamplingController } from '../controllers/WaterSamplingController.js';
 import { WATER_PRESETS, WATER_ARCHETYPES, WaterManager } from '../water/WaterManager.js';
+import { WaterShapeEstimator } from '../water/WaterShapeEstimator.js';
 import { WakeTuning } from '../water/WakeTuning.js';
 const MODULE_ID = 'ionrift-waterline';
 
@@ -20,6 +21,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
     /** @type {string|null} ID of currently selected water region */
     activeRegionId = null;
+
+    /** @type {object|null} Estimation data for currently active region */
+    activeRegionEstimation = null;
 
     /** @type {string} Active water archetype: 'ocean' | 'coast' | 'lake' | 'river' | 'pond' | 'puddle' */
     activeArchetype = 'river';
@@ -162,26 +166,40 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         const behaviorType = `${MODULE_ID}.waterFX`;
         const regions = canvas.scene?.regions?.contents ?? canvas.scene?.regions ?? [];
         const zones = [];
+        const unattachedRegions = [];
 
         for (const region of regions) {
             const behaviors = region.behaviors?.contents ?? region.behaviors ?? [];
             const behavior = Array.isArray(behaviors) ? behaviors.find(b => b.type === behaviorType) : null;
-            if (!behavior) continue;
+            const pts = WaterShapeEstimator.extractRegionPoints(region);
+            const verts = pts ? Math.round(pts.length / 2) : 0;
+            const est = pts && pts.length >= 6 ? WaterShapeEstimator.estimate({ points: pts, vertexCount: verts }, canvas.dimensions) : null;
 
-            const archKey = behavior.system?.archetype || WaterManager.inferArchetype(behavior.system?.waterType);
-            const archMeta = WATER_ARCHETYPES[archKey] ?? WATER_ARCHETYPES.river;
+            if (behavior) {
+                const archKey = behavior.system?.archetype || WaterManager.inferArchetype(behavior.system?.waterType);
+                const archMeta = WATER_ARCHETYPES[archKey] ?? WATER_ARCHETYPES.river;
 
-            zones.push({
-                region,
-                id: region.id,
-                name: region.name || 'Water Zone',
-                verts: region.shapes?.[0]?.points?.length ? Math.round(region.shapes[0].points.length / 2) : 0,
-                archetype: archKey,
-                archetypeLabel: archMeta.label,
-                archetypeIcon: archMeta.icon,
-                archetypeColor: archMeta.accentColor,
-                isActive: region.id === this.activeRegionId
-            });
+                zones.push({
+                    region,
+                    id: region.id,
+                    name: region.name || 'Water Zone',
+                    verts,
+                    archetype: archKey,
+                    archetypeLabel: archMeta.label,
+                    archetypeIcon: archMeta.icon,
+                    archetypeColor: archMeta.accentColor,
+                    isActive: region.id === this.activeRegionId,
+                    estimation: est
+                });
+            } else if (verts >= 3) {
+                unattachedRegions.push({
+                    region,
+                    id: region.id,
+                    name: region.name || 'Scene Region',
+                    verts,
+                    estimation: est
+                });
+            }
         }
 
         // Auto-select first zone if activeRegionId is invalid or not yet set
@@ -240,7 +258,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         return {
             activeTab: this.activeTab,
             zones,
+            unattachedRegions,
             activeRegionId: this.activeRegionId,
+            activeEstimation: this.activeRegionEstimation,
             archetypes: WATER_ARCHETYPES,
             activeArchetype: this.activeArchetype,
             activeArchetypeMeta: activeArchMeta,
@@ -428,6 +448,55 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             });
         });
 
+        // Adopt unattached scene region
+        root.querySelector('[data-action="adoptSceneRegion"]')?.addEventListener('click', async () => {
+            const select = root.querySelector('select[name="unattachedRegionSelect"]');
+            const regionId = select?.value;
+            if (!regionId) return;
+
+            const region = canvas.scene?.regions?.get(regionId);
+            if (!region) return;
+
+            const est = WaterShapeEstimator.estimateRegion(region) ?? WaterShapeEstimator.estimate({ points: [], vertexCount: 0 });
+            const presetKey = est.preset || 'river';
+            const preset = WATER_PRESETS[presetKey] ?? {};
+
+            const system = {
+                archetype: est.archetype,
+                waterType: presetKey,
+                flowAngle: est.flowAngle ?? 90,
+                speed: preset.speed ?? 1.0,
+                intensity: preset.intensity ?? 0.3,
+                opacity: preset.opacity ?? 0.2,
+                distortion: preset.distortion ?? 0.02,
+                fadeWidth: preset.fadeWidth ?? 50,
+                scale: preset.scale ?? 90,
+                shoreWaves: preset.shoreWaves ?? 0.2,
+                swashSurge: preset.swashSurge ?? 16.0,
+                waveSegment: preset.waveSegment ?? 0.85,
+                waveRegularity: preset.waveRegularity ?? 0.60,
+                choppySeas: preset.choppySeas ?? 0.0,
+                riverWaves: preset.riverWaves ?? (est.archetype === 'river' ? 0.65 : 0.0),
+                lakeWaves: preset.lakeWaves ?? (est.archetype === 'lake' || est.archetype === 'pond' ? 0.25 : 0.0),
+                lakeRings: preset.lakeRings ?? true,
+                whitecaps: preset.whitecaps ?? 0.1,
+                sunGlint: preset.sunGlint ?? 0.3,
+                colorOverride: preset.colorOverride || ''
+            };
+
+            await region.createEmbeddedDocuments('RegionBehavior', [{
+                type: `${MODULE_ID}.waterFX`,
+                name: 'Water FX',
+                system
+            }]);
+
+            this.activeRegionId = regionId;
+            this.#loadActiveRegionFX(regionId);
+            this.#liveUpdateFX();
+            this.render();
+            ui.notifications.info(`Waterline | Added "${region.name}" as ${est.archetypeLabel} (${est.flowAngle}°).`);
+        });
+
         // In-place inline renaming on double click
         root.querySelectorAll('.wc-zone-name').forEach(nameSpan => {
             nameSpan.addEventListener('dblclick', (ev) => {
@@ -491,6 +560,17 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         });
         root.querySelector('[data-action="deleteWaterPreset"]')?.addEventListener('click', () => {
             this.#deleteCustomWaterPreset(this.activePreset);
+        });
+
+        // Apply Shape Estimation manually
+        root.querySelector('[data-action="applyEstimation"]')?.addEventListener('click', () => {
+            if (!this.activeRegionId) return;
+            this.#loadActiveRegionFX(this.activeRegionId, true);
+            this.#liveUpdateFX();
+            this.render();
+            if (this.activeRegionEstimation) {
+                ui.notifications.info(`Waterline | Applied shape estimation: ${this.activeRegionEstimation.archetypeLabel} (${this.activeRegionEstimation.flowAngle}°).`);
+            }
         });
 
         // ── Curated Hero Sliders ──────────────────────────────────────────────
@@ -725,14 +805,59 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         }
     }
 
-    #loadActiveRegionFX(regionId) {
+    #loadActiveRegionFX(regionId, forceEstimate = false) {
         if (!regionId) return;
         const region = canvas.scene?.regions?.get(regionId);
         if (!region) return;
         const behaviorType = `${MODULE_ID}.waterFX`;
         const behaviors = region.behaviors?.contents ?? region.behaviors ?? [];
         const b = Array.isArray(behaviors) ? behaviors.find(beh => beh.type === behaviorType) : null;
-        if (b?.system) {
+
+        const est = WaterShapeEstimator.estimateRegion(region);
+        this.activeRegionEstimation = est;
+
+        const isConfigured = Boolean(
+            region.flags?.[MODULE_ID]?.configured ||
+            b?.flags?.[MODULE_ID]?.configured
+        );
+
+        // Consider estimation if explicitly requested, or if the region is new/unconfigured
+        // (e.g. from Cartographer with waterType: custom, or missing explicit archetype)
+        const shouldEstimate = forceEstimate || (!isConfigured && (
+            !b ||
+            !b.system?.archetype ||
+            b.system?.waterType === 'custom'
+        ));
+
+        if (shouldEstimate && est) {
+            this.activeArchetype = est.archetype;
+            this.activePreset = est.preset;
+            const preset = WATER_PRESETS[est.preset] ?? {};
+            this.fx = {
+                ...this.fx,
+                speed: preset.speed ?? 1.0,
+                intensity: preset.intensity ?? 0.3,
+                opacity: preset.opacity ?? 0.2,
+                distortion: preset.distortion ?? 0.02,
+                fadeWidth: preset.fadeWidth ?? 50,
+                scale: preset.scale ?? 90,
+                flowAngle: est.flowAngle ?? preset.flowAngle ?? 90,
+                shoreWaves: preset.shoreWaves ?? 0.2,
+                waveSegment: preset.waveSegment ?? 0.85,
+                waveRegularity: preset.waveRegularity ?? 0.60,
+                swashSurge: preset.swashSurge ?? 16.0,
+                choppySeas: preset.choppySeas ?? 0.0,
+                riverWaves: preset.riverWaves ?? (est.archetype === 'river' ? 0.65 : 0.0),
+                lakeWaves: preset.lakeWaves ?? (est.archetype === 'lake' || est.archetype === 'pond' ? 0.25 : 0.0),
+                lakeRings: preset.lakeRings ?? true,
+                whitecaps: preset.whitecaps ?? 0.1,
+                sunGlint: preset.sunGlint ?? 0.3,
+                spindriftWake: preset.spindriftWake ?? false,
+                crestBound: preset.crestBound ?? false,
+                colorOverride: preset.colorOverride || '',
+                autoColor: !preset.colorOverride
+            };
+        } else if (b?.system) {
             const s = b.system;
             this.fx = {
                 ...this.fx,
@@ -785,7 +910,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 distortion: preset.distortion ?? this.fx.distortion,
                 fadeWidth: preset.fadeWidth ?? this.fx.fadeWidth,
                 scale: preset.scale ?? this.fx.scale,
-                flowAngle: preset.flowAngle ?? this.fx.flowAngle,
+                flowAngle: Number.isFinite(this.fx.flowAngle) ? this.fx.flowAngle : (preset.flowAngle ?? 90),
                 shoreWaves: preset.shoreWaves ?? this.fx.shoreWaves,
                 waveSegment: preset.waveSegment ?? this.fx.waveSegment,
                 waveRegularity: preset.waveRegularity ?? this.fx.waveRegularity ?? 0.60,
@@ -832,7 +957,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                     { id: 'surfEnergy', label: 'Surf Energy', tooltip: 'Turbulence and foam density of incoming breakers.', min: 0, max: 100, step: 1, value: surfEnergyVal, displayValue: `${surfEnergyVal}%` },
                     { id: 'swashSurge', label: 'Surge Reach', tooltip: 'How far wave wash surges onto dry sand/rock.', min: 0, max: 60, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
                     { id: 'waveRhythm', label: 'Wave Rhythm', tooltip: 'Arrival tempo of incoming shoreline sets.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${rhythmVal}x` },
-                    { id: 'shorelineSoftness', label: 'Shoreline Margin', tooltip: 'Width of the transparent fade into dry terrain.', min: 10, max: 150, step: 5, value: softnessVal, displayValue: `${softnessVal}px` },
+                    { id: 'shorelineSoftness', label: 'Shoreline Margin', tooltip: 'Width of the transparent fade into dry terrain.', min: 0, max: 150, step: 5, value: softnessVal, displayValue: `${softnessVal}px` },
                     { id: 'surfHeading', label: 'Surf Heading', tooltip: 'Angle of incoming coastal breakers.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-compass' }
                 ];
             }
@@ -959,6 +1084,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 this.fx.shoreWaves = +(0.05 + 0.90 * x).toFixed(2);
                 this.fx.waveSegment = +(0.65 + 0.30 * x).toFixed(2);
                 this.fx.intensity = +(0.25 + 0.60 * x).toFixed(2);
+                this.fx.choppySeas = +(0.08 + 0.62 * x).toFixed(2);
+                this.fx.whitecaps = +(0.05 + 0.65 * x).toFixed(2);
                 break;
             case 'swashSurge':
                 this.fx.swashSurge = Number(val);
@@ -1173,9 +1300,17 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         let updated = 0;
         for (const r of targetRegions) {
             const beh = r.behaviors?.find(b => b.type === behaviorType);
-            if (!beh) continue;
             try {
-                await beh.update({ system: systemUpdate });
+                if (!beh) {
+                    await r.createEmbeddedDocuments('RegionBehavior', [{
+                        type: behaviorType,
+                        name: 'Water FX',
+                        system: systemUpdate
+                    }]);
+                } else {
+                    await beh.update({ system: systemUpdate });
+                }
+                await r.setFlag(MODULE_ID, 'configured', true);
                 updated++;
             } catch (err) {
                 console.error(`Waterline | Failed to update water FX on ${r.name}:`, err);
@@ -1230,5 +1365,17 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         if (loaded) {
             this.render();
         }
+    }
+
+    /**
+     * Switch active region and re-render studio.
+     * @param {string} regionId
+     */
+    loadRegion(regionId) {
+        if (!regionId) return;
+        this.activeRegionId = regionId;
+        this.#loadActiveRegionFX(regionId);
+        this.#liveUpdateFX();
+        this.render();
     }
 }

@@ -61,10 +61,10 @@ export const COMPOSITE_CHUNK = `
         float distToMapTop    = max(0.0, vWorldPos.y - uSceneDims.y);
         float distToMapBottom = max(0.0, (uSceneDims.y + uSceneDims.w) - vWorldPos.y);
 
-        float cutLeft   = max(0.0, dot(shoreNormal, vec2(1.0, 0.0)))  * (1.0 - smoothstep(0.0, 80.0, distToMapLeft));
-        float cutRight  = max(0.0, dot(shoreNormal, vec2(-1.0, 0.0))) * (1.0 - smoothstep(0.0, 80.0, distToMapRight));
-        float cutTop    = max(0.0, dot(shoreNormal, vec2(0.0, 1.0)))  * (1.0 - smoothstep(0.0, 80.0, distToMapTop));
-        float cutBottom = max(0.0, dot(shoreNormal, vec2(0.0, -1.0))) * (1.0 - smoothstep(0.0, 80.0, distToMapBottom));
+        float cutLeft   = max(0.0, dot(shoreNormal, vec2(1.0, 0.0)))  * (1.0 - smoothstep(0.0, 16.0, distToMapLeft));
+        float cutRight  = max(0.0, dot(shoreNormal, vec2(-1.0, 0.0))) * (1.0 - smoothstep(0.0, 16.0, distToMapRight));
+        float cutTop    = max(0.0, dot(shoreNormal, vec2(0.0, 1.0)))  * (1.0 - smoothstep(0.0, 16.0, distToMapTop));
+        float cutBottom = max(0.0, dot(shoreNormal, vec2(0.0, -1.0))) * (1.0 - smoothstep(0.0, 16.0, distToMapBottom));
         float mapCutAlignment = max(max(cutLeft, cutRight), max(cutTop, cutBottom));
 
         // Combined map edge mask: 0.0 on artificial map border cuts, 1.0 on natural inland riverbanks/shorelines
@@ -300,6 +300,8 @@ export const COMPOSITE_CHUNK = `
         float totalWave = max(max(shoreEffect, tokenWaveEffect), max(max(oceanFoam, riverFoam), lakeFoam));
 
         // Composite wave crests and foam
+        vec3 foamTint = vec3(0.98, 0.99, 1.0);
+        float foamOpacity = 0.0;
         if (totalWave > 0.001) {
             vec3 seaInfluencedTint = mix(clamp(color * 1.45 + vec3(0.08, 0.16, 0.20), 0.0, 1.0), vec3(0.84, 0.92, 0.95), 0.55);
             vec3 pureWhiteTint = vec3(0.98, 0.99, 1.0);
@@ -314,8 +316,8 @@ export const COMPOSITE_CHUNK = `
             whiteness = mix(whiteness, 1.0, clamp(totalWave * 0.85, 0.0, 1.0));
             whiteness = clamp(whiteness * 0.75 + 0.25, 0.0, 1.0);
 
-            vec3 foamTint = mix(seaInfluencedTint, pureWhiteTint, whiteness);
-            float foamOpacity = clamp(totalWave * 0.95, 0.0, 0.96);
+            foamTint = mix(seaInfluencedTint, pureWhiteTint, whiteness);
+            foamOpacity = clamp(totalWave * 0.95, 0.0, 0.96);
             color = mix(color, foamTint, foamOpacity);
         }
 
@@ -334,13 +336,19 @@ export const COMPOSITE_CHUNK = `
         vec3 soakedBg = bgOriginal * mix(1.0, 0.52, swashWetness);
 
         // Soft fluid meniscus edge fade (0.0 on dry beach, 1.0 in deep water)
-        float fadeDist = max(2.0, uFadeWidth);
-        float fade = smoothstep(0.0, fadeDist, max(0.0, waterReach));
+        float fadeDist = max(0.001, uFadeWidth);
+        float fade = (uFadeWidth <= 0.5) ? ((waterReach > 0.0) ? 1.0 : 0.0) : smoothstep(0.0, fadeDist, max(0.0, waterReach));
         // On artificial map cuts where deep water exits the scene, maintain full opacity
         if (waterReach > 0.0) {
             fade = mix(1.0, fade, mapEdgeMask);
         }
         color = mix(soakedBg, color, fade);
+
+        // Foam punch-through: ensure vibrant surf foam and whitecaps remain visible near the shore
+        if (totalWave > 0.001 && waterReach > -2.0) {
+            float foamPunch = smoothstep(-2.0, 4.0, waterReach);
+            color = mix(color, foamTint, foamPunch * foamOpacity);
+        }
 
         // Contact tension meniscus highlight along the undulating waterline (zero on map cuts)
         float contactRidge = smoothstep(0.0, 2.0, waterReach) * smoothstep(5.0, 1.8, waterReach);
