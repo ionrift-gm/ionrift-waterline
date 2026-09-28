@@ -1,10 +1,10 @@
-name: CI — Lint & Static Analysis
+﻿name: CI - Lint & Static Analysis
 
 on:
   push:
     branches:
       - main
-    # Explicitly skip tag pushes — release.yml owns those
+    # Explicitly skip tag pushes - release.yml owns those
     tags-ignore:
       - '**'
 

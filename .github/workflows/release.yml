@@ -1,4 +1,4 @@
-name: Release Creation
+﻿name: Release Creation
 
 on:
   push:
@@ -133,7 +133,7 @@ jobs:
             const tag = process.env.GITHUB_REF_NAME;
             const payload = {
               embeds: [{
-                title: `🌊 Ionrift Waterline — v${version}`,
+                title: `🌊 Ionrift Waterline - v${version}`,
                 description: desc,
                 color: 0x2BA3C1,
                 url: `https://github.com/${repo}/releases/tag/${tag}`
@@ -142,7 +142,7 @@ jobs:
 
             const webhook = process.env.DISCORD_WEBHOOK;
             if (!webhook) {
-              core.warning('DISCORD_WEBHOOK_URL secret is not set — skipping Discord notification');
+              core.warning('DISCORD_WEBHOOK_URL secret is not set - skipping Discord notification');
               return;
             }
 
