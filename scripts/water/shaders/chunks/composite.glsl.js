@@ -62,18 +62,14 @@ export const COMPOSITE_CHUNK = `
         float distToMapTop    = max(0.0, vWorldPos.y - uSceneDims.y);
         float distToMapBottom = max(0.0, (uSceneDims.y + uSceneDims.w) - vWorldPos.y);
 
-        float cutLeft   = max(0.0, dot(shoreNormal, vec2(1.0, 0.0)))  * (1.0 - smoothstep(0.0, 140.0, distToMapLeft));
-        float cutRight  = max(0.0, dot(shoreNormal, vec2(-1.0, 0.0))) * (1.0 - smoothstep(0.0, 140.0, distToMapRight));
-        float cutTop    = max(0.0, dot(shoreNormal, vec2(0.0, 1.0)))  * (1.0 - smoothstep(0.0, 140.0, distToMapTop));
-        float cutBottom = max(0.0, dot(shoreNormal, vec2(0.0, -1.0))) * (1.0 - smoothstep(0.0, 140.0, distToMapBottom));
+        float cutLeft   = max(0.0, dot(shoreNormal, vec2(1.0, 0.0)))  * (1.0 - smoothstep(0.0, 80.0, distToMapLeft));
+        float cutRight  = max(0.0, dot(shoreNormal, vec2(-1.0, 0.0))) * (1.0 - smoothstep(0.0, 80.0, distToMapRight));
+        float cutTop    = max(0.0, dot(shoreNormal, vec2(0.0, 1.0)))  * (1.0 - smoothstep(0.0, 80.0, distToMapTop));
+        float cutBottom = max(0.0, dot(shoreNormal, vec2(0.0, -1.0))) * (1.0 - smoothstep(0.0, 80.0, distToMapBottom));
         float mapCutAlignment = max(max(cutLeft, cutRight), max(cutTop, cutBottom));
 
-        // Proximity suppression: suppress shore waves, erosion, and edge seams near map borders
-        float distToMapEdge = min(min(distToMapLeft, distToMapRight), min(distToMapTop, distToMapBottom));
-        float borderSuppress = 1.0 - smoothstep(4.0, 48.0, distToMapEdge);
-
-        // Combined map edge mask: 0.0 on artificial map border cuts, 1.0 on natural inland riverbanks
-        float mapEdgeMask = (1.0 - smoothstep(0.12, 0.65, mapCutAlignment)) * (1.0 - borderSuppress);
+        // Combined map edge mask: 0.0 on artificial map border cuts, 1.0 on natural inland riverbanks/shorelines
+        float mapEdgeMask = 1.0 - smoothstep(0.20, 0.70, mapCutAlignment);
 
         // 1. Organic Bank Erosion (Carving into the "Hard Limit" / region edge)
         float reg = clamp(uWaveRegularity, 0.0, 1.0);
@@ -111,8 +107,8 @@ export const COMPOSITE_CHUNK = `
         // Effective water reach into the terrain / skirt
         float waterReach = softBankDist + bankSlosh;
 
-        // Discard skirt fragments beyond the maximum reach of water and wet swash (preserve map edges)
-        if (waterReach <= -12.0 && mapEdgeMask > 0.05) {
+        // Discard skirt fragments beyond the maximum reach of water and wet swash
+        if (waterReach <= -8.0) {
             discard;
         }
 
@@ -340,10 +336,13 @@ export const COMPOSITE_CHUNK = `
         vec3 bgOriginal = texture2D(uBackground, clamp(vBgUv, 0.0, 1.0)).rgb;
         vec3 soakedBg = bgOriginal * mix(1.0, 0.52, swashWetness);
 
-        // Soft fluid meniscus edge fade (bleed to full opacity on map cuts to prevent edge seams)
+        // Soft fluid meniscus edge fade (0.0 on dry beach, 1.0 in deep water)
         float fadeDist = max(2.0, uFadeWidth);
-        float fade = smoothstep(0.0, fadeDist, waterReach);
-        fade = mix(1.0, fade, mapEdgeMask);
+        float fade = smoothstep(0.0, fadeDist, max(0.0, waterReach));
+        // On artificial map cuts where deep water exits the scene, maintain full opacity
+        if (waterReach > 0.0) {
+            fade = mix(1.0, fade, mapEdgeMask);
+        }
         color = mix(soakedBg, color, fade);
 
         // Contact tension meniscus highlight along the undulating waterline (zero on map cuts)

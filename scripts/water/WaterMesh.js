@@ -93,8 +93,8 @@ export class WaterMesh {
         const sdfBounds = sdfResult?.sdfBounds ?? new Float32Array([minX, minY, boundsW, boundsH]);
         const sdfMaxDist = sdfResult?.maxDist ?? ShoreSdfGenerator.DEFAULT_MAX_DIST;
 
-        // Build extruded skirt geometry allowing waves and soft feathering to blend onto dry bank
-        const skirtMargin = Math.max(45.0, Math.min(150.0, (config.fadeWidth ?? 45.0) * 1.25));
+        // Build extruded skirt geometry allowing waves to surge onto dry bank
+        const skirtMargin = 35.0;
         const skirtGeom = ShoreSdfGenerator.buildSkirtGeometry(meshPts, indices, skirtMargin);
 
         const geometry = new PIXI.Geometry()
