@@ -79,6 +79,20 @@
                         Complex boundary ({{candidate.vertexCount}} pts). Increase Smoothing to optimize.
                     </p>
                     {{/if}}
+                    <div class="wc-candidate-toolbar">
+                        <span class="wc-toolbar-label"><i class="fas fa-sliders-h"></i> Boundary:</span>
+                        <div class="wc-toolbar-buttons">
+                            <button type="button" class="cartograph-btn wc-btn-tool" data-action="pullBackCandidate" title="Pull boundary back / shrink inward (Erode 1 step)">
+                                <i class="fas fa-compress-alt"></i> Pull Back
+                            </button>
+                            <button type="button" class="cartograph-btn wc-btn-tool" data-action="expandCandidate" title="Expand boundary outward (Dilate 1 step)">
+                                <i class="fas fa-expand-alt"></i> Expand
+                            </button>
+                            <button type="button" class="cartograph-btn wc-btn-tool" data-action="smoothCandidate" title="Smooth jagged corners and stair-steps">
+                                <i class="fas fa-bezier-curve"></i> Smooth
+                            </button>
+                        </div>
+                    </div>
                     <div class="wc-refine-hint">
                         <i class="fas fa-layer-group"></i> <kbd>Shift</kbd>+Click map to add regions, <kbd>Ctrl</kbd>+Click to subtract.
                     </div>

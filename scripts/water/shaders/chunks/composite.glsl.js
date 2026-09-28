@@ -341,7 +341,8 @@ export const COMPOSITE_CHUNK = `
         vec3 soakedBg = bgOriginal * mix(1.0, 0.52, swashWetness);
 
         // Soft fluid meniscus edge fade (bleed to full opacity on map cuts to prevent edge seams)
-        float fade = smoothstep(0.0, min(uFadeWidth, 10.0), waterReach);
+        float fadeDist = max(2.0, uFadeWidth);
+        float fade = smoothstep(0.0, fadeDist, waterReach);
         fade = mix(1.0, fade, mapEdgeMask);
         color = mix(soakedBg, color, fade);
 

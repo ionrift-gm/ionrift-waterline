@@ -121,14 +121,16 @@ export class MapBorderDetector {
         const spanTop = sideTop.count > 0 ? (sideTop.maxX - sideTop.minX) : 0;
         const spanBottom = sideBottom.count > 0 ? (sideBottom.maxX - sideBottom.minX) : 0;
 
+        const contactTol = options.contactTolerance ?? 12.0;
+
         const touchLeft = (sideLeft.count >= 2 && spanLeft >= minSpanY) ||
-            sideLeft.indices.some(idx => points[idx * 2] <= sLeft + 6);
+            sideLeft.indices.some(idx => points[idx * 2] <= sLeft + contactTol);
         const touchRight = (sideRight.count >= 2 && spanRight >= minSpanY) ||
-            sideRight.indices.some(idx => points[idx * 2] >= sRight - 6);
+            sideRight.indices.some(idx => points[idx * 2] >= sRight - contactTol);
         const touchTop = (sideTop.count >= 2 && spanTop >= minSpanX) ||
-            sideTop.indices.some(idx => points[idx * 2 + 1] <= sTop + 6);
+            sideTop.indices.some(idx => points[idx * 2 + 1] <= sTop + contactTol);
         const touchBottom = (sideBottom.count >= 2 && spanBottom >= minSpanX) ||
-            sideBottom.indices.some(idx => points[idx * 2 + 1] >= sBottom - 6);
+            sideBottom.indices.some(idx => points[idx * 2 + 1] >= sBottom - contactTol);
 
         const touches = {
             left: touchLeft,
@@ -138,11 +140,29 @@ export class MapBorderDetector {
             count: (touchLeft ? 1 : 0) + (touchRight ? 1 : 0) + (touchTop ? 1 : 0) + (touchBottom ? 1 : 0)
         };
 
+        // Only classify vertices genuinely at the border frame as borderIndices
+        // This prevents inland shoreline vertices from being squashed into shelves
         const borderIndices = new Set();
-        if (touchLeft) for (const idx of sideLeft.indices) borderIndices.add(idx);
-        if (touchRight) for (const idx of sideRight.indices) borderIndices.add(idx);
-        if (touchTop) for (const idx of sideTop.indices) borderIndices.add(idx);
-        if (touchBottom) for (const idx of sideBottom.indices) borderIndices.add(idx);
+        if (touchLeft) {
+            for (const idx of sideLeft.indices) {
+                if (points[idx * 2] <= sLeft + contactTol) borderIndices.add(idx);
+            }
+        }
+        if (touchRight) {
+            for (const idx of sideRight.indices) {
+                if (points[idx * 2] >= sRight - contactTol) borderIndices.add(idx);
+            }
+        }
+        if (touchTop) {
+            for (const idx of sideTop.indices) {
+                if (points[idx * 2 + 1] <= sTop + contactTol) borderIndices.add(idx);
+            }
+        }
+        if (touchBottom) {
+            for (const idx of sideBottom.indices) {
+                if (points[idx * 2 + 1] >= sBottom - contactTol) borderIndices.add(idx);
+            }
+        }
 
         const inlandPoints = [];
         for (let i = 0; i < n; i++) {
@@ -164,7 +184,8 @@ export class MapBorderDetector {
             vertexBorderMap,
             inlandPoints,
             dims,
-            margin
+            margin,
+            contactTol
         };
     }
 
@@ -188,7 +209,8 @@ export class MapBorderDetector {
         }
 
         const { sLeft, sRight, sTop, sBottom } = sig.dims;
-        const { touches, margin, borderIndices } = sig;
+        const { touches, borderIndices } = sig;
+        const contactTol = sig.contactTol ?? 12.0;
         const n = Math.floor(points.length / 2);
         const result = new Array(points.length);
 
@@ -197,15 +219,15 @@ export class MapBorderDetector {
             let y = points[i * 2 + 1];
 
             if (borderIndices.has(i)) {
-                if (touches.left && x <= sLeft + margin.x) {
+                if (touches.left && x <= sLeft + contactTol) {
                     x = sLeft - bleedDist;
-                } else if (touches.right && x >= sRight - margin.x) {
+                } else if (touches.right && x >= sRight - contactTol) {
                     x = sRight + bleedDist;
                 }
 
-                if (touches.top && y <= sTop + margin.y) {
+                if (touches.top && y <= sTop + contactTol) {
                     y = sTop - bleedDist;
-                } else if (touches.bottom && y >= sBottom - margin.y) {
+                } else if (touches.bottom && y >= sBottom - contactTol) {
                     y = sBottom + bleedDist;
                 }
             }

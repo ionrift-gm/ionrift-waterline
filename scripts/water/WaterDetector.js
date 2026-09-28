@@ -128,13 +128,14 @@ export class WaterDetector {
             }
 
             // Convert grid coords to scene coords
-            const scenePoints = [];
+            let scenePoints = [];
             for (let i = 0; i < simplified.length; i += 2) {
                 scenePoints.push(
                     Math.round(dims.sceneX + simplified[i] * gridStep * scaleX),
                     Math.round(dims.sceneY + simplified[i + 1] * gridStep * scaleY)
                 );
             }
+            scenePoints = WaterDetector.smoothContour(scenePoints, 1, dims);
 
             // Compute centroid and area for display
             let cx = 0, cy = 0;
@@ -389,6 +390,81 @@ export class WaterDetector {
     }
 
     /**
+     * Morphological erosion of a cell mask.
+     * Shrinks water boundaries inward away from shorelines.
+     * Treats out-of-bounds cells as water to preserve map frame edges.
+     *
+     * @param {object} maskData - { mask, cols, rows, gridStep }
+     * @param {number} [iterations=1]
+     * @returns {object} Updated maskData
+     */
+    static erodeMask(maskData, iterations = 1) {
+        const { cols, rows } = maskData;
+        let current = maskData.mask;
+
+        for (let iter = 0; iter < iterations; iter++) {
+            const next = new Uint8Array(cols * rows);
+            for (let y = 0; y < rows; y++) {
+                const yOffset = y * cols;
+                for (let x = 0; x < cols; x++) {
+                    const idx = yOffset + x;
+                    if (current[idx] === 0) continue;
+
+                    const left   = (x > 0) ? current[idx - 1] : 1;
+                    const right  = (x < cols - 1) ? current[idx + 1] : 1;
+                    const top    = (y > 0) ? current[idx - cols] : 1;
+                    const bottom = (y < rows - 1) ? current[idx + cols] : 1;
+
+                    if (left === 1 && right === 1 && top === 1 && bottom === 1) {
+                        next[idx] = 1;
+                    }
+                }
+            }
+            current = next;
+        }
+
+        maskData.mask = current;
+        return maskData;
+    }
+
+    /**
+     * Morphological dilation of a cell mask.
+     * Expands water boundaries outward into surrounding land.
+     *
+     * @param {object} maskData - { mask, cols, rows, gridStep }
+     * @param {number} [iterations=1]
+     * @returns {object} Updated maskData
+     */
+    static dilateMask(maskData, iterations = 1) {
+        const { cols, rows } = maskData;
+        let current = maskData.mask;
+
+        for (let iter = 0; iter < iterations; iter++) {
+            const next = new Uint8Array(current);
+            for (let y = 0; y < rows; y++) {
+                const yOffset = y * cols;
+                for (let x = 0; x < cols; x++) {
+                    const idx = yOffset + x;
+                    if (current[idx] === 1) continue;
+
+                    const left   = (x > 0) ? current[idx - 1] : 0;
+                    const right  = (x < cols - 1) ? current[idx + 1] : 0;
+                    const top    = (y > 0) ? current[idx - cols] : 0;
+                    const bottom = (y < rows - 1) ? current[idx + cols] : 0;
+
+                    if (left === 1 || right === 1 || top === 1 || bottom === 1) {
+                        next[idx] = 1;
+                    }
+                }
+            }
+            current = next;
+        }
+
+        maskData.mask = current;
+        return maskData;
+    }
+
+    /**
      * Build maskData from an existing RegionDocument by rasterizing its shapes onto the grid.
      * @param {RegionDocument} region
      * @param {number} [gridStep=4]
@@ -533,13 +609,16 @@ export class WaterDetector {
         // Convert to scene coords
         const scaleX = dims.sceneWidth / imgW;
         const scaleY = dims.sceneHeight / imgH;
-        const scenePoints = [];
+        let scenePoints = [];
         for (let i = 0; i < simplified.length; i += 2) {
             scenePoints.push(
                 Math.round(dims.sceneX + simplified[i] * gridStep * scaleX),
                 Math.round(dims.sceneY + simplified[i + 1] * gridStep * scaleY)
             );
         }
+
+        // Apply 1-pass corner rounding to inland vertices to eliminate discrete grid stair-stepping
+        scenePoints = WaterDetector.smoothContour(scenePoints, 1, dims);
 
         let cx = 0, cy = 0;
         const vertCount = scenePoints.length / 2;
@@ -556,6 +635,93 @@ export class WaterDetector {
         };
         candidate.estimation = WaterShapeEstimator.estimate(candidate, dims);
         return candidate;
+    }
+
+    /**
+     * Smooth an inland contour using corner-rounding subdivision (Chaikin's algorithm).
+     * Eliminates stair-stepped grid artifacts while preserving straight map border edges.
+     *
+     * @param {number[]} points - Flat array of [x, y, x, y, ...]
+     * @param {number} [iterations=1] - Number of smoothing passes
+     * @param {object} [dimensions] - Canvas / scene dimensions
+     * @returns {number[]} Smoothed flat points array
+     */
+    static smoothContour(points, iterations = 1, dimensions) {
+        if (!points || points.length < 8) return Array.from(points || []);
+
+        const dims = MapBorderDetector.resolveDimensions(dimensions);
+        const { sLeft, sRight, sTop, sBottom } = dims;
+        const bTol = 8.0;
+
+        const isOnBorder = (x, y) => {
+            return (Math.abs(x - sLeft) <= bTol) ||
+                   (Math.abs(x - sRight) <= bTol) ||
+                   (Math.abs(y - sTop) <= bTol) ||
+                   (Math.abs(y - sBottom) <= bTol);
+        };
+
+        const onSameBorder = (x1, y1, x2, y2) => {
+            if (Math.abs(x1 - sLeft) <= bTol && Math.abs(x2 - sLeft) <= bTol) return true;
+            if (Math.abs(x1 - sRight) <= bTol && Math.abs(x2 - sRight) <= bTol) return true;
+            if (Math.abs(y1 - sTop) <= bTol && Math.abs(y2 - sTop) <= bTol) return true;
+            if (Math.abs(y1 - sBottom) <= bTol && Math.abs(y2 - sBottom) <= bTol) return true;
+            return false;
+        };
+
+        let current = Array.from(points);
+
+        for (let iter = 0; iter < iterations; iter++) {
+            const n = current.length / 2;
+            if (n < 4) break;
+
+            const next = [];
+
+            for (let i = 0; i < n; i++) {
+                const iNext = (i + 1) % n;
+                const x0 = current[i * 2];
+                const y0 = current[i * 2 + 1];
+                const x1 = current[iNext * 2];
+                const y1 = current[iNext * 2 + 1];
+
+                const b0 = isOnBorder(x0, y0);
+                const b1 = isOnBorder(x1, y1);
+
+                if (b0 && b1 && onSameBorder(x0, y0, x1, y1)) {
+                    // Both vertices lie on the same map border segment.
+                    // Keep the straight border segment intact.
+                    next.push(x0, y0);
+                } else if (b0 && !b1) {
+                    // P0 is on the border, P1 is inland.
+                    // Keep P0 on border, add smoothed step toward P1.
+                    next.push(x0, y0);
+                    next.push(
+                        Math.round(0.25 * x0 + 0.75 * x1),
+                        Math.round(0.25 * y0 + 0.75 * y1)
+                    );
+                } else if (!b0 && b1) {
+                    // P0 is inland, P1 is on the border.
+                    // Add smoothed step from P0 toward P1.
+                    next.push(
+                        Math.round(0.75 * x0 + 0.25 * x1),
+                        Math.round(0.75 * y0 + 0.25 * y1)
+                    );
+                } else {
+                    // Both vertices are inland (standard Chaikin subdivision).
+                    next.push(
+                        Math.round(0.75 * x0 + 0.25 * x1),
+                        Math.round(0.75 * y0 + 0.25 * y1)
+                    );
+                    next.push(
+                        Math.round(0.25 * x0 + 0.75 * x1),
+                        Math.round(0.25 * y0 + 0.75 * y1)
+                    );
+                }
+            }
+
+            current = next;
+        }
+
+        return current;
     }
 
     /**
@@ -581,6 +747,8 @@ export class WaterDetector {
         }
 
         if (topEdge.length < 4) return null;
+
+        WaterDetector.#dampenSweepEnds(topEdge, bottomEdge, 1);
 
         // Simplify each edge independently
         const simTop = WaterDetector.#simplifyRDP(topEdge, smoothing);
@@ -618,6 +786,8 @@ export class WaterDetector {
 
         if (leftEdge.length < 4) return null;
 
+        WaterDetector.#dampenSweepEnds(leftEdge, rightEdge, 0);
+
         // Simplify each edge independently
         const simLeft = WaterDetector.#simplifyRDP(leftEdge, smoothing);
         const simRight = WaterDetector.#simplifyRDP(rightEdge, smoothing);
@@ -628,6 +798,35 @@ export class WaterDetector {
             contour.push(simRight[i], simRight[i + 1]);
         }
         return contour.length >= 6 ? contour : null;
+    }
+
+    /**
+     * Dampens outlier jumps at the ends of sweep edges (row 0 / col 0 / last row / last col).
+     * Prevents single-cell map frame or border noise from creating rectangular shelves.
+     * @private
+     */
+    static #dampenSweepEnds(edgeA, edgeB, coordOffset = 0) {
+        const dampen = (edge) => {
+            const n = edge.length / 2;
+            if (n < 4) return;
+            // Check start (index 0)
+            const d10 = Math.abs(edge[coordOffset] - edge[2 + coordOffset]);
+            const d21 = Math.abs(edge[2 + coordOffset] - edge[4 + coordOffset]);
+            if (d10 > 8 && d21 <= 4) {
+                edge[coordOffset] = edge[2 + coordOffset];
+            }
+            // Check end (index n - 1)
+            const lastIdx = (n - 1) * 2;
+            const prevIdx = (n - 2) * 2;
+            const pprevIdx = (n - 3) * 2;
+            const dLast = Math.abs(edge[lastIdx + coordOffset] - edge[prevIdx + coordOffset]);
+            const dPrev = Math.abs(edge[prevIdx + coordOffset] - edge[pprevIdx + coordOffset]);
+            if (dLast > 8 && dPrev <= 4) {
+                edge[lastIdx + coordOffset] = edge[prevIdx + coordOffset];
+            }
+        };
+        dampen(edgeA);
+        dampen(edgeB);
     }
 
     /**

@@ -371,6 +371,67 @@
     flex-shrink: 0;
 }
 
+/* Candidate boundary toolbar */
+.wc-candidate-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin-bottom: 6px;
+}
+
+.wc-toolbar-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #a0a0b8;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.wc-toolbar-label i {
+    color: var(--ionrift-accent, #8b5cf6);
+}
+
+.wc-toolbar-buttons {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+.wc-btn-tool {
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 3px;
+    background: rgba(139, 92, 246, 0.12);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    color: #d1d5db;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.wc-btn-tool:hover {
+    background: rgba(139, 92, 246, 0.28);
+    border-color: rgba(139, 92, 246, 0.6);
+    color: #fff;
+    box-shadow: 0 0 6px rgba(139, 92, 246, 0.25);
+}
+
+.wc-btn-tool:active {
+    transform: scale(0.97);
+}
+
 .wc-candidate-actions {
     display: flex;
     gap: 6px;

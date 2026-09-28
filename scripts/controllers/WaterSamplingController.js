@@ -297,7 +297,21 @@ export class WaterSamplingController {
     }
 
     /**
-     * Undo last mask modification.
+     * Snapshot current mask and candidate points for undo history.
+     * @private
+     */
+    #pushUndoSnapshot() {
+        if (!this.#currentMaskData) return;
+        const entry = {
+            mask: new Uint8Array(this.#currentMaskData.mask),
+            points: this.#currentCandidate?.points ? Array.from(this.#currentCandidate.points) : null
+        };
+        this.#undoStack.push(entry);
+        if (this.#undoStack.length > 20) this.#undoStack.shift();
+    }
+
+    /**
+     * Undo last mask modification or boundary adjustment.
      */
     async undo() {
         if (!this.#undoStack.length || !this.#currentMaskData) {
@@ -305,13 +319,19 @@ export class WaterSamplingController {
             return;
         }
 
-        this.#currentMaskData.mask = this.#undoStack.pop();
+        const entry = this.#undoStack.pop();
+        const mask = (entry instanceof Uint8Array) ? entry : entry.mask;
+        this.#currentMaskData.mask = mask;
 
-        const candidate = WaterDetector.candidateFromMask(this.#currentMaskData, this.smoothing);
-        if (!candidate) return;
-
-        candidate.maskData = this.#currentMaskData;
-        this.#currentCandidate = candidate;
+        if (entry.points && this.#currentCandidate) {
+            this.#currentCandidate.points = entry.points;
+            this.#currentCandidate.vertexCount = Math.round(entry.points.length / 2);
+        } else {
+            const candidate = WaterDetector.candidateFromMask(this.#currentMaskData, this.smoothing);
+            if (!candidate) return;
+            candidate.maskData = this.#currentMaskData;
+            this.#currentCandidate = candidate;
+        }
 
         this.clearPreviews();
 
@@ -325,6 +345,83 @@ export class WaterSamplingController {
         this.#showPolyPreview(this.#currentCandidate);
         this.#callbacks.onCandidate?.(this.#currentCandidate);
         ui.notifications.info(`Waterline | Undo (${this.#undoStack.length} remaining).`);
+    }
+
+    /**
+     * Pull boundary inward away from shorelines (morphological erosion).
+     * Shrinks candidate by 1 grid cell (approx. 4-8px) to align with drawn waterlines.
+     */
+    pullBack() {
+        if (!this.#currentMaskData) return;
+        this.#pushUndoSnapshot();
+
+        WaterDetector.erodeMask(this.#currentMaskData, 1);
+
+        const candidate = WaterDetector.candidateFromMask(this.#currentMaskData, this.smoothing);
+        if (candidate) {
+            candidate.maskData = this.#currentMaskData;
+            this.#currentCandidate = candidate;
+
+            this.clearPreviews();
+            const sprite = WaterDetector.previewFromMask(this.#currentMaskData);
+            if (sprite) {
+                const layer = canvas.controls ?? canvas.stage;
+                layer.addChild(sprite);
+                this.#previewSprite = sprite;
+            }
+            this.#showPolyPreview(this.#currentCandidate);
+            this.#callbacks.onCandidate?.(this.#currentCandidate);
+            ui.notifications.info('Waterline | Pulled back boundary (1 step).');
+        } else {
+            this.undo();
+            ui.notifications.warn('Waterline | Cannot pull back further (water body would disappear).');
+        }
+    }
+
+    /**
+     * Expand boundary outward into surrounding land (morphological dilation).
+     * Grows candidate by 1 grid cell (approx. 4-8px).
+     */
+    expand() {
+        if (!this.#currentMaskData) return;
+        this.#pushUndoSnapshot();
+
+        WaterDetector.dilateMask(this.#currentMaskData, 1);
+
+        const candidate = WaterDetector.candidateFromMask(this.#currentMaskData, this.smoothing);
+        if (candidate) {
+            candidate.maskData = this.#currentMaskData;
+            this.#currentCandidate = candidate;
+
+            this.clearPreviews();
+            const sprite = WaterDetector.previewFromMask(this.#currentMaskData);
+            if (sprite) {
+                const layer = canvas.controls ?? canvas.stage;
+                layer.addChild(sprite);
+                this.#previewSprite = sprite;
+            }
+            this.#showPolyPreview(this.#currentCandidate);
+            this.#callbacks.onCandidate?.(this.#currentCandidate);
+            ui.notifications.info('Waterline | Expanded boundary (1 step).');
+        }
+    }
+
+    /**
+     * Smooth candidate boundary curves using subdivision corner-rounding.
+     * Eliminates stair-steps along inland shorelines while preserving map borders.
+     */
+    smooth() {
+        if (!this.#currentCandidate?.points?.length) return;
+        this.#pushUndoSnapshot();
+
+        const dims = canvas.dimensions;
+        const smoothed = WaterDetector.smoothContour(this.#currentCandidate.points, 1, dims);
+        this.#currentCandidate.points = smoothed;
+        this.#currentCandidate.vertexCount = Math.round(smoothed.length / 2);
+
+        this.#showPolyPreview(this.#currentCandidate);
+        this.#callbacks.onCandidate?.(this.#currentCandidate);
+        ui.notifications.info(`Waterline | Smoothed boundary curves (${this.#currentCandidate.vertexCount} pts).`);
     }
 
     /**
@@ -419,10 +516,8 @@ export class WaterSamplingController {
     async #runRefine(sceneX, sceneY, mode) {
         if (!this.#currentMaskData) return;
 
-        // Snapshot current mask for undo
-        const snapshot = new Uint8Array(this.#currentMaskData.mask);
-        this.#undoStack.push(snapshot);
-        if (this.#undoStack.length > 20) this.#undoStack.shift();
+        // Snapshot current mask and candidate for undo
+        this.#pushUndoSnapshot();
 
         try {
             const refined = await WaterDetector.refineMask(

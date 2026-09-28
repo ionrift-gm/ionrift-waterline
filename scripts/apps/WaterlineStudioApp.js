@@ -350,6 +350,18 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             this.sampler.undo();
             this.render();
         });
+        root.querySelector('[data-action="pullBackCandidate"]')?.addEventListener('click', () => {
+            this.sampler.pullBack();
+            this.render();
+        });
+        root.querySelector('[data-action="expandCandidate"]')?.addEventListener('click', () => {
+            this.sampler.expand();
+            this.render();
+        });
+        root.querySelector('[data-action="smoothCandidate"]')?.addEventListener('click', () => {
+            this.sampler.smooth();
+            this.render();
+        });
 
         // ── Entity Deck: Waterbody Selection & Management ─────────────────────
         root.querySelectorAll('[data-action="selectZone"]').forEach(cardEl => {
