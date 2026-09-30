@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.2] - 2026-09-30
+
+### Fixed
+- Water no longer renders as solid white over map scenes.
+
 ## [1.0.1] - 2026-09-30
 
 ### Fixed

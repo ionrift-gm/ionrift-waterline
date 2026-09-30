@@ -1,6 +1,6 @@
 import { WaterShapeEstimator } from './WaterShapeEstimator.js';
 import { MapBorderDetector } from './MapBorderDetector.js';
-import { WATER_ARCHETYPES, WATER_PRESETS } from './WaterManager.js';
+import { WATER_ARCHETYPES, WATER_PRESETS, WaterManager } from './WaterManager.js';
 
 const MODULE_ID = 'ionrift-waterline';
 const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
@@ -43,7 +43,7 @@ export class WaterDetector {
         ui.notifications.info('Waterline | Analyzing scene for water...');
 
         // Get the scene background texture
-        const bgPath = scene.background?.src;
+        const bgPath = WaterManager.resolveSceneBackgroundSrc(scene);
         if (!bgPath) {
             ui.notifications.warn('Waterline | Scene has no background image.');
             return;
@@ -278,7 +278,7 @@ export class WaterDetector {
     static async #ensureImageCache() {
         const scene = canvas.scene;
         if (!scene) return false;
-        const bgPath = scene.background?.src;
+        const bgPath = WaterManager.resolveSceneBackgroundSrc(scene);
         if (!bgPath) return false;
 
         // Only reload if not cached
@@ -1058,7 +1058,7 @@ export class WaterDetector {
         const scene = canvas.scene;
         if (!scene) return null;
 
-        const bgPath = scene.background?.src;
+        const bgPath = WaterManager.resolveSceneBackgroundSrc(scene);
         if (!bgPath) return null;
 
         const img = await WaterDetector.#loadImage(bgPath);

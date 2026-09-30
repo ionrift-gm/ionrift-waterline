@@ -38,7 +38,7 @@ const { RIVER_FLOW_CHUNK } = await import('../scripts/water/shaders/chunks/river
 const { LAKE_POND_CHUNK } = await import('../scripts/water/shaders/chunks/lakePond.glsl.js');
 const { TOKEN_WAKES_CHUNK } = await import('../scripts/water/shaders/chunks/tokenWakes.glsl.js');
 const { COMPOSITE_CHUNK } = await import('../scripts/water/shaders/chunks/composite.glsl.js');
-const { WATER_PRESETS } = await import('../scripts/water/WaterManager.js');
+const { WATER_PRESETS, WaterManager } = await import('../scripts/water/WaterManager.js');
 const { WaterlineStudioApp } = await import('../scripts/apps/WaterlineStudioApp.js');
 
 describe('Shoreline Shader (SHORELINE_CHUNK)', () => {
@@ -854,4 +854,61 @@ describe('Eyedropper & Color Sampling Contract', () => {
     }
   });
 });
+
+describe('Scene Background Resolution & Fallbacks Contract', () => {
+  it('resolves standard scene.background.src on legacy scenes', () => {
+    const scene = { background: { src: 'worlds/ocean-map.webp' } };
+    assert.equal(WaterManager.resolveSceneBackgroundSrc(scene), 'worlds/ocean-map.webp');
+  });
+
+  it('correctly falls back to scene.background.src when scene.levels is a Collection/Map without background', () => {
+    // This directly tests the root cause of the white-water bug where truthy Map levels caused undefined bgPath
+    const levelsMap = new Map();
+    const scene = {
+      levels: levelsMap,
+      background: { src: 'worlds/coastal_beach.webp' }
+    };
+    assert.equal(
+      WaterManager.resolveSceneBackgroundSrc(scene),
+      'worlds/coastal_beach.webp',
+      'Must resolve scene.background.src even when scene.levels Map is present and empty'
+    );
+  });
+
+  it('resolves scene.firstLevel.background.src on Foundry v14 scenes', () => {
+    const scene = {
+      firstLevel: { background: { src: 'worlds/v14-level-bg.webp' } },
+      background: { src: 'worlds/legacy-bg.webp' }
+    };
+    assert.equal(WaterManager.resolveSceneBackgroundSrc(scene), 'worlds/v14-level-bg.webp');
+  });
+
+  it('resolves scene.levels.contents[0].background.src on v14 collection structures', () => {
+    const scene = {
+      levels: {
+        contents: [{ background: { src: 'worlds/v14-contents-bg.webp' } }]
+      }
+    };
+    assert.equal(WaterManager.resolveSceneBackgroundSrc(scene), 'worlds/v14-contents-bg.webp');
+  });
+
+  it('resolves scene._source.background.src without triggering getter warnings', () => {
+    const scene = {
+      _source: { background: { src: 'worlds/source-bg.webp' } }
+    };
+    assert.equal(WaterManager.resolveSceneBackgroundSrc(scene), 'worlds/source-bg.webp');
+  });
+
+  it('resolves scene.img on legacy v9/v10 scenes', () => {
+    const scene = { img: 'worlds/legacy-img.webp' };
+    assert.equal(WaterManager.resolveSceneBackgroundSrc(scene), 'worlds/legacy-img.webp');
+  });
+
+  it('returns null when scene has no background artwork', () => {
+    const scene = { backgroundColor: '#111922' };
+    assert.equal(WaterManager.resolveSceneBackgroundSrc(scene), null);
+    assert.equal(WaterManager.resolveSceneBackgroundSrc(null), null);
+  });
+});
+
 

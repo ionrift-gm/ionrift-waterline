@@ -538,6 +538,50 @@ Water Tuning API:
         return null;
     }
 
+    /**
+     * Resolves the background image path for a scene across Foundry v11, v12, v13, and v14+.
+     * Properly handles v14 SceneLevel embedded documents and legacy scene.background.src.
+     * @param {Scene} [scene=canvas?.scene]
+     * @returns {string|null}
+     */
+    static resolveSceneBackgroundSrc(scene = canvas?.scene) {
+        if (!scene) return null;
+        const level = scene.firstLevel ?? scene.levels?.contents?.[0] ?? null;
+        return (level?.background?.src || scene._source?.background?.src || scene.background?.src || scene.img) || null;
+    }
+
+    static #solidBgTexture = null;
+    static #solidBgColor = null;
+
+    /**
+     * Creates or returns a cached solid-color texture matching the scene background color.
+     * Used when the scene has no background artwork, preventing water from rendering as solid white.
+     * @returns {PIXI.Texture}
+     */
+    static #getSolidBgTexture() {
+        const hex = canvas.scene?.backgroundColor || '#111922';
+        if (WaterManager.#solidBgTexture && WaterManager.#solidBgColor === hex) {
+            return WaterManager.#solidBgTexture;
+        }
+        try {
+            if (typeof document !== 'undefined') {
+                const canvasEl = document.createElement('canvas');
+                canvasEl.width = 4;
+                canvasEl.height = 4;
+                const ctx = canvasEl.getContext('2d');
+                ctx.fillStyle = hex;
+                ctx.fillRect(0, 0, 4, 4);
+                WaterManager.#solidBgTexture?.destroy?.(true);
+                WaterManager.#solidBgTexture = PIXI.Texture.from(canvasEl);
+                WaterManager.#solidBgColor = hex;
+                return WaterManager.#solidBgTexture;
+            }
+        } catch {
+            // Fallback silent ignore
+        }
+        return PIXI.Texture.WHITE;
+    }
+
     static async #renderWater(regionDoc, config) {
         const allPoints = WaterManager.#extractPoints(regionDoc);
         LOG(`  Extracted ${allPoints.length} point sets`);
@@ -620,9 +664,11 @@ Water Tuning API:
         }
 
         // Load background texture for distortion
-        const bgPath = canvas.scene?.levels ? canvas.scene.levels[0]?.background?.src : canvas.scene?.background?.src;
-        let bgTexture = null;
-        if (bgPath) {
+        const bgPath = WaterManager.resolveSceneBackgroundSrc();
+        let bgTexture = (canvas.primary?.background?.texture?.valid && canvas.primary.background.texture !== PIXI.Texture.WHITE && canvas.primary.background.texture !== PIXI.Texture.EMPTY)
+            ? canvas.primary.background.texture
+            : null;
+        if (!bgTexture && bgPath) {
             try {
                 bgTexture = await PIXI.Assets.load(bgPath);
                 LOG(`  Background texture loaded for distortion`);
@@ -631,7 +677,7 @@ Water Tuning API:
             }
         }
         if (!bgTexture) {
-            bgTexture = PIXI.Texture.WHITE;
+            bgTexture = WaterManager.#getSolidBgTexture();
         }
 
         for (const points of allPoints) {
@@ -747,6 +793,11 @@ Water Tuning API:
      */
     static clearSampledColorCache() {
         WaterManager.#sampledColorCache.clear();
+        try {
+            WaterManager.#solidBgTexture?.destroy?.(true);
+        } catch { /* ignore */ }
+        WaterManager.#solidBgTexture = null;
+        WaterManager.#solidBgColor = null;
     }
 
     /**
@@ -760,7 +811,7 @@ Water Tuning API:
     static async #sampleBackgroundColor(pointSets, regionId) {
         const fallback = [0.05, 0.15, 0.25];
 
-        const bgPath = canvas.scene?.levels ? canvas.scene.levels[0]?.background?.src : canvas.scene?.background?.src;
+        const bgPath = WaterManager.resolveSceneBackgroundSrc();
         if (!bgPath) return fallback;
 
         const cacheKey = `${regionId || 'anon'}-${bgPath}`;
