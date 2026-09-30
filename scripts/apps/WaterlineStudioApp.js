@@ -250,8 +250,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     #getRegionWaterBehavior(region) {
         if (!region) return null;
         const behaviorType = `${MODULE_ID}.waterFX`;
-        const behaviors = region.behaviors?.contents ?? region.behaviors ?? [];
-        return Array.isArray(behaviors) ? behaviors.find(b => b.type === behaviorType) : null;
+        const behaviors = Array.from(region.behaviors?.values?.() ?? region.behaviors ?? []);
+        return behaviors.find(b => b.type === behaviorType) ?? null;
     }
 
     #getRegionArchetype(region) {
@@ -281,7 +281,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
     /** @override */
     async _prepareContext(_options) {
-        const regions = canvas.scene?.regions?.contents ?? canvas.scene?.regions ?? [];
+        const regions = Array.from(canvas.scene?.regions?.values?.() ?? canvas.scene?.regions ?? []);
         const zones = [];
         const unattachedRegions = [];
 
@@ -1121,11 +1121,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     // ------------------------------------------------------------------
 
     #loadSceneFX() {
-        const behaviorType = `${MODULE_ID}.waterFX`;
-        const regions = canvas.scene?.regions?.contents ?? canvas.scene?.regions ?? [];
+        const regions = Array.from(canvas.scene?.regions?.values?.() ?? canvas.scene?.regions ?? []);
         for (const region of regions) {
-            const behaviors = region.behaviors?.contents ?? region.behaviors ?? [];
-            const b = Array.isArray(behaviors) ? behaviors.find(beh => beh.type === behaviorType) : null;
+            const b = this.#getRegionWaterBehavior(region);
             if (b?.system) {
                 this.activeRegionId = region.id;
                 this.#loadActiveRegionFX(region.id);
@@ -1627,63 +1625,62 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     #liveUpdateFX() {
         this.hasUnsavedChanges = true;
         if (this.#rafId) cancelAnimationFrame(this.#rafId);
-        this.#rafId = requestAnimationFrame(() => {
-            const targetRegionIds = new Set();
-            if (this.activeRegionId) targetRegionIds.add(this.activeRegionId);
 
-            if (this.applyToAllSameArchetype) {
-                const allRegions = canvas.scene?.regions?.contents ?? canvas.scene?.regions ?? [];
-                for (const r of allRegions) {
-                    if (this.#getRegionArchetype(r) === this.activeArchetype) {
-                        targetRegionIds.add(r.id);
-                    }
+        const targetRegionIds = new Set();
+        if (this.activeRegionId) targetRegionIds.add(this.activeRegionId);
+
+        if (this.applyToAllSameArchetype) {
+            const allRegions = Array.from(canvas.scene?.regions?.values?.() ?? canvas.scene?.regions ?? []);
+            for (const r of allRegions) {
+                if (this.#getRegionArchetype(r) === this.activeArchetype) {
+                    targetRegionIds.add(r.id);
                 }
             }
+        }
 
-            const meshes = [];
-            for (const rid of targetRegionIds) {
-                meshes.push(...WaterManager.getMeshesForRegion(rid));
+        const meshes = [];
+        for (const rid of targetRegionIds) {
+            meshes.push(...WaterManager.getMeshesForRegion(rid));
+        }
+
+        for (const mesh of meshes) {
+            mesh.setSpeed(this.fx.speed);
+            mesh.setIntensity(this.fx.intensity);
+            mesh.setOpacity(this.fx.opacity);
+            mesh.setDistortion(this.fx.distortion);
+            mesh.setFadeWidth(this.fx.fadeWidth);
+            mesh.setScale(this.fx.scale);
+            mesh.setFlowAngle(this.fx.flowAngle);
+            mesh.setShoreWaves(this.fx.shoreWaves);
+            mesh.setWaveCount(this.fx.waveCount ?? 4);
+            mesh.setWaveSegment(this.fx.waveSegment);
+            mesh.setWaveRegularity(this.fx.waveRegularity);
+            mesh.setSwashSurge(this.fx.swashSurge);
+            mesh.setSurfFoam(this.fx.surfFoam);
+            mesh.setChoppySeas(this.fx.choppySeas);
+            const isSmallBody = (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle');
+            mesh.setArchetype?.(this.activeArchetype);
+            mesh.setRiverWaves(this.fx.riverWaves ?? 0.0);
+            mesh.setLakeWaves(isSmallBody ? (this.fx.lakeWaves ?? 0.0) : 0.0);
+            mesh.setLakeRings(isSmallBody ? (typeof this.fx.lakeRings === 'number' ? this.fx.lakeRings : (this.fx.lakeRings ? 0.70 : 0.0)) : 0.0);
+            mesh.setWhitecaps(this.fx.whitecaps);
+            mesh.setSunGlint(this.fx.sunGlint);
+            mesh.setSpindriftWake(this.fx.spindriftWake);
+            mesh.setCrestBound(this.fx.crestBound);
+            mesh.setCoastSurf?.(this.activeArchetype === 'coast' || this.activeArchetype === 'ocean');
+
+            if (!this.fx.autoColor && this.fx.colorOverride && this.fx.colorOverride.length >= 6) {
+                const hex = this.fx.colorOverride.replace('#', '');
+                const rgb = [
+                    parseInt(hex.slice(0, 2), 16) / 255,
+                    parseInt(hex.slice(2, 4), 16) / 255,
+                    parseInt(hex.slice(4, 6), 16) / 255
+                ];
+                mesh.setWaterColor(rgb);
+            } else if (this.fx.autoColor && (mesh.baseSampledColor || mesh.waterColor)) {
+                mesh.setWaterColor(mesh.baseSampledColor || mesh.waterColor);
             }
-
-            for (const mesh of meshes) {
-                mesh.setSpeed(this.fx.speed);
-                mesh.setIntensity(this.fx.intensity);
-                mesh.setOpacity(this.fx.opacity);
-                mesh.setDistortion(this.fx.distortion);
-                mesh.setFadeWidth(this.fx.fadeWidth);
-                mesh.setScale(this.fx.scale);
-                mesh.setFlowAngle(this.fx.flowAngle);
-                mesh.setShoreWaves(this.fx.shoreWaves);
-                mesh.setWaveCount(this.fx.waveCount ?? 4);
-                mesh.setWaveSegment(this.fx.waveSegment);
-                mesh.setWaveRegularity(this.fx.waveRegularity);
-                mesh.setSwashSurge(this.fx.swashSurge);
-                mesh.setSurfFoam(this.fx.surfFoam);
-                mesh.setChoppySeas(this.fx.choppySeas);
-                const isSmallBody = (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle');
-                mesh.setArchetype?.(this.activeArchetype);
-                mesh.setRiverWaves(this.fx.riverWaves ?? 0.0);
-                mesh.setLakeWaves(isSmallBody ? (this.fx.lakeWaves ?? 0.0) : 0.0);
-                mesh.setLakeRings(isSmallBody ? (typeof this.fx.lakeRings === 'number' ? this.fx.lakeRings : (this.fx.lakeRings ? 0.70 : 0.0)) : 0.0);
-                mesh.setWhitecaps(this.fx.whitecaps);
-                mesh.setSunGlint(this.fx.sunGlint);
-                mesh.setSpindriftWake(this.fx.spindriftWake);
-                mesh.setCrestBound(this.fx.crestBound);
-                mesh.setCoastSurf?.(this.activeArchetype === 'coast' || this.activeArchetype === 'ocean');
-
-                if (!this.fx.autoColor && this.fx.colorOverride && this.fx.colorOverride.length >= 6) {
-                    const hex = this.fx.colorOverride.replace('#', '');
-                    const rgb = [
-                        parseInt(hex.slice(0, 2), 16) / 255,
-                        parseInt(hex.slice(2, 4), 16) / 255,
-                        parseInt(hex.slice(4, 6), 16) / 255
-                    ];
-                    mesh.setWaterColor(rgb);
-                } else if (this.fx.autoColor && (mesh.baseSampledColor || mesh.waterColor)) {
-                    mesh.setWaterColor(mesh.baseSampledColor || mesh.waterColor);
-                }
-            }
-        });
+        }
     }
 
     /**
@@ -1735,7 +1732,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         const targetRegions = [activeRegion];
         if (this.applyToAllSameArchetype) {
-            const allRegions = canvas.scene?.regions?.contents ?? canvas.scene?.regions ?? [];
+            const allRegions = Array.from(canvas.scene?.regions?.values?.() ?? canvas.scene?.regions ?? []);
             for (const r of allRegions) {
                 if (r.id === activeRegion.id) continue;
                 const beh = this.#getRegionWaterBehavior(r);
