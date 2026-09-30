@@ -1,4 +1,4 @@
-import { WaterMesh } from './WaterMesh.js?v=0.2.9.1';
+import { WaterMesh } from './WaterMesh.js';
 
 const MODULE_ID = 'ionrift-waterline';
 const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };

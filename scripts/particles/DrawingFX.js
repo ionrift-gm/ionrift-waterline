@@ -279,13 +279,13 @@ export class DrawingFX {
             }
         };
 
-        const cls = getDocumentClass('Drawing');
+        const cls = foundry.utils.getDocumentClass('Drawing');
         await cls.create(drawingData, { parent: canvas.scene });
     }
 
     // ── HUD button (right-click on emitter → wind icon → opens panel) ─────────
 
-    static _onRenderDrawingHUD(hud, html, data) {
+    static _onRenderDrawingHUD(hud, html, _data) {
         const drawing = hud.object?.document;
         if (!drawing) return;
         const fxConfig = drawing.getFlag(MODULE_ID, 'fx');

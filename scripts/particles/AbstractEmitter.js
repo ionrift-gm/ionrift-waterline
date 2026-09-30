@@ -1,5 +1,3 @@
-const MODULE_ID = 'ionrift-waterline';
-
 /**
  * Base class for all particle emitters.
  * Manages a PIXI.Container on canvas.effects and drives the ticker update loop.
@@ -100,6 +98,6 @@ export class AbstractEmitter {
     }
 
     // Override in subclasses
-    _spawnParticles(dt) {}
-    _updateParticle(p, dt) {}
+    _spawnParticles(_dt) {}
+    _updateParticle(_p, _dt) {}
 }

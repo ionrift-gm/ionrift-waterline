@@ -229,7 +229,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     }
 
     /** @override */
-    _preClose(options) {
+    _preClose(_options) {
         if (this.#rafId) {
             cancelAnimationFrame(this.#rafId);
             this.#rafId = null;
@@ -239,7 +239,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     }
 
     /** @override */
-    _onClose(options) {
+    _onClose(_options) {
         WaterlineStudioApp._instance = null;
     }
 
@@ -280,7 +280,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     }
 
     /** @override */
-    async _prepareContext(options) {
+    async _prepareContext(_options) {
         const regions = canvas.scene?.regions?.contents ?? canvas.scene?.regions ?? [];
         const zones = [];
         const unattachedRegions = [];
@@ -409,7 +409,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     }
 
     /** @override */
-    async _renderHTML(context, options) {
+    async _renderHTML(context, _options) {
         const templatePath = `modules/${MODULE_ID}/templates/studio.hbs`;
         const htmlString = await renderTemplate(templatePath, context);
         const el = document.createElement('div');
@@ -420,7 +420,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     }
 
     /** @override */
-    _replaceHTML(result, content, options) {
+    _replaceHTML(result, content, _options) {
         content.replaceChildren(result);
     }
 
@@ -506,7 +506,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         // ── Entity Deck: Waterbody Selection & Management ─────────────────────
         root.querySelectorAll('[data-action="selectZone"]').forEach(cardEl => {
-            cardEl.addEventListener('click', (ev) => {
+            cardEl.addEventListener('click', () => {
                 const regionId = cardEl.dataset.regionId;
                 if (!regionId || regionId === this.activeRegionId) return;
                 if (this.sampler?.editingRegionId && this.sampler.editingRegionId !== regionId) {
@@ -846,7 +846,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         if (hexInput) {
             hexInput.addEventListener('input', (ev) => {
-                let text = ev.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+                const text = ev.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
                 ev.target.value = text.toUpperCase();
                 if (text.length === 6) {
                     const fullHex = `#${text.toLowerCase()}`;
@@ -1786,7 +1786,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         if (!region) return;
         const pts = region.shapes?.[0]?.points;
         if (!pts || !pts.length) return;
-        let sumX = 0, sumY = 0, n = pts.length / 2;
+        let sumX = 0;
+        let sumY = 0;
+        const n = pts.length / 2;
         for (let i = 0; i < pts.length; i += 2) {
             sumX += pts[i];
             sumY += pts[i + 1];

@@ -2,8 +2,6 @@ import { WaterDetector } from '../water/WaterDetector.js';
 import { MapBorderDetector } from '../water/MapBorderDetector.js';
 import { WaterShapeEstimator } from '../water/WaterShapeEstimator.js';
 
-const MODULE_ID = 'ionrift-waterline';
-
 /**
  * Controller for interactive water sampling (pick mode) on the canvas.
  * Manages canvas pointer events, flood-fill generation, PIXI preview overlays,

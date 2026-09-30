@@ -31,10 +31,6 @@ export class WaterShapeEstimator {
             sceneHeight: 3000
         };
 
-        const sLeft = dims.sceneX ?? 0;
-        const sRight = sLeft + (dims.sceneWidth ?? 4000);
-        const sTop = dims.sceneY ?? 0;
-        const sBottom = sTop + (dims.sceneHeight ?? 3000);
         const sceneArea = (dims.sceneWidth ?? 4000) * (dims.sceneHeight ?? 3000);
 
         const vertCount = points.length / 2;

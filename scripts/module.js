@@ -1,10 +1,7 @@
 import { WaterManager } from './water/WaterManager.js';
-import { WaterConfigDialog } from './water/WaterConfigDialog.js';
 import { WakeManager } from './water/WakeManager.js';
-import { WakeTuningDialog } from './water/WakeTuningDialog.js';
 import { WAKE_TUNING_DEFAULTS } from './water/WakeTuning.js';
 import { DrawingFX } from './particles/DrawingFX.js';
-import { ParticlePlacementPanel } from './particles/ParticleConfigApp.js';
 import { WaterlineStudioApp } from './apps/WaterlineStudioApp.js';
 
 const MODULE_ID = 'ionrift-waterline';
@@ -77,20 +74,10 @@ Hooks.once('init', async () => {
     });
 
     // ── Footer: SettingsLayout wires Discord, Wiki, and places debug last ─────
-    let SettingsLayout = game.ionrift?.library?.SettingsLayout;
-    if (!SettingsLayout) {
-        try {
-            const mod = await import('../../ionrift-library/scripts/utils/SettingsLayout.js');
-            SettingsLayout = mod?.SettingsLayout;
-        } catch (e) {
-            console.warn('Ionrift Waterline | SettingsLayout unavailable:', e);
-        }
-    }
-    if (SettingsLayout) {
-        SettingsLayout.registerFooter(MODULE_ID, {
-            wiki: 'https://github.com/ionrift-gm/ionrift-waterline/wiki'
-        });
-    }
+    const SettingsLayout = game.ionrift?.library?.SettingsLayout;
+    SettingsLayout?.registerFooter(MODULE_ID, {
+        wiki: 'https://github.com/ionrift-gm/ionrift-waterline/wiki'
+    });
 
     // debug must be registered after registerFooter so injectLayout places it in the footer zone
     game.settings.register(MODULE_ID, 'debug', {

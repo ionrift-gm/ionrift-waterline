@@ -222,7 +222,7 @@ export class ParticlePlacementPanel extends Application {
 
     // ── Edit existing emitter ─────────────────────────────────────────────────
 
-    _loadEmitterForEdit(drawingId, root) {
+    _loadEmitterForEdit(drawingId, _root) {
         const doc = canvas.scene.drawings.get(drawingId);
         if (!doc) return;
         const fx = doc.getFlag(MODULE_ID, 'fx');
@@ -232,7 +232,7 @@ export class ParticlePlacementPanel extends Application {
         this._editTarget._fxType = fx.type;
 
         // Load config into pending for that type, excluding wind (controlled at scene level)
-        const { windDir, windStrength, ...rest } = fx;
+        const { windDir: _windDir, windStrength: _windStrength, ...rest } = fx;
         this._pending[fx.type] = { ...this._pending[fx.type], ...rest };
 
         this._activeSection = fx.type;
@@ -244,7 +244,7 @@ export class ParticlePlacementPanel extends Application {
         ui.notifications.info(`Editing ${fx.type} effect.`);
     }
 
-    async _saveEditTarget(type, root) {
+    async _saveEditTarget(type, _root) {
         if (!this._editTarget) return;
         const newConfig = { type, ...this._pending[type] };
         await this._editTarget.setFlag(MODULE_ID, 'fx', newConfig);
