@@ -20,6 +20,9 @@ try {
     console.error('Ionrift Waterline | Behavior registration failed at module load:', err);
 }
 
+globalThis.WaterManager = WaterManager;
+globalThis.WakeManager = WakeManager;
+
 // ---------------------------------------------------------------
 // Init: Register settings and remaining hooks
 // ---------------------------------------------------------------
@@ -29,10 +32,13 @@ Hooks.once('init', async () => {
     DrawingFX.init();
 
     // Register Handlebars templates for particle FX panel and studio
-    await loadTemplates([
-        `modules/${MODULE_ID}/scripts/particles/placement-panel.html`,
-        `modules/${MODULE_ID}/templates/studio.hbs`
-    ]);
+    const loader = foundry.applications?.handlebars?.loadTemplates ?? globalThis.loadTemplates;
+    if (loader) {
+        await loader([
+            `modules/${MODULE_ID}/scripts/particles/placement-panel.html`,
+            `modules/${MODULE_ID}/templates/studio.hbs`
+        ]);
+    }
 
     // ── Hidden / world settings ──────────────────────────────────────────────
     game.settings.register(MODULE_ID, 'waterCustomPresets', {
