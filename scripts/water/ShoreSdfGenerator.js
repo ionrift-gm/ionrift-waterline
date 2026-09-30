@@ -17,7 +17,7 @@ export class ShoreSdfGenerator {
     static DEFAULT_MAX_DIST = 128.0;
 
     /** Margin in world pixels added around the polygon bounding box */
-    static BOUNDS_MARGIN = 96.0;
+    static BOUNDS_MARGIN = 128.0;
 
     /** Maximum dimension of the internal distance grid */
     static MAX_GRID_DIM = 384;
@@ -27,7 +27,7 @@ export class ShoreSdfGenerator {
      * @param {number[]} flatPoints - Flat polygon vertices [x0, y0, x1, y1, ...]
      * @param {object} [options]
      * @param {number} [options.maxDist=128.0]
-     * @param {number} [options.margin=96.0]
+     * @param {number} [options.margin=128.0]
      * @returns {{ texture: PIXI.Texture, sdfBounds: Float32Array, maxDist: number } | null}
      */
     static generate(flatPoints, options = {}) {

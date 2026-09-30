@@ -204,6 +204,7 @@ export class WaterSamplingController {
         }
 
         candidate.maskData = maskData;
+        candidate.estimation = WaterShapeEstimator.estimate(candidate, canvas.dimensions ?? canvas.scene?.dimensions);
         this.#currentCandidate = candidate;
         this.#currentMaskData = maskData;
         this.#editingRegionId = regionId;
@@ -326,6 +327,7 @@ export class WaterSamplingController {
         if (entry.points && this.#currentCandidate) {
             this.#currentCandidate.points = entry.points;
             this.#currentCandidate.vertexCount = Math.round(entry.points.length / 2);
+            this.#currentCandidate.estimation = WaterShapeEstimator.estimate(this.#currentCandidate, canvas.dimensions ?? canvas.scene?.dimensions);
         } else {
             const candidate = WaterDetector.candidateFromMask(this.#currentMaskData, this.smoothing);
             if (!candidate) return;
@@ -418,6 +420,7 @@ export class WaterSamplingController {
         const smoothed = WaterDetector.smoothContour(this.#currentCandidate.points, 1, dims);
         this.#currentCandidate.points = smoothed;
         this.#currentCandidate.vertexCount = Math.round(smoothed.length / 2);
+        this.#currentCandidate.estimation = WaterShapeEstimator.estimate(this.#currentCandidate, dims);
 
         this.#showPolyPreview(this.#currentCandidate);
         this.#callbacks.onCandidate?.(this.#currentCandidate);

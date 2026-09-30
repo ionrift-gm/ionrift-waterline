@@ -1,4 +1,4 @@
-﻿name: CI - Lint & Static Analysis
+name: CI - Lint & Static Analysis
 
 on:
   push:
@@ -39,3 +39,10 @@ jobs:
 
       - name: Validate string literals (no typographic dashes)
         run: node tools/validate-strings.mjs
+
+      - name: Run shader regression tests
+        run: node --test tools/test-shaders.mjs
+
+      - name: Run estimation and color regression tests
+        run: node --test tools/test-estimation.mjs
+

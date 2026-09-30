@@ -1,9 +1,17 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.0] - 2026-09-30
+
+### Added
+- Fluid Archetypes: dedicated simulation profiles for Oceans, Coastlines, Rivers, Lakes, Ponds, and Puddles.
+- Auto estimation: evaluates new water bodies to assign an archetype and flow heading from geometry.
+- Ocean shader with deep sea chop and wave simulations.
+- Shoreline shader with surf wash, swash reach, and beach foam.
+- River, lake, pond, and puddle shaders with directional cellular flow and reflective swells.
+- Modular integration hooks for external modules and systems.
 
 ### Removed
-- Border walls moved to Cartographer. The Walls palette there has Border walls. Older borders on a scene still clear from that sheet.
+- Procedural border walls moved to Ionrift Cartographer.
 
 ## [0.2.8] - 2026-09-22
 

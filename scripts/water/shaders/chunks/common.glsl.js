@@ -14,15 +14,18 @@ export const COMMON_CHUNK = `
     uniform vec3 uHighlightColor;
     uniform vec4 uBounds;
     uniform vec4 uSceneDims;
+    uniform vec4 uBorderTouches;
     uniform float uFadeWidth;
     uniform float uScale;
     uniform float uFlowAngle;
     uniform float uShoreWaves;
+    uniform float uWaveCount;
     uniform float uWaveShoaling;
     uniform float uBankDrag;
     uniform float uWaveSegment;
     uniform float uWaveRegularity;
     uniform float uSwashSurge;
+    uniform float uSurfFoam;
     uniform float uChoppySeas;
     uniform float uRiverWaves;
     uniform float uLakeWaves;
@@ -32,6 +35,7 @@ export const COMMON_CHUNK = `
     uniform float uSpindriftWake;
     uniform float uCrestBound;
     uniform float uFoamHfWeight;
+    uniform float uCoastSurf;
     uniform sampler2D uShoreSdf;
     uniform vec4 uSdfBounds;
     uniform float uSdfMaxDist;
@@ -101,8 +105,8 @@ export const COMMON_CHUNK = `
     vec2 voronoiBubbleField(vec2 p, float t) {
         vec2 i = floor(p);
         vec2 f = fract(p);
-        float d1 = 1.0;
-        float d2 = 1.0;
+        float d1 = 8.0;
+        float d2 = 8.0;
         for (int y = -1; y <= 1; y++) {
             for (int x = -1; x <= 1; x++) {
                 vec2 g = vec2(float(x), float(y));
@@ -139,5 +143,38 @@ export const COMMON_CHUNK = `
 
     float voronoiBubbles(vec2 p) {
         return voronoiBubbleField(p, uTime).y;
+    }
+
+    // Archetype strategy output contract
+    struct ArchetypeResult {
+        float foam;
+        vec2  displacement;
+        vec3  normal;
+        float glint;
+        float troughShadow;
+        float crestBody;
+        float aeratedBase;
+        float undercurrentFoam;
+        float bankSlosh;
+        float elevation;
+        float skyReflect;
+        float lakeTroughShadow;
+    };
+
+    ArchetypeResult initArchetypeResult() {
+        ArchetypeResult ar;
+        ar.foam = 0.0;
+        ar.displacement = vec2(0.0);
+        ar.normal = vec3(0.0, 0.0, 1.0);
+        ar.glint = 0.0;
+        ar.troughShadow = 0.0;
+        ar.crestBody = 0.0;
+        ar.aeratedBase = 0.0;
+        ar.undercurrentFoam = 0.0;
+        ar.bankSlosh = 0.0;
+        ar.elevation = 0.0;
+        ar.skyReflect = 0.0;
+        ar.lakeTroughShadow = 0.0;
+        return ar;
     }
 `;

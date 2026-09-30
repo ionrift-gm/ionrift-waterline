@@ -27,6 +27,9 @@ export class WaterMesh {
     /** @type {object|null} */
     #borderSignature = null;
 
+    /** @type {string} */
+    #archetype = 'ocean';
+
     /**
      * @param {number[]} flatPoints - Flat array [x, y, x, y, ...]
      * @param {object} config
@@ -64,7 +67,7 @@ export class WaterMesh {
 
         let meshPts = pts;
         if (borderSig.hasBorderContact) {
-            meshPts = MapBorderDetector.bleed(pts, dims, 64.0);
+            meshPts = MapBorderDetector.bleed(pts, dims, 96.0);
             n = meshPts.length / 2;
         }
 
@@ -101,6 +104,9 @@ export class WaterMesh {
             .addAttribute('aVertexPosition', skirtGeom.vertices, 2)
             .addIndex(skirtGeom.indices);
 
+        this.#archetype = config.archetype ?? 'ocean';
+        const isSmallBody = (this.#archetype === 'lake' || this.#archetype === 'pond' || this.#archetype === 'puddle');
+
         const uniforms = {
             uTime: 0.0,
             uIntensity: config.intensity ?? 0.8,
@@ -111,20 +117,23 @@ export class WaterMesh {
             uScale: config.scale ?? 150.0,
             uFlowAngle: (config.flowAngle ?? 0) * Math.PI / 180,
             uShoreWaves: config.shoreWaves ?? 0.0,
+            uWaveCount: config.waveCount ?? 4.0,
             uWaveShoaling: config.waveShoaling ?? 1.5,
             uBankDrag: config.bankDrag ?? 45.0,
             uWaveSegment: config.waveSegment ?? 0.85,
             uWaveRegularity: config.waveRegularity ?? 0.60,
             uSwashSurge: config.swashSurge ?? 26.0,
+            uSurfFoam: config.surfFoam ?? 0.70,
             uChoppySeas: config.choppySeas ?? 0.0,
             uRiverWaves: config.riverWaves ?? 0.0,
-            uLakeWaves: config.lakeWaves ?? 0.0,
-            uLakeRings: config.lakeRings !== false ? 1.0 : 0.0,
+            uLakeWaves: isSmallBody ? (config.lakeWaves ?? 0.0) : 0.0,
+            uLakeRings: isSmallBody ? (typeof config.lakeRings === 'number' ? Math.max(0.0, Math.min(2.0, config.lakeRings)) : (config.lakeRings ? 1.0 : 0.0)) : 0.0,
             uWhitecaps: config.whitecaps ?? 0.5,
             uSunGlint: config.sunGlint ?? 0.6,
             uSpindriftWake: config.spindriftWake ? 1.0 : 0.0,
             uCrestBound: config.crestBound ? 1.0 : 0.0,
-            uFoamHfWeight: config.foamHfWeight ?? 0.35,
+            uFoamHfWeight: config.foamHfWeight ?? 1.0,
+            uCoastSurf: (config.archetype === 'coast' || config.archetype === 'ocean') ? 1.0 : 0.0,
             uShoreSdf: this.#sdfTexture ?? PIXI.Texture.WHITE,
             uSdfBounds: sdfBounds,
             uSdfMaxDist: sdfMaxDist,
@@ -132,6 +141,12 @@ export class WaterMesh {
             uHighlightColor: new Float32Array(config.highlightColor ?? [0.3, 0.55, 0.75]),
             uBounds: new Float32Array([minX, minY, boundsW, boundsH]),
             uSceneDims: new Float32Array([sceneX, sceneY, sceneW, sceneH]),
+            uBorderTouches: new Float32Array([
+                borderSig.touches.left ? 1.0 : 0.0,
+                borderSig.touches.right ? 1.0 : 0.0,
+                borderSig.touches.top ? 1.0 : 0.0,
+                borderSig.touches.bottom ? 1.0 : 0.0
+            ]),
             uBackground: config.bgTexture,
             uWake0: new Float32Array(4),
             uWake1: new Float32Array(4),
@@ -157,6 +172,8 @@ export class WaterMesh {
         };
 
         this.#shader = createWaterShader(uniforms);
+        this.waterColor = config.waterColor;
+        this.baseSampledColor = config.baseSampledColor ?? config.waterColor;
 
         this.mesh = new PIXI.Mesh(geometry, this.#shader);
         this.mesh.name = 'water-mesh';
@@ -256,6 +273,10 @@ export class WaterMesh {
         if (this.#shader) this.#shader.uniforms.uShoreWaves = val;
     }
 
+    setWaveCount(val) {
+        if (this.#shader) this.#shader.uniforms.uWaveCount = val;
+    }
+
     setWaveShoaling(val) {
         if (this.#shader) this.#shader.uniforms.uWaveShoaling = val;
     }
@@ -276,6 +297,10 @@ export class WaterMesh {
         if (this.#shader) this.#shader.uniforms.uSwashSurge = val;
     }
 
+    setSurfFoam(val) {
+        if (this.#shader) this.#shader.uniforms.uSurfFoam = val;
+    }
+
     setChoppySeas(val) {
         if (this.#shader) this.#shader.uniforms.uChoppySeas = val;
     }
@@ -284,12 +309,27 @@ export class WaterMesh {
         if (this.#shader) this.#shader.uniforms.uRiverWaves = val;
     }
 
+    setArchetype(val) {
+        this.#archetype = val;
+        const isSmallBody = (val === 'lake' || val === 'pond' || val === 'puddle');
+        if (!isSmallBody && this.#shader) {
+            this.#shader.uniforms.uLakeWaves = 0.0;
+            this.#shader.uniforms.uLakeRings = 0.0;
+        }
+        if (this.#shader) {
+            this.#shader.uniforms.uCoastSurf = (val === 'coast' || val === 'ocean') ? 1.0 : 0.0;
+        }
+    }
+
     setLakeWaves(val) {
-        if (this.#shader) this.#shader.uniforms.uLakeWaves = val;
+        const isSmallBody = (this.#archetype === 'lake' || this.#archetype === 'pond' || this.#archetype === 'puddle');
+        if (this.#shader) this.#shader.uniforms.uLakeWaves = isSmallBody ? (val ?? 0.0) : 0.0;
     }
 
     setLakeRings(val) {
-        if (this.#shader) this.#shader.uniforms.uLakeRings = val ? 1.0 : 0.0;
+        const isSmallBody = (this.#archetype === 'lake' || this.#archetype === 'pond' || this.#archetype === 'puddle');
+        const numVal = typeof val === 'number' ? Math.max(0.0, Math.min(2.0, val)) : (val ? 1.0 : 0.0);
+        if (this.#shader) this.#shader.uniforms.uLakeRings = isSmallBody ? numVal : 0.0;
     }
 
     setWhitecaps(val) {
@@ -306,6 +346,26 @@ export class WaterMesh {
 
     setCrestBound(val) {
         if (this.#shader) this.#shader.uniforms.uCrestBound = val ? 1.0 : 0.0;
+    }
+
+    setCoastSurf(val) {
+        if (this.#shader) this.#shader.uniforms.uCoastSurf = val ? 1.0 : 0.0;
+    }
+
+    /**
+     * Update water color and highlight uniforms in place without rebuilding the mesh.
+     * @param {number[]|object} color - [r, g, b] or {r, g, b} normalized to 0-1
+     */
+    setWaterColor(color) {
+        if (!this.#shader) return;
+        const rgb = Array.isArray(color) ? color : [color.r, color.g, color.b];
+        this.#shader.uniforms.uWaterColor[0] = rgb[0];
+        this.#shader.uniforms.uWaterColor[1] = rgb[1];
+        this.#shader.uniforms.uWaterColor[2] = rgb[2];
+        this.#shader.uniforms.uHighlightColor[0] = Math.min(rgb[0] + 0.15, 1.0);
+        this.#shader.uniforms.uHighlightColor[1] = Math.min(rgb[1] + 0.15, 1.0);
+        this.#shader.uniforms.uHighlightColor[2] = Math.min(rgb[2] + 0.1, 1.0);
+        this.waterColor = rgb;
     }
 
     /**

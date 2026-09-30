@@ -15,7 +15,7 @@ export class MapBorderDetector {
     static DEFAULT_MARGIN = 40.0;
 
     /** Default distance in scene pixels to extend vertices past map boundaries. */
-    static DEFAULT_BLEED = 64.0;
+    static DEFAULT_BLEED = 96.0;
 
     /**
      * Resolve scene dimensions from canvas or explicit input.
@@ -121,7 +121,7 @@ export class MapBorderDetector {
         const spanTop = sideTop.count > 0 ? (sideTop.maxX - sideTop.minX) : 0;
         const spanBottom = sideBottom.count > 0 ? (sideBottom.maxX - sideBottom.minX) : 0;
 
-        const contactTol = options.contactTolerance ?? 12.0;
+        const contactTol = options.contactTolerance ?? Math.max(20.0, margin.x * 0.4);
 
         const touchLeft = (sideLeft.count >= 2 && spanLeft >= minSpanY) ||
             sideLeft.indices.some(idx => points[idx * 2] <= sLeft + contactTol);
@@ -220,15 +220,15 @@ export class MapBorderDetector {
 
             if (borderIndices.has(i)) {
                 if (touches.left && x <= sLeft + contactTol) {
-                    x = sLeft - bleedDist;
+                    x = Math.min(x, sLeft - bleedDist);
                 } else if (touches.right && x >= sRight - contactTol) {
-                    x = sRight + bleedDist;
+                    x = Math.max(x, sRight + bleedDist);
                 }
 
                 if (touches.top && y <= sTop + contactTol) {
-                    y = sTop - bleedDist;
+                    y = Math.min(y, sTop - bleedDist);
                 } else if (touches.bottom && y >= sBottom - contactTol) {
-                    y = sBottom + bleedDist;
+                    y = Math.max(y, sBottom + bleedDist);
                 }
             }
 

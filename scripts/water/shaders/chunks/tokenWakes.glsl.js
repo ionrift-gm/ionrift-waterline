@@ -97,7 +97,12 @@ export const TOKEN_WAKES_CHUNK = `
     }
 
     vec2 sumWakeDistortion(vec2 worldPos, float t) {
-        if (uWakeStyle > 0.5) return sumWakeStamps(worldPos, t);
+        if (uWakeStrengthMul <= 0.0001) return vec2(0.0);
+        if (uWakeStyle > 0.5) {
+            if (uWake1.w + uWake3.w + uWake5.w + uWake7.w <= 0.0001) return vec2(0.0);
+            return sumWakeStamps(worldPos, t);
+        }
+        if (uWake0.w + uWake1.w + uWake2.w + uWake3.w + uWake4.w + uWake5.w + uWake6.w + uWake7.w <= 0.0001) return vec2(0.0);
         return sumWakeRipples(worldPos, t);
     }
 
@@ -192,11 +197,19 @@ export const TOKEN_WAKES_CHUNK = `
     }
 
     float computeTokenWaves(vec2 worldPos, vec2 flow, float t) {
+        float tokenEnergy = uToken0.w + uToken1.w + uToken2.w + uToken3.w;
+        float stampEnergy = (uWakeStyle > 0.5) ? (uWake1.w + uWake3.w + uWake5.w + uWake7.w) : 0.0;
+        if (tokenEnergy + stampEnergy <= 0.0001) return 0.0;
+
         float scaleRef = 1.0;
         if (uToken0.w > 0.0001) scaleRef = max(uToken0.z / 50.0, 0.2);
         else if (uToken1.w > 0.0001) scaleRef = max(uToken1.z / 50.0, 0.2);
         else if (uToken2.w > 0.0001) scaleRef = max(uToken2.z / 50.0, 0.2);
         else if (uToken3.w > 0.0001) scaleRef = max(uToken3.z / 50.0, 0.2);
+        else if (uWakeStyle > 0.5) {
+            float trailL = max(max(uWake1.z, uWake3.z), max(uWake5.z, uWake7.z));
+            scaleRef = max(trailL / 160.0, 0.25);
+        }
 
         float stretchFreq = 0.020 / scaleRef;
         float stretchAmp  = 8.5 * scaleRef;

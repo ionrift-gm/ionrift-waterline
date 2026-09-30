@@ -22,9 +22,6 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     /** @type {string|null} ID of currently selected water region */
     activeRegionId = null;
 
-    /** @type {object|null} Estimation data for currently active region */
-    activeRegionEstimation = null;
-
     /** @type {string} Active water archetype: 'ocean' | 'coast' | 'lake' | 'river' | 'pond' | 'puddle' */
     activeArchetype = 'river';
 
@@ -51,6 +48,10 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
     /** @type {number|null} RequestAnimationFrame id for live uniform updates */
     #rafId = null;
+    /** @type {boolean} */
+    #isSamplingColor = false;
+    /** @type {Function|null} */
+    #cancelColorSampler = null;
 
     /** @type {object} Current water animation FX parameters */
     fx = {
@@ -62,13 +63,15 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         scale: 90,
         flowAngle: 90,
         shoreWaves: 0.15,
+        waveCount: 4,
         waveSegment: 0.85,
         waveRegularity: 0.60,
         swashSurge: 24.0,
+        surfFoam: 0.70,
         choppySeas: 0.0,
         riverWaves: 0.65,
         lakeWaves: 0.0,
-        lakeRings: true,
+        lakeRings: 0.0,
         whitecaps: 0.5,
         sunGlint: 0.6,
         spindriftWake: false,
@@ -137,6 +140,88 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         WaterlineStudioApp._instance = null;
     }
 
+    /**
+     * Maximum shoreline margin (fadeWidth in px) supported per archetype.
+     * @param {string} archetype
+     * @returns {number}
+     */
+    static getMaxFadeWidth(archetype) {
+        switch (archetype) {
+            case 'ocean':
+            case 'coast':
+                return 150;
+            case 'river':
+                return 120;
+            case 'lake':
+                return 100;
+            case 'pond':
+                return 80;
+            case 'puddle':
+                return 40;
+            default:
+                return 120;
+        }
+    }
+
+    /**
+     * Map slider position (0-100) to shoreline margin (px).
+     * High-resolution piecewise C1 curve: 0..40 maps linearly to 0..20px (1px resolution),
+     * while 40..100 smoothly curves up to maxMargin with diminishing fidelity.
+     * @param {number} pos - Slider position 0..100
+     * @param {number} maxMargin - Maximum margin in px
+     * @returns {number} Margin in pixels
+     */
+    static sliderToFadeWidth(pos, maxMargin = 120) {
+        const s = Math.max(0, Math.min(100, Number(pos) || 0));
+        const u0 = 0.40;
+        const p0 = 20;
+        if (maxMargin <= p0) {
+            return Math.round((s / 100) * maxMargin);
+        }
+        const S0 = p0 / u0;
+        const k0 = S0 * (1 - u0);
+        const A = maxMargin - p0 - k0;
+
+        const u = s / 100;
+        if (u <= u0) {
+            return Math.round((u / u0) * p0);
+        }
+        const t = (u - u0) / (1 - u0);
+        if (A === 0) return Math.round(p0 + k0 * t);
+        return Math.round(p0 + k0 * t + A * t * t);
+    }
+
+    /**
+     * Map shoreline margin (px) to slider position (0-100).
+     * Exact inverse of sliderToFadeWidth.
+     * @param {number} px - Margin in px
+     * @param {number} maxMargin - Maximum margin in px
+     * @returns {number} Slider position 0..100
+     */
+    static fadeWidthToSlider(px, maxMargin = 120) {
+        const p = Math.max(0, Math.min(maxMargin, Number(px) || 0));
+        const u0 = 0.40;
+        const p0 = 20;
+        if (maxMargin <= p0) {
+            return Math.round((p / maxMargin) * 100);
+        }
+        const S0 = p0 / u0;
+        const k0 = S0 * (1 - u0);
+        const A = maxMargin - p0 - k0;
+
+        if (p <= p0) {
+            return Math.round((p / p0) * (u0 * 100));
+        }
+        const deltaP = p - p0;
+        if (A === 0) {
+            const t = deltaP / k0;
+            return Math.round((u0 + t * (1 - u0)) * 100);
+        }
+        const disc = Math.max(0, k0 * k0 + 4 * A * deltaP);
+        const t = (-k0 + Math.sqrt(disc)) / (2 * A);
+        return Math.round((u0 + t * (1 - u0)) * 100);
+    }
+
     /** @override */
     async close(options = {}) {
         options.animate = false;
@@ -150,6 +235,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             this.#rafId = null;
         }
         this.sampler?.cleanup();
+        this.#cancelColorSampler?.();
     }
 
     /** @override */
@@ -158,25 +244,55 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     }
 
     // ------------------------------------------------------------------
-    // Context Preparation
+    // Context Preparation & Helpers
     // ------------------------------------------------------------------
+
+    #getRegionWaterBehavior(region) {
+        if (!region) return null;
+        const behaviorType = `${MODULE_ID}.waterFX`;
+        const behaviors = region.behaviors?.contents ?? region.behaviors ?? [];
+        return Array.isArray(behaviors) ? behaviors.find(b => b.type === behaviorType) : null;
+    }
+
+    #getRegionArchetype(region) {
+        if (!region) return 'river';
+        const behavior = this.#getRegionWaterBehavior(region);
+        let archKey = behavior?.system?.archetype;
+        const hasConfiguredFlag = Boolean(
+            region.flags?.[MODULE_ID]?.configured ||
+            behavior?.flags?.[MODULE_ID]?.configured
+        );
+        const isConfigured = hasConfiguredFlag || Boolean(
+            behavior?.system?.waterType &&
+            behavior.system.waterType !== 'custom' &&
+            behavior.system.archetype &&
+            behavior.system.archetype !== 'river'
+        );
+
+        if (!isConfigured) {
+            const pts = WaterShapeEstimator.extractRegionPoints(region);
+            if (pts && pts.length >= 6) {
+                const est = WaterShapeEstimator.estimateRegion(region, canvas?.dimensions);
+                if (est?.archetype) archKey = est.archetype;
+            }
+        }
+        return archKey || WaterManager.inferArchetype(behavior?.system?.waterType) || 'river';
+    }
 
     /** @override */
     async _prepareContext(options) {
-        const behaviorType = `${MODULE_ID}.waterFX`;
         const regions = canvas.scene?.regions?.contents ?? canvas.scene?.regions ?? [];
         const zones = [];
         const unattachedRegions = [];
 
         for (const region of regions) {
-            const behaviors = region.behaviors?.contents ?? region.behaviors ?? [];
-            const behavior = Array.isArray(behaviors) ? behaviors.find(b => b.type === behaviorType) : null;
+            const behavior = this.#getRegionWaterBehavior(region);
             const pts = WaterShapeEstimator.extractRegionPoints(region);
             const verts = pts ? Math.round(pts.length / 2) : 0;
-            const est = pts && pts.length >= 6 ? WaterShapeEstimator.estimate({ points: pts, vertexCount: verts }, canvas.dimensions) : null;
-
             if (behavior) {
-                const archKey = behavior.system?.archetype || WaterManager.inferArchetype(behavior.system?.waterType);
+                const archKey = (region.id === this.activeRegionId && this.activeArchetype)
+                    ? this.activeArchetype
+                    : this.#getRegionArchetype(region);
                 const archMeta = WATER_ARCHETYPES[archKey] ?? WATER_ARCHETYPES.river;
 
                 zones.push({
@@ -188,10 +304,10 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                     archetypeLabel: archMeta.label,
                     archetypeIcon: archMeta.icon,
                     archetypeColor: archMeta.accentColor,
-                    isActive: region.id === this.activeRegionId,
-                    estimation: est
+                    isActive: region.id === this.activeRegionId
                 });
             } else if (verts >= 3) {
+                const est = pts && pts.length >= 6 ? WaterShapeEstimator.estimate({ points: pts, vertexCount: verts }, canvas?.dimensions) : null;
                 unattachedRegions.push({
                     region,
                     id: region.id,
@@ -241,10 +357,11 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         this.fx.shoreWaves = Number.isFinite(this.fx.shoreWaves) ? this.fx.shoreWaves : 0.15;
         this.fx.waveSegment = Number.isFinite(this.fx.waveSegment) ? this.fx.waveSegment : 0.85;
         this.fx.swashSurge = Number.isFinite(this.fx.swashSurge) ? this.fx.swashSurge : 24.0;
+        this.fx.surfFoam = Number.isFinite(this.fx.surfFoam) ? this.fx.surfFoam : 0.70;
         this.fx.choppySeas = Number.isFinite(this.fx.choppySeas) ? this.fx.choppySeas : 0.0;
         this.fx.riverWaves = Number.isFinite(this.fx.riverWaves) ? this.fx.riverWaves : 0.0;
         this.fx.lakeWaves = Number.isFinite(this.fx.lakeWaves) ? this.fx.lakeWaves : 0.0;
-        this.fx.lakeRings = Boolean(this.fx.lakeRings);
+        this.fx.lakeRings = Number.isFinite(this.fx.lakeRings) ? this.fx.lakeRings : (this.fx.lakeRings ? 0.70 : 0.0);
         this.fx.whitecaps = Number.isFinite(this.fx.whitecaps) ? this.fx.whitecaps : 0.5;
         this.fx.sunGlint = Number.isFinite(this.fx.sunGlint) ? this.fx.sunGlint : 0.6;
         this.fx.spindriftWake = Boolean(this.fx.spindriftWake);
@@ -260,7 +377,6 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             zones,
             unattachedRegions,
             activeRegionId: this.activeRegionId,
-            activeEstimation: this.activeRegionEstimation,
             archetypes: WATER_ARCHETYPES,
             activeArchetype: this.activeArchetype,
             activeArchetypeMeta: activeArchMeta,
@@ -279,7 +395,12 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             candidate: this.sampler.candidate,
             editingRegionId: this.sampler.editingRegionId,
             editingRegionName: this.sampler.editingRegionId ? (canvas.scene?.regions?.get(this.sampler.editingRegionId)?.name || 'Waterbody') : null,
-            fx: this.fx,
+            hasEyeDropper: typeof window !== 'undefined' && ('EyeDropper' in window || Boolean(globalThis.canvas?.ready)),
+            colorOverrideHex: (this.fx.colorOverride || '#0d2e4d').replace('#', '').toUpperCase(),
+            fx: {
+                ...this.fx,
+                colorOverride: this.fx.colorOverride || '#0d2e4d'
+            },
             wake,
             wakePresets,
             activeWakePreset: this.activeWakePreset,
@@ -391,6 +512,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 if (this.sampler?.editingRegionId && this.sampler.editingRegionId !== regionId) {
                     this.sampler.discardCandidate();
                 }
+                this.applyToAllSameArchetype = false;
                 this.activeRegionId = regionId;
                 this.#loadActiveRegionFX(regionId);
                 this.#liveUpdateFX();
@@ -473,12 +595,13 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 scale: preset.scale ?? 90,
                 shoreWaves: preset.shoreWaves ?? 0.2,
                 swashSurge: preset.swashSurge ?? 16.0,
+                surfFoam: preset.surfFoam ?? 0.70,
                 waveSegment: preset.waveSegment ?? 0.85,
                 waveRegularity: preset.waveRegularity ?? 0.60,
                 choppySeas: preset.choppySeas ?? 0.0,
                 riverWaves: preset.riverWaves ?? (est.archetype === 'river' ? 0.65 : 0.0),
-                lakeWaves: preset.lakeWaves ?? (est.archetype === 'lake' || est.archetype === 'pond' ? 0.25 : 0.0),
-                lakeRings: preset.lakeRings ?? true,
+                lakeWaves: (est.archetype === 'lake' || est.archetype === 'pond') ? (preset.lakeWaves ?? 0.25) : 0.0,
+                lakeRings: (est.archetype === 'lake' || est.archetype === 'pond' || est.archetype === 'puddle') ? (typeof preset.lakeRings === 'number' ? preset.lakeRings : (preset.lakeRings ? 0.70 : 0.0)) : 0.0,
                 whitecaps: preset.whitecaps ?? 0.1,
                 sunGlint: preset.sunGlint ?? 0.3,
                 colorOverride: preset.colorOverride || ''
@@ -487,14 +610,18 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             await region.createEmbeddedDocuments('RegionBehavior', [{
                 type: `${MODULE_ID}.waterFX`,
                 name: 'Water FX',
+                flags: {
+                    [MODULE_ID]: { configured: true }
+                },
                 system
             }]);
+            await region.setFlag(MODULE_ID, 'configured', true);
 
             this.activeRegionId = regionId;
             this.#loadActiveRegionFX(regionId);
             this.#liveUpdateFX();
             this.render();
-            ui.notifications.info(`Waterline | Added "${region.name}" as ${est.archetypeLabel} (${est.flowAngle}°).`);
+            ui.notifications.info(`Waterline | Added "${region.name}".`);
         });
 
         // In-place inline renaming on double click
@@ -562,17 +689,6 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             this.#deleteCustomWaterPreset(this.activePreset);
         });
 
-        // Apply Shape Estimation manually
-        root.querySelector('[data-action="applyEstimation"]')?.addEventListener('click', () => {
-            if (!this.activeRegionId) return;
-            this.#loadActiveRegionFX(this.activeRegionId, true);
-            this.#liveUpdateFX();
-            this.render();
-            if (this.activeRegionEstimation) {
-                ui.notifications.info(`Waterline | Applied shape estimation: ${this.activeRegionEstimation.archetypeLabel} (${this.activeRegionEstimation.flowAngle}°).`);
-            }
-        });
-
         // ── Curated Hero Sliders ──────────────────────────────────────────────
         root.querySelectorAll('input[name^="hero_"]').forEach(input => {
             input.addEventListener('input', (ev) => {
@@ -583,11 +699,15 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 // Update hero slider display value in DOM
                 const display = ev.target.nextElementSibling;
                 if (display) {
-                    if (heroId === 'swellSpeed' || heroId === 'waveRhythm' || heroId === 'driftSpeed' || heroId === 'currentSpeed') {
+                    if (heroId === 'waveCount') {
+                        display.textContent = `${Math.round(val)}`;
+                    } else if (heroId === 'speed' || heroId === 'swellSpeed' || heroId === 'waveRhythm' || heroId === 'driftSpeed' || heroId === 'currentSpeed' || heroId === 'lappingSpeed') {
                         display.textContent = `${val.toFixed(2)}x`;
-                    } else if (heroId === 'swashSurge' || heroId === 'shorelineSoftness' || heroId === 'bankFeathering' || heroId === 'shallowsMargin' || heroId === 'wetRimBlend') {
+                    } else if (heroId === 'fadeWidth' || heroId === 'shorelineSoftness' || heroId === 'bankFeathering' || heroId === 'shallowsMargin' || heroId === 'wetRimBlend') {
+                        display.textContent = `${Math.round(this.fx.fadeWidth)}px`;
+                    } else if (heroId === 'swashSurge' || heroId === 'waveScale') {
                         display.textContent = `${Math.round(val)}px`;
-                    } else if (heroId === 'flowHeading' || heroId === 'windDirection' || heroId === 'surfHeading') {
+                    } else if (heroId === 'flowAngle' || heroId === 'flowHeading' || heroId === 'windDirection' || heroId === 'surfHeading') {
                         display.textContent = `${Math.round(val)}°`;
                     } else {
                         display.textContent = `${Math.round(val)}%`;
@@ -649,7 +769,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         const sliderNames = [
             'speed', 'intensity', 'opacity', 'distortion', 'fadeWidth',
-            'shoreWaves', 'waveSegment', 'swashSurge', 'choppySeas',
+            'shoreWaves', 'waveCount', 'waveSegment', 'swashSurge', 'surfFoam', 'choppySeas',
             'whitecaps', 'sunGlint', 'scale', 'flowAngle'
         ];
 
@@ -664,7 +784,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                     if (name === 'flowAngle') display.innerHTML = `${Math.round(val)}&deg;`;
                     else if (name === 'distortion') display.textContent = val.toFixed(3);
                     else if (name === 'swashSurge' || name === 'fadeWidth') display.textContent = `${Math.round(val)}px`;
-                    else if (['speed', 'intensity', 'opacity', 'shoreWaves', 'waveSegment', 'choppySeas', 'whitecaps', 'sunGlint'].includes(name)) display.textContent = val.toFixed(2);
+                    else if (name === 'waveCount') display.textContent = String(Math.round(val));
+                    else if (['speed', 'intensity', 'opacity', 'shoreWaves', 'surfFoam', 'waveSegment', 'choppySeas', 'whitecaps', 'sunGlint'].includes(name)) display.textContent = val.toFixed(2);
                     else display.textContent = String(val);
                 }
 
@@ -679,18 +800,90 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             });
         }
 
-        // Color override and Auto color checkbox
+        // ── Color Override, Hex Dial, EyeDropper & Auto-Color ──────────────────
         const colorInput = root.querySelector('input[name="colorOverride"]');
+        const hexInput = root.querySelector('input[name="colorOverrideHex"]');
         const autoColorCheckbox = root.querySelector('input[name="autoColor"]');
-        if (colorInput && autoColorCheckbox) {
+        const dropperBtn = root.querySelector('[data-action="sampleScreenColor"]');
+        const statusPill = root.querySelector('.wc-color-status-pill');
+
+        const updateColorUIState = (hexVal, isAuto) => {
+            const cleanHex = hexVal.startsWith('#') ? hexVal : `#${hexVal}`;
+            if (colorInput && colorInput.value !== cleanHex) colorInput.value = cleanHex;
+            const pickerWrap = root.querySelector('.wc-color-picker-wrap');
+            if (pickerWrap) pickerWrap.style.backgroundColor = cleanHex;
+            if (hexInput && hexInput.value !== cleanHex.slice(1).toUpperCase()) {
+                hexInput.value = cleanHex.slice(1).toUpperCase();
+            }
+            if (autoColorCheckbox) autoColorCheckbox.checked = isAuto;
+            if (statusPill) {
+                statusPill.className = `wc-color-status-pill ${isAuto ? 'status-auto' : 'status-override'}`;
+                statusPill.innerHTML = isAuto
+                    ? '<i class="fas fa-eye"></i> <span>Sampling Map</span>'
+                    : '<i class="fas fa-brush"></i> <span>Custom Tint</span>';
+            }
+        };
+
+        if (autoColorCheckbox) {
             autoColorCheckbox.addEventListener('change', (ev) => {
                 this.fx.autoColor = ev.target.checked;
-                colorInput.disabled = ev.target.checked;
+                if (!this.fx.autoColor && !this.fx.colorOverride) {
+                    this.fx.colorOverride = colorInput?.value || '#0d2e4d';
+                }
+                updateColorUIState(this.fx.colorOverride || '#0d2e4d', this.fx.autoColor);
                 this.#liveUpdateFX();
             });
+        }
+
+        if (colorInput) {
             colorInput.addEventListener('input', (ev) => {
                 this.fx.colorOverride = ev.target.value;
+                this.fx.autoColor = false;
+                updateColorUIState(this.fx.colorOverride, false);
                 this.#liveUpdateFX();
+            });
+        }
+
+        if (hexInput) {
+            hexInput.addEventListener('input', (ev) => {
+                let text = ev.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+                ev.target.value = text.toUpperCase();
+                if (text.length === 6) {
+                    const fullHex = `#${text.toLowerCase()}`;
+                    this.fx.colorOverride = fullHex;
+                    this.fx.autoColor = false;
+                    if (colorInput) colorInput.value = fullHex;
+                    if (autoColorCheckbox) autoColorCheckbox.checked = false;
+                    if (statusPill) {
+                        statusPill.className = 'wc-color-status-pill status-override';
+                        statusPill.innerHTML = '<i class="fas fa-brush"></i> <span>Custom Tint</span>';
+                    }
+                    this.#liveUpdateFX();
+                }
+            });
+
+            hexInput.addEventListener('change', (ev) => {
+                let text = ev.target.value.replace(/[^0-9a-fA-F]/g, '');
+                if (text.length === 3) {
+                    text = text.split('').map(c => c + c).join('');
+                }
+                if (text.length === 6) {
+                    const fullHex = `#${text.toLowerCase()}`;
+                    this.fx.colorOverride = fullHex;
+                    this.fx.autoColor = false;
+                    updateColorUIState(fullHex, false);
+                    this.#liveUpdateFX();
+                } else {
+                    updateColorUIState(this.fx.colorOverride || '#0d2e4d', this.fx.autoColor);
+                }
+            });
+        }
+
+        if (dropperBtn) {
+            dropperBtn.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                this.#toggleCanvasColorSampler(dropperBtn, updateColorUIState);
             });
         }
 
@@ -710,6 +903,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         if (batchCheckbox) {
             batchCheckbox.addEventListener('change', (ev) => {
                 this.applyToAllSameArchetype = ev.target.checked;
+                if (this.applyToAllSameArchetype) {
+                    this.#liveUpdateFX();
+                }
             });
         }
 
@@ -788,6 +984,138 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     }
 
     // ------------------------------------------------------------------
+    // Interactive Canvas Color Sampling
+    // ------------------------------------------------------------------
+
+    /**
+     * Toggles interactive canvas color sampling mode.
+     * Samples the true map artwork color directly from the background canvas on click.
+     * @param {HTMLElement} btn
+     * @param {Function} updateColorUIState
+     */
+    #toggleCanvasColorSampler(btn, updateColorUIState) {
+        if (this.#isSamplingColor) {
+            this.#cancelColorSampler?.();
+            return;
+        }
+
+        if (!canvas?.ready) {
+            ui.notifications?.warn('Canvas is not ready for color sampling.');
+            return;
+        }
+
+        this.#isSamplingColor = true;
+        btn.classList.add('active');
+        btn.setAttribute('title', 'Sampling map... Click on water or press Escape to cancel');
+
+        const prevCursor = canvas.stage.cursor;
+        canvas.stage.cursor = 'crosshair';
+
+        const cleanup = () => {
+            this.#isSamplingColor = false;
+            this.#cancelColorSampler = null;
+            btn.classList.remove('active');
+            btn.setAttribute('title', 'Sample color directly from canvas or map');
+            if (canvas?.stage) {
+                canvas.stage.off('pointerdown', onCanvasClick);
+                canvas.stage.cursor = prevCursor || 'default';
+            }
+            window.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('pointerdown', onDocPointerDown, true);
+        };
+
+        this.#cancelColorSampler = cleanup;
+
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                cleanup();
+            }
+        };
+
+        const onDocPointerDown = (e) => {
+            if (btn.contains(e.target)) return;
+            if (e.target.closest?.('.waterline-studio-root')) {
+                cleanup();
+            }
+        };
+
+        const onCanvasClick = (event) => {
+            const mouseBtn = event.data?.button ?? event.button ?? 0;
+            if (mouseBtn !== 0) {
+                cleanup();
+                return;
+            }
+            event.stopPropagation();
+            const worldPt = event.data?.getLocalPosition?.(canvas.stage)
+                ?? event.getLocalPosition?.(canvas.stage)
+                ?? (event.global ? canvas.stage.toLocal(event.global) : null)
+                ?? canvas.mousePosition
+                ?? { x: event.x, y: event.y };
+            const hex = this.sampleColorAtWorld(worldPt.x, worldPt.y);
+            if (hex) {
+                this.fx.colorOverride = hex;
+                this.fx.autoColor = false;
+                updateColorUIState(hex, false);
+                this.#liveUpdateFX();
+            }
+            cleanup();
+        };
+
+        setTimeout(() => {
+            if (!this.#isSamplingColor) return;
+            canvas.stage.once('pointerdown', onCanvasClick);
+            window.addEventListener('keydown', onKeyDown, { once: true });
+            document.addEventListener('pointerdown', onDocPointerDown, true);
+        }, 50);
+    }
+
+    /**
+     * Samples the RGB color of the scene background artwork at a given world coordinate.
+     * Returns a 6-digit hex string (e.g. '#1a4b6e').
+     * @param {number} worldX
+     * @param {number} worldY
+     * @returns {string|null}
+     */
+    sampleColorAtWorld(worldX, worldY) {
+        // 1. Read directly from the background sprite's texture source (ImageBitmap or HTMLImageElement)
+        const bg = canvas.primary?.background;
+        const source = bg?.texture?.baseTexture?.resource?.source;
+        const dims = canvas.dimensions;
+        if (source && dims) {
+            const scaleX = source.width / dims.sceneWidth;
+            const scaleY = source.height / dims.sceneHeight;
+            const imgX = Math.round((worldX - dims.sceneX) * scaleX);
+            const imgY = Math.round((worldY - dims.sceneY) * scaleY);
+            if (imgX >= 0 && imgX < source.width && imgY >= 0 && imgY < source.height) {
+                const canvasEl = document.createElement('canvas');
+                canvasEl.width = 1;
+                canvasEl.height = 1;
+                const ctx = canvasEl.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(source, imgX, imgY, 1, 1, 0, 0, 1, 1);
+                const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+                if (a > 0) {
+                    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+                }
+            }
+        }
+
+        // 2. Fallback: extract from canvas.primary or canvas.stage
+        try {
+            const rect = new PIXI.Rectangle(worldX, worldY, 1, 1);
+            const px = canvas.app?.renderer?.extract?.pixels?.(canvas.primary || canvas.stage, rect);
+            if (px && px.length >= 3) {
+                return '#' + [px[0], px[1], px[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+            }
+        } catch {
+            // Fallback silent ignore
+        }
+
+        return null;
+    }
+
+    // ------------------------------------------------------------------
     // Preset & FX Management
     // ------------------------------------------------------------------
 
@@ -805,7 +1133,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         }
     }
 
-    #loadActiveRegionFX(regionId, forceEstimate = false) {
+    #loadActiveRegionFX(regionId) {
         if (!regionId) return;
         const region = canvas.scene?.regions?.get(regionId);
         if (!region) return;
@@ -813,52 +1141,60 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         const behaviors = region.behaviors?.contents ?? region.behaviors ?? [];
         const b = Array.isArray(behaviors) ? behaviors.find(beh => beh.type === behaviorType) : null;
 
-        const est = WaterShapeEstimator.estimateRegion(region);
-        this.activeRegionEstimation = est;
-
-        const isConfigured = Boolean(
+        const hasConfiguredFlag = Boolean(
             region.flags?.[MODULE_ID]?.configured ||
             b?.flags?.[MODULE_ID]?.configured
         );
 
-        // Consider estimation if explicitly requested, or if the region is new/unconfigured
-        // (e.g. from Cartographer with waterType: custom, or missing explicit archetype)
-        const shouldEstimate = forceEstimate || (!isConfigured && (
-            !b ||
-            !b.system?.archetype ||
-            b.system?.waterType === 'custom'
-        ));
+        const isConfigured = hasConfiguredFlag || Boolean(
+            b?.system?.waterType &&
+            b.system.waterType !== 'custom' &&
+            b.system.archetype &&
+            b.system.archetype !== 'river'
+        );
 
-        if (shouldEstimate && est) {
-            this.activeArchetype = est.archetype;
-            this.activePreset = est.preset;
-            const preset = WATER_PRESETS[est.preset] ?? {};
-            this.fx = {
-                ...this.fx,
-                speed: preset.speed ?? 1.0,
-                intensity: preset.intensity ?? 0.3,
-                opacity: preset.opacity ?? 0.2,
-                distortion: preset.distortion ?? 0.02,
-                fadeWidth: preset.fadeWidth ?? 50,
-                scale: preset.scale ?? 90,
-                flowAngle: est.flowAngle ?? preset.flowAngle ?? 90,
-                shoreWaves: preset.shoreWaves ?? 0.2,
-                waveSegment: preset.waveSegment ?? 0.85,
-                waveRegularity: preset.waveRegularity ?? 0.60,
-                swashSurge: preset.swashSurge ?? 16.0,
-                choppySeas: preset.choppySeas ?? 0.0,
-                riverWaves: preset.riverWaves ?? (est.archetype === 'river' ? 0.65 : 0.0),
-                lakeWaves: preset.lakeWaves ?? (est.archetype === 'lake' || est.archetype === 'pond' ? 0.25 : 0.0),
-                lakeRings: preset.lakeRings ?? true,
-                whitecaps: preset.whitecaps ?? 0.1,
-                sunGlint: preset.sunGlint ?? 0.3,
-                spindriftWake: preset.spindriftWake ?? false,
-                crestBound: preset.crestBound ?? false,
-                colorOverride: preset.colorOverride || '',
-                autoColor: !preset.colorOverride
-            };
+        // One-time initial estimation for brand new or unconfigured waterbodies
+        const shouldEstimate = !isConfigured;
+
+        if (shouldEstimate) {
+            const est = WaterShapeEstimator.estimateRegion(region);
+            if (est) {
+                this.activeArchetype = est.archetype;
+                this.activePreset = est.preset;
+                const preset = WATER_PRESETS[est.preset] ?? {};
+                this.fx = {
+                    ...this.fx,
+                    speed: preset.speed ?? 1.0,
+                    intensity: preset.intensity ?? 0.3,
+                    opacity: preset.opacity ?? 0.2,
+                    distortion: preset.distortion ?? 0.02,
+                    fadeWidth: preset.fadeWidth ?? 50,
+                    scale: preset.scale ?? 90,
+                    flowAngle: est.flowAngle ?? preset.flowAngle ?? 90,
+                    shoreWaves: preset.shoreWaves ?? 0.2,
+                    waveCount: preset.waveCount ?? 4,
+                    waveSegment: preset.waveSegment ?? 0.85,
+                    waveRegularity: preset.waveRegularity ?? 0.60,
+                    swashSurge: preset.swashSurge ?? 16.0,
+                    surfFoam: preset.surfFoam ?? 0.70,
+                    choppySeas: preset.choppySeas ?? 0.0,
+                    riverWaves: preset.riverWaves ?? (est.archetype === 'river' ? 0.65 : 0.0),
+                    lakeWaves: (est.archetype === 'lake' || est.archetype === 'pond') ? (preset.lakeWaves ?? 0.25) : 0.0,
+                    lakeRings: (est.archetype === 'lake' || est.archetype === 'pond' || est.archetype === 'puddle') ? (typeof preset.lakeRings === 'number' ? preset.lakeRings : (preset.lakeRings ? 0.70 : 0.0)) : 0.0,
+                    whitecaps: preset.whitecaps ?? 0.1,
+                    sunGlint: preset.sunGlint ?? 0.3,
+                    spindriftWake: preset.spindriftWake ?? false,
+                    crestBound: preset.crestBound ?? false,
+                    colorOverride: preset.colorOverride || '',
+                    autoColor: !preset.colorOverride
+                };
+            }
         } else if (b?.system) {
             const s = b.system;
+            const loadedPreset = s.waterType === 'abyssal_depths' ? 'ocean_calm' : (s.waterType || 'river');
+            const loadedArchetype = s.archetype || WaterManager.inferArchetype(loadedPreset);
+            const isSmallBody = (loadedArchetype === 'lake' || loadedArchetype === 'pond' || loadedArchetype === 'puddle');
+
             this.fx = {
                 ...this.fx,
                 speed: Number.isFinite(s.speed) ? s.speed : this.fx.speed,
@@ -869,22 +1205,24 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 scale: Number.isFinite(s.scale) ? s.scale : this.fx.scale,
                 flowAngle: Number.isFinite(s.flowAngle) ? s.flowAngle : this.fx.flowAngle,
                 shoreWaves: Number.isFinite(s.shoreWaves) ? s.shoreWaves : this.fx.shoreWaves,
+                waveCount: Number.isFinite(s.waveCount) ? s.waveCount : (this.fx.waveCount ?? 4),
                 waveSegment: Number.isFinite(s.waveSegment) ? s.waveSegment : this.fx.waveSegment,
                 waveRegularity: Number.isFinite(s.waveRegularity) ? s.waveRegularity : (this.fx.waveRegularity ?? 0.60),
                 swashSurge: Number.isFinite(s.swashSurge) ? s.swashSurge : this.fx.swashSurge,
+                surfFoam: Number.isFinite(s.surfFoam) ? s.surfFoam : (this.fx.surfFoam ?? 0.70),
                 choppySeas: Number.isFinite(s.choppySeas) ? s.choppySeas : (this.fx.choppySeas ?? 0.0),
                 riverWaves: Number.isFinite(s.riverWaves) ? s.riverWaves : (this.fx.riverWaves ?? 0.0),
-                lakeWaves: Number.isFinite(s.lakeWaves) ? s.lakeWaves : (this.fx.lakeWaves ?? 0.0),
-                lakeRings: s.lakeRings !== undefined ? Boolean(s.lakeRings) : (this.fx.lakeRings !== false),
+                lakeWaves: isSmallBody ? (Number.isFinite(s.lakeWaves) ? s.lakeWaves : (this.fx.lakeWaves ?? 0.0)) : 0.0,
+                lakeRings: isSmallBody ? (Number.isFinite(s.lakeRings) ? Number(s.lakeRings) : (s.lakeRings ? 0.70 : 0.0)) : 0.0,
                 whitecaps: Number.isFinite(s.whitecaps) ? s.whitecaps : (this.fx.whitecaps ?? 0.5),
                 sunGlint: Number.isFinite(s.sunGlint) ? s.sunGlint : (this.fx.sunGlint ?? 0.6),
                 spindriftWake: Boolean(s.spindriftWake),
                 crestBound: Boolean(s.crestBound),
-                colorOverride: s.colorOverride || this.fx.colorOverride,
+                colorOverride: s.colorOverride || '',
                 autoColor: !s.colorOverride
             };
-            this.activePreset = s.waterType === 'abyssal_depths' ? 'ocean_calm' : (s.waterType || 'river');
-            this.activeArchetype = s.archetype || WaterManager.inferArchetype(this.activePreset);
+            this.activePreset = loadedPreset;
+            this.activeArchetype = loadedArchetype;
         }
     }
 
@@ -902,6 +1240,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         const preset = WATER_PRESETS[key] ?? customPresets[key];
         if (preset) {
             if (preset.archetype) this.activeArchetype = preset.archetype;
+            const isSmallBody = (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle');
             this.fx = {
                 ...this.fx,
                 speed: preset.speed ?? this.fx.speed,
@@ -912,18 +1251,20 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 scale: preset.scale ?? this.fx.scale,
                 flowAngle: Number.isFinite(this.fx.flowAngle) ? this.fx.flowAngle : (preset.flowAngle ?? 90),
                 shoreWaves: preset.shoreWaves ?? this.fx.shoreWaves,
+                waveCount: preset.waveCount ?? this.fx.waveCount ?? 4,
                 waveSegment: preset.waveSegment ?? this.fx.waveSegment,
                 waveRegularity: preset.waveRegularity ?? this.fx.waveRegularity ?? 0.60,
                 swashSurge: preset.swashSurge ?? this.fx.swashSurge,
+                surfFoam: preset.surfFoam ?? this.fx.surfFoam,
                 choppySeas: preset.choppySeas ?? this.fx.choppySeas,
                 riverWaves: preset.riverWaves ?? 0.0,
-                lakeWaves: preset.lakeWaves ?? 0.0,
-                lakeRings: preset.lakeRings ?? true,
+                lakeWaves: isSmallBody ? (preset.lakeWaves ?? 0.0) : 0.0,
+                lakeRings: isSmallBody ? (typeof preset.lakeRings === 'number' ? preset.lakeRings : (preset.lakeRings ? 0.70 : 0.0)) : 0.0,
                 whitecaps: preset.whitecaps ?? this.fx.whitecaps,
                 sunGlint: preset.sunGlint ?? this.fx.sunGlint,
                 spindriftWake: preset.spindriftWake ?? false,
                 crestBound: preset.crestBound ?? false,
-                colorOverride: preset.colorOverride ?? this.fx.colorOverride,
+                colorOverride: preset.colorOverride ?? (this.fx.autoColor ? '' : (this.fx.colorOverride || '')),
                 autoColor: preset.colorOverride ? false : (key === 'custom' ? this.fx.autoColor : true)
             };
             this.#liveUpdateFX();
@@ -934,89 +1275,127 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     #buildHeroSliders(archetype, fx) {
         switch (archetype) {
             case 'ocean': {
-                const seaStateVal = Math.round(Math.min(100, Math.max(0, (fx.choppySeas / 1.2) * 100)));
-                const swellSpeedVal = Number(fx.speed).toFixed(2);
-                const clarityVal = Math.round(Math.min(100, Math.max(0, ((0.45 - fx.opacity) / 0.28) * 100)));
-                const sunGlintVal = Math.round(Math.min(100, Math.max(0, (fx.sunGlint / 1.8) * 100)));
+                const waveEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.choppySeas / 1.2) * 100)));
+                const waveCountVal = Math.round(fx.waveCount ?? 4);
+                const surgeVal = Math.round(fx.swashSurge);
+                const surfFoamVal = Math.round(Math.min(100, Math.max(0, (fx.surfFoam ?? 0.70) * 100)));
+                const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
+                const speedVal = Number(fx.speed).toFixed(2);
+                const maxMargin = WaterlineStudioApp.getMaxFadeWidth('ocean');
+                const marginVal = Math.round(fx.fadeWidth ?? 60);
+                const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 const angleVal = Math.round(fx.flowAngle) % 360;
                 return [
-                    { id: 'seaState', label: 'Sea State (Gale)', tooltip: 'Beaufort wind scale: from calm swells to tempestuous whitecap storm surges.', min: 0, max: 100, step: 1, value: seaStateVal, displayValue: `${seaStateVal}%` },
-                    { id: 'swellSpeed', label: 'Swell Speed', tooltip: 'Propagation velocity of rolling open-ocean swells.', min: 0.2, max: 2.5, step: 0.05, value: fx.speed, displayValue: `${swellSpeedVal}x` },
-                    { id: 'waterClarity', label: 'Water Clarity', tooltip: 'Optical transparency revealing seabed depths.', min: 0, max: 100, step: 1, value: clarityVal, displayValue: `${clarityVal}%` },
-                    { id: 'sunShimmer', label: 'Sun Shimmer', tooltip: 'Glinting sunlight catching crest facets.', min: 0, max: 100, step: 1, value: sunGlintVal, displayValue: `${sunGlintVal}%` },
-                    { id: 'windDirection', label: 'Wind Direction', tooltip: 'Bearing of ocean winds and traveling swells.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-wind' }
+                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Swell height, turbulence, and whitecap churn.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'waveCount', label: 'Wave Count', tooltip: 'Density and count of rolling ocean swells.', min: 1, max: 8, step: 1, value: waveCountVal, displayValue: `${waveCountVal}` },
+                    { id: 'swashSurge', label: 'Surge Reach', tooltip: 'Dynamic swash surging onto coastal banks or islands.', min: 0, max: 60, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
+                    { id: 'surfFoam', label: 'Shoreline Foam', tooltip: 'Density of aerated cellular froth, surf wash, and shoreline bubbles.', min: 0, max: 100, step: 1, value: surfFoamVal, displayValue: `${surfFoamVal}%` },
+                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'speed', label: 'Animation Speed', tooltip: 'Propagation velocity of rolling open-ocean swells.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Width of the transparent fade into islands and coastlines (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
+                    { id: 'flowAngle', label: 'Flow Direction', tooltip: 'Bearing of ocean winds and traveling swells.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-wind' }
                 ];
             }
             case 'coast': {
-                const surfEnergyVal = Math.round(Math.min(100, Math.max(0, ((fx.shoreWaves - 0.05) / 0.90) * 100)));
+                const waveEnergyVal = Math.round(Math.min(100, Math.max(0, ((fx.shoreWaves - 0.05) / 0.90) * 100)));
+                const waveCountVal = Math.round(fx.waveCount ?? 4);
                 const surgeVal = Math.round(fx.swashSurge);
-                const rhythmVal = Number(fx.speed).toFixed(2);
-                const softnessVal = Math.round(fx.fadeWidth);
+                const surfFoamVal = Math.round(Math.min(100, Math.max(0, (fx.surfFoam ?? 0.85) * 100)));
+                const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
+                const speedVal = Number(fx.speed).toFixed(2);
+                const maxMargin = WaterlineStudioApp.getMaxFadeWidth('coast');
+                const marginVal = Math.round(fx.fadeWidth);
+                const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 const angleVal = Math.round(fx.flowAngle) % 360;
                 return [
-                    { id: 'surfEnergy', label: 'Surf Energy', tooltip: 'Turbulence and foam density of incoming breakers.', min: 0, max: 100, step: 1, value: surfEnergyVal, displayValue: `${surfEnergyVal}%` },
+                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Turbulence, swells, and foam density of incoming breakers.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'waveCount', label: 'Wave Count', tooltip: 'Number of incoming wave crests rolling and breaking toward the shore.', min: 1, max: 8, step: 1, value: waveCountVal, displayValue: `${waveCountVal}` },
                     { id: 'swashSurge', label: 'Surge Reach', tooltip: 'How far wave wash surges onto dry sand/rock.', min: 0, max: 60, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
-                    { id: 'waveRhythm', label: 'Wave Rhythm', tooltip: 'Arrival tempo of incoming shoreline sets.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${rhythmVal}x` },
-                    { id: 'shorelineSoftness', label: 'Shoreline Margin', tooltip: 'Width of the transparent fade into dry terrain.', min: 0, max: 150, step: 5, value: softnessVal, displayValue: `${softnessVal}px` },
-                    { id: 'surfHeading', label: 'Surf Heading', tooltip: 'Angle of incoming coastal breakers.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-compass' }
+                    { id: 'surfFoam', label: 'Shoreline Foam', tooltip: 'Density of aerated cellular froth, surf wash, and shoreline bubbles.', min: 0, max: 100, step: 1, value: surfFoamVal, displayValue: `${surfFoamVal}%` },
+                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'speed', label: 'Animation Speed', tooltip: 'Arrival tempo of incoming shoreline sets.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Width of the transparent fade into dry terrain (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
+                    { id: 'flowAngle', label: 'Flow Direction', tooltip: 'Angle of incoming coastal breakers.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-compass' }
                 ];
             }
             case 'lake': {
-                const surfaceEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.lakeWaves ?? 0.08) * 100)));
-                const speedVal = Number(Math.min(1.0, fx.speed)).toFixed(2);
-                const clarityVal = Math.round(Math.min(100, Math.max(0, ((0.38 - fx.opacity) / 0.26) * 100)));
-                const scaleVal = Math.round(fx.scale ?? 140);
-                const lappingVal = Math.round(fx.swashSurge ?? 5.0);
+                const waveEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.lakeWaves ?? 0.08) * 100)));
+                const surgeVal = Math.round(fx.swashSurge ?? 5.0);
+                const clarityVal = Math.round(Math.min(100, Math.max(0, ((0.38 - (fx.opacity ?? 0.15)) / 0.26) * 100)));
+                const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
+                const speedVal = Number(fx.speed).toFixed(2);
+                const maxMargin = WaterlineStudioApp.getMaxFadeWidth('lake');
+                const marginVal = Math.round(fx.fadeWidth ?? 50);
+                const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 const angleVal = Math.round(fx.flowAngle) % 360;
                 return [
-                    { id: 'surfaceEnergy', label: 'Surface Wave Energy', tooltip: '3D wave relief, caustics refraction, glint & edge chop.', min: 0, max: 100, step: 1, value: surfaceEnergyVal, displayValue: `${surfaceEnergyVal}%` },
-                    { id: 'lappingSpeed', label: 'Animation Speed', tooltip: 'Pace of open-water breeze ripples and shore lapping.', min: 0.05, max: 1.0, step: 0.05, value: Math.min(1.0, fx.speed), displayValue: `${speedVal}x` },
-                    { id: 'waterClarity', label: 'Water Clarity', tooltip: 'Depth transparency revealing submerged terrain and caustics.', min: 0, max: 100, step: 1, value: clarityVal, displayValue: `${clarityVal}%` },
-                    { id: 'waveScale', label: 'Wave Scale', tooltip: 'Wavelength of surface ripples across the basin.', min: 40, max: 200, step: 5, value: scaleVal, displayValue: `${scaleVal}px` },
-                    { id: 'swashSurge', label: 'Shoreline Lapping', tooltip: 'Dynamic swash surging onto the banks.', min: 0, max: 25, step: 1, value: lappingVal, displayValue: `${lappingVal}px` },
-                    { id: 'windDirection', label: 'Wind Direction', tooltip: 'Surface wind drift bearing driving waves and downwind shore wash.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-wind' }
+                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Surface wave relief, wind ruffles, and edge chop.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'swashSurge', label: 'Surge Reach', tooltip: 'Dynamic swash surging onto the banks.', min: 0, max: 25, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
+                    { id: 'waterClarity', label: 'Water Clarity', tooltip: 'Transparency revealing submerged lakebed and sunken terrain.', min: 0, max: 100, step: 1, value: clarityVal, displayValue: `${clarityVal}%` },
+                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'speed', label: 'Animation Speed', tooltip: 'Pace of open-water breeze ripples and shore lapping.', min: 0.1, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Width of the transparent fade into the bank (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
+                    { id: 'flowAngle', label: 'Flow Direction', tooltip: 'Surface wind drift bearing driving waves and downwind shore wash.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-wind' }
                 ];
             }
             case 'river': {
+                const waveEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.riverWaves ?? 0.65) * 100)));
+                const surgeVal = Math.round(fx.swashSurge ?? 16.0);
+                const shoreFoamVal = Math.round(Math.min(100, Math.max(0, ((fx.whitecaps ?? 0.14) / 0.65) * 100)));
+                const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
                 const speedVal = Number(fx.speed).toFixed(2);
-                const riverWavesVal = Math.round(Math.min(100, Math.max(0, (fx.riverWaves ?? 0.65) * 100)));
-                const lappingVal = Math.round(fx.swashSurge ?? 16.0);
-                const foamVal = Math.round(Math.min(60, Math.max(0, (fx.whitecaps ?? 0.14) * 100)));
-                const featherVal = Math.round(fx.fadeWidth);
+                const maxMargin = WaterlineStudioApp.getMaxFadeWidth('river');
+                const marginVal = Math.round(fx.fadeWidth);
+                const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 const angleVal = Math.round(fx.flowAngle) % 360;
                 return [
-                    { id: 'currentSpeed', label: 'Current Speed', tooltip: 'Downstream flow velocity: lazy brook to roaring rapids.', min: 0.2, max: 3.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
-                    { id: 'riverWaves', label: 'River Waves', tooltip: 'Density and presence of downstream traveling riffles and rapids.', min: 0, max: 100, step: 1, value: riverWavesVal, displayValue: `${riverWavesVal}%` },
-                    { id: 'swashSurge', label: 'Shoreline Lapping', tooltip: 'Dynamic swash and wave wash surging onto the banks.', min: 0, max: 40, step: 1, value: lappingVal, displayValue: `${lappingVal}px` },
-                    { id: 'foamHint', label: 'Foam Hint', tooltip: 'Subtle crest froth: barely a hint of foam on the wave peaks.', min: 0, max: 60, step: 1, value: foamVal, displayValue: `${foamVal}%` },
-                    { id: 'bankFeathering', label: 'Bank Feathering', tooltip: 'Feathering width where current meets riverbank.', min: 10, max: 120, step: 5, value: featherVal, displayValue: `${featherVal}px` },
-                    { id: 'flowHeading', label: 'Flow Heading', tooltip: 'Bearing of water current.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-location-arrow' }
+                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Density and presence of downstream riffles, rapids, and crest foam.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'swashSurge', label: 'Surge Reach', tooltip: 'Dynamic swash and wave wash surging onto the banks.', min: 0, max: 40, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
+                    { id: 'shoreFoam', label: 'Shore Foam', tooltip: 'Density of downstream white-water riffles, crest froth, and bank wash.', min: 0, max: 100, step: 1, value: shoreFoamVal, displayValue: `${shoreFoamVal}%` },
+                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'speed', label: 'Animation Speed', tooltip: 'Downstream flow velocity: lazy brook to roaring rapids.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Feathering width where current meets riverbank (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
+                    { id: 'flowAngle', label: 'Flow Direction', tooltip: 'Bearing of water current.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-location-arrow' }
                 ];
             }
             case 'pond': {
-                const surfaceEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.lakeWaves ?? 0.25) * 100)));
-                const speedVal = Number(Math.min(1.0, fx.speed)).toFixed(2);
-                const clarityVal = Math.round(Math.min(100, Math.max(0, ((0.38 - fx.opacity) / 0.26) * 100)));
-                const scaleVal = Math.round(fx.scale ?? 90);
+                const waveEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.lakeWaves ?? 0.25) * 100)));
+                const surgeVal = Math.round(fx.swashSurge ?? 8.0);
+                const clarityVal = Math.round(Math.min(100, Math.max(0, ((0.38 - (fx.opacity ?? 0.18)) / 0.26) * 100)));
+                const dropRipplesVal = Math.round(Math.min(100, Math.max(0, (typeof fx.lakeRings === 'number' ? fx.lakeRings : (fx.lakeRings ? 0.70 : 0.0)) * 100)));
+                const shimmerVal = Math.round(Math.min(100, Math.max(0, ((fx.sunGlint ?? 0.15) / 1.8) * 100)));
+                const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
+                const speedVal = Number(fx.speed).toFixed(2);
+                const maxMargin = WaterlineStudioApp.getMaxFadeWidth('pond');
                 const marginVal = Math.round(fx.fadeWidth ?? 45);
+                const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 return [
-                    { id: 'surfaceEnergy', label: 'Surface Wave Energy', tooltip: 'Surface wave relief and micro-ripples across the pool.', min: 0, max: 100, step: 1, value: surfaceEnergyVal, displayValue: `${surfaceEnergyVal}%` },
-                    { id: 'lappingSpeed', label: 'Animation Speed', tooltip: 'Pace of gentle surface ripples and shoreline lapping.', min: 0.05, max: 1.0, step: 0.05, value: Math.min(1.0, fx.speed), displayValue: `${speedVal}x` },
+                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Surface wave relief and micro-ripples across the pool.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'swashSurge', label: 'Bank Lapping', tooltip: 'Gentle water movement lapping against the pond edges.', min: 0, max: 20, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
                     { id: 'waterClarity', label: 'Water Clarity', tooltip: 'Transparency revealing submerged flora and bottom sediments.', min: 0, max: 100, step: 1, value: clarityVal, displayValue: `${clarityVal}%` },
-                    { id: 'waveScale', label: 'Wave Scale', tooltip: 'Scale of surface ripples across the pond.', min: 30, max: 150, step: 5, value: scaleVal, displayValue: `${scaleVal}px` },
-                    { id: 'shallowsMargin', label: 'Shallows Margin', tooltip: 'Soft blend into reeds, mossy banks, or masonry.', min: 10, max: 80, step: 2, value: marginVal, displayValue: `${marginVal}px` }
+                    { id: 'dropRipples', label: 'Drop Ripples', tooltip: 'Concentric disturbance rings from falling droplets, falling leaves, or rising fish (0% to silence).', min: 0, max: 100, step: 1, value: dropRipplesVal, displayValue: `${dropRipplesVal}%` },
+                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'sunShimmer', label: 'Sun Shimmer', tooltip: 'Specular highlights glinting off surface tremors and ripples.', min: 0, max: 100, step: 1, value: shimmerVal, displayValue: `${shimmerVal}%` },
+                    { id: 'speed', label: 'Animation Speed', tooltip: 'Pace of gentle surface ripples and shoreline lapping.', min: 0.1, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Soft blend into reeds, mossy banks, or masonry (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` }
                 ];
             }
             case 'puddle': {
+                const waveEnergyVal = Math.round(Math.min(100, Math.max(0, fx.shoreWaves * 100)));
+                const dropRipplesVal = Math.round(Math.min(100, Math.max(0, (typeof fx.lakeRings === 'number' ? fx.lakeRings : (fx.lakeRings ? 0.70 : 0.0)) * 100)));
+                const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
                 const speedVal = Number(fx.speed).toFixed(2);
-                const waveQuantityVal = Math.round(Math.min(100, Math.max(0, fx.shoreWaves * 100)));
                 const regularityVal = Math.round(Math.min(100, Math.max(0, (fx.waveRegularity ?? 0.60) * 100)));
-                const rimVal = Math.round(fx.fadeWidth);
+                const maxMargin = WaterlineStudioApp.getMaxFadeWidth('puddle');
+                const marginVal = Math.round(fx.fadeWidth);
+                const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 return [
-                    { id: 'lappingSpeed', label: 'Tremor Speed', tooltip: 'Vibration pace of surface tremors.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
-                    { id: 'waveQuantity', label: 'Wave Quantity', tooltip: 'Edge micro-ripple intensity along puddle boundaries.', min: 0, max: 100, step: 1, value: waveQuantityVal, displayValue: `${waveQuantityVal}%` },
+                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Edge micro-ripple intensity along puddle boundaries.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'dropRipples', label: 'Drop Ripples', tooltip: 'Concentric disturbance rings from falling droplets (0% to silence).', min: 0, max: 100, step: 1, value: dropRipplesVal, displayValue: `${dropRipplesVal}%` },
+                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'speed', label: 'Animation Speed', tooltip: 'Vibration pace of surface tremors.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
                     { id: 'waveRegularity', label: 'Wave Regularity', tooltip: 'Micro-ripple regularity: organic rain jitter to crisp rings.', min: 0, max: 100, step: 1, value: regularityVal, displayValue: `${regularityVal}%` },
-                    { id: 'wetRimBlend', label: 'Wet Rim Margin', tooltip: 'Tight damp rim blending puddle into cobblestones.', min: 5, max: 40, step: 1, value: rimVal, displayValue: `${rimVal}px` }
+                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Tight damp rim blending puddle into terrain (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` }
                 ];
             }
             default:
@@ -1027,65 +1406,48 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     #onHeroSliderInput(heroId, val) {
         const x = val / 100;
         switch (heroId) {
+            case 'waveEnergy':
+            case 'surfEnergy':
             case 'surfaceEnergy':
-                this.fx.lakeWaves = +(x).toFixed(2);
-                this.fx.sunGlint = +(1.2 * x).toFixed(2);
-                break;
-            case 'waveScale':
-                this.fx.scale = Number(val);
-                break;
             case 'seaState':
-                this.fx.choppySeas = +(0.10 + 1.25 * x).toFixed(2);
-                this.fx.whitecaps = +(1.30 * Math.pow(x, 1.2)).toFixed(2);
-                // Physical wave wavelength & scale: calm ripples (85px) to towering storm swells (220px)
-                this.fx.scale = Math.round(85 + 135 * Math.pow(x, 1.1));
-                // Spatial propagation velocity of wave crests (particle effects stay decoupled at steady timescale)
-                this.fx.speed = +(0.45 + 0.80 * x).toFixed(2);
-                this.fx.swashSurge = Math.round(14 + 30 * x);
-                this.fx.distortion = +(0.015 + 0.023 * x).toFixed(3);
-                this.fx.intensity = +(0.45 + 0.45 * x).toFixed(2);
-                this.fx.opacity = +(0.30 + 0.06 * x).toFixed(2);
+            case 'riverWaves':
+            case 'waveQuantity':
+                if (this.activeArchetype === 'ocean') {
+                    this.fx.choppySeas = +(0.10 + 1.25 * x).toFixed(2);
+                    this.fx.whitecaps = +(1.30 * Math.pow(x, 1.2)).toFixed(2);
+                    this.fx.scale = Math.round(85 + 135 * Math.pow(x, 1.1));
+                    this.fx.intensity = +(0.45 + 0.45 * x).toFixed(2);
+                } else if (this.activeArchetype === 'coast') {
+                    this.fx.shoreWaves = +(0.05 + 0.90 * x).toFixed(2);
+                    this.fx.waveSegment = +(0.65 + 0.30 * x).toFixed(2);
+                    this.fx.intensity = +(0.25 + 0.60 * x).toFixed(2);
+                    this.fx.choppySeas = +(0.08 + 0.62 * x).toFixed(2);
+                    this.fx.whitecaps = +(0.05 + 0.65 * x).toFixed(2);
+                } else if (this.activeArchetype === 'lake') {
+                    this.fx.lakeWaves = +(x).toFixed(2);
+                    this.fx.sunGlint = +(1.2 * x).toFixed(2);
+                } else if (this.activeArchetype === 'river') {
+                    this.fx.riverWaves = +(x).toFixed(2);
+                    this.fx.intensity = +(0.15 + 0.45 * x).toFixed(2);
+                    this.fx.sunGlint = +(0.10 + 0.70 * x).toFixed(2);
+                } else if (this.activeArchetype === 'pond') {
+                    this.fx.lakeWaves = +(x * 0.5).toFixed(2);
+                } else if (this.activeArchetype === 'puddle') {
+                    this.fx.shoreWaves = +(x).toFixed(2);
+                }
                 break;
+            case 'speed':
             case 'swellSpeed':
             case 'waveRhythm':
             case 'driftSpeed':
             case 'currentSpeed':
             case 'lappingSpeed':
                 this.fx.speed = Number(val);
-                if (heroId === 'currentSpeed') {
-                    this.fx.distortion = +(0.015 + 0.030 * (val / 3.0)).toFixed(3);
-                }
                 break;
-            case 'waveQuantity':
-                this.fx.shoreWaves = +(x).toFixed(2);
-                break;
-            case 'riverWaves':
-                this.fx.riverWaves = +(x).toFixed(2);
-                break;
-            case 'foamHint':
-                this.fx.whitecaps = +(x).toFixed(2);
-                break;
-            case 'waveRegularity':
-                this.fx.waveRegularity = +(x).toFixed(2);
-                break;
-            case 'waterClarity':
-                if (this.activeArchetype === 'ocean') {
-                    this.fx.opacity = +(0.45 - 0.28 * x).toFixed(2);
-                    this.fx.fadeWidth = Math.round(60 + 60 * x);
-                } else if (this.activeArchetype === 'lake' || this.activeArchetype === 'pond') {
-                    this.fx.opacity = +(0.38 - 0.26 * x).toFixed(2);
-                    this.fx.fadeWidth = Math.round(30 + 50 * x);
-                }
-                break;
-            case 'sunShimmer':
-                this.fx.sunGlint = +(1.8 * x).toFixed(2);
-                break;
-            case 'surfEnergy':
-                this.fx.shoreWaves = +(0.05 + 0.90 * x).toFixed(2);
-                this.fx.waveSegment = +(0.65 + 0.30 * x).toFixed(2);
-                this.fx.intensity = +(0.25 + 0.60 * x).toFixed(2);
-                this.fx.choppySeas = +(0.08 + 0.62 * x).toFixed(2);
-                this.fx.whitecaps = +(0.05 + 0.65 * x).toFixed(2);
+            case 'distortion':
+            case 'lensDistortion':
+            case 'refraction':
+                this.fx.distortion = +(x * 0.050).toFixed(3);
                 break;
             case 'swashSurge':
                 this.fx.swashSurge = Number(val);
@@ -1093,21 +1455,56 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                     this.fx.shoreWaves = +(Math.min(1.0, (val / 40.0) * 0.80)).toFixed(2);
                 }
                 break;
+            case 'surfFoam':
+                this.fx.surfFoam = +(x).toFixed(2);
+                break;
+            case 'shoreFoam':
+            case 'rapidsFoam':
+            case 'riverFoam':
+                this.fx.whitecaps = +(0.65 * x).toFixed(2);
+                this.fx.surfFoam = +(x).toFixed(2);
+                break;
+            case 'fadeWidth':
             case 'shorelineSoftness':
             case 'bankFeathering':
             case 'shallowsMargin':
-            case 'wetRimBlend':
-                this.fx.fadeWidth = Math.round(Number(val));
+            case 'wetRimBlend': {
+                const maxMargin = WaterlineStudioApp.getMaxFadeWidth(this.activeArchetype);
+                this.fx.fadeWidth = WaterlineStudioApp.sliderToFadeWidth(val, maxMargin);
                 break;
-            case 'surfaceBreeze':
-                this.fx.intensity = +(0.08 + 0.50 * x).toFixed(2);
-                this.fx.distortion = +(0.005 + 0.022 * x).toFixed(3);
-                this.fx.scale = Math.round(150 - 60 * x);
-                break;
+            }
+            case 'flowAngle':
             case 'flowHeading':
             case 'windDirection':
             case 'surfHeading':
                 this.fx.flowAngle = Math.round(Number(val)) % 360;
+                break;
+            case 'waterClarity':
+                if (this.activeArchetype === 'ocean') {
+                    this.fx.opacity = +(0.45 - 0.28 * x).toFixed(2);
+                } else {
+                    this.fx.opacity = +(0.38 - 0.26 * x).toFixed(2);
+                }
+                break;
+            case 'waveScale':
+                this.fx.scale = Number(val);
+                break;
+            case 'waveRegularity':
+                this.fx.waveRegularity = +(x).toFixed(2);
+                break;
+            case 'dropRipples':
+            case 'lakeRings':
+                this.fx.lakeRings = +(x).toFixed(2);
+                break;
+            case 'foamHint':
+                this.fx.whitecaps = +(x).toFixed(2);
+                break;
+            case 'sunShimmer':
+                this.fx.sunGlint = +(1.8 * x).toFixed(2);
+                break;
+            case 'surfaceBreeze':
+                this.fx.intensity = +(0.08 + 0.50 * x).toFixed(2);
+                this.fx.scale = Math.round(150 - 60 * x);
                 break;
             case 'whiteWaterChurn':
                 this.fx.shoreWaves = +(0.05 + 0.65 * x).toFixed(2);
@@ -1120,7 +1517,6 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 break;
             case 'siltMurkiness':
                 this.fx.opacity = +(0.10 + 0.32 * x).toFixed(2);
-                this.fx.distortion = +(0.008 + 0.025 * x).toFixed(3);
                 break;
             case 'rainTremor':
                 this.fx.speed = +(0.40 + 1.20 * x).toFixed(2);
@@ -1129,7 +1525,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 break;
             case 'mudSilt':
                 this.fx.opacity = +(0.08 + 0.35 * x).toFixed(2);
-                this.fx.distortion = +(0.010 + 0.025 * x).toFixed(3);
+                break;
+            case 'waveCount':
+                this.fx.waveCount = Math.round(val);
                 break;
         }
         this.#liveUpdateFX();
@@ -1151,8 +1549,10 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         setDrawerInput('fadeWidth', this.fx.fadeWidth, `${Math.round(this.fx.fadeWidth)}px`);
         setDrawerInput('scale', this.fx.scale, String(this.fx.scale));
         setDrawerInput('shoreWaves', this.fx.shoreWaves, this.fx.shoreWaves.toFixed(2));
+        setDrawerInput('waveCount', this.fx.waveCount ?? 4, String(Math.round(this.fx.waveCount ?? 4)));
         setDrawerInput('waveSegment', this.fx.waveSegment, this.fx.waveSegment.toFixed(2));
         setDrawerInput('swashSurge', this.fx.swashSurge, `${Math.round(this.fx.swashSurge)}px`);
+        setDrawerInput('surfFoam', this.fx.surfFoam, this.fx.surfFoam.toFixed(2));
         setDrawerInput('choppySeas', this.fx.choppySeas, this.fx.choppySeas.toFixed(2));
         setDrawerInput('whitecaps', this.fx.whitecaps, this.fx.whitecaps.toFixed(2));
         setDrawerInput('sunGlint', this.fx.sunGlint, this.fx.sunGlint.toFixed(2));
@@ -1164,7 +1564,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         for (const slider of heroSliders) {
             const input = root.querySelector(`input[name="hero_${slider.id}"]`);
             if (input) {
-                input.value = slider.value;
+                if (document.activeElement !== input) {
+                    input.value = slider.value;
+                }
                 if (input.nextElementSibling) input.nextElementSibling.textContent = slider.displayValue;
             }
             if (slider.isDirection) {
@@ -1190,13 +1592,15 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             scale: this.fx.scale,
             flowAngle: this.fx.flowAngle,
             shoreWaves: this.fx.shoreWaves,
+            waveCount: this.fx.waveCount ?? 4,
             waveSegment: this.fx.waveSegment,
             waveRegularity: this.fx.waveRegularity,
             swashSurge: this.fx.swashSurge,
+            surfFoam: this.fx.surfFoam,
             choppySeas: this.fx.choppySeas,
             riverWaves: this.fx.riverWaves ?? 0.0,
-            lakeWaves: this.fx.lakeWaves ?? 0.0,
-            lakeRings: this.fx.lakeRings !== false,
+            lakeWaves: (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle') ? (this.fx.lakeWaves ?? 0.0) : 0.0,
+            lakeRings: (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle') ? (typeof this.fx.lakeRings === 'number' ? this.fx.lakeRings : (this.fx.lakeRings ? 0.70 : 0.0)) : 0.0,
             whitecaps: this.fx.whitecaps,
             sunGlint: this.fx.sunGlint,
             spindriftWake: this.fx.spindriftWake,
@@ -1223,7 +1627,23 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         this.hasUnsavedChanges = true;
         if (this.#rafId) cancelAnimationFrame(this.#rafId);
         this.#rafId = requestAnimationFrame(() => {
-            const meshes = WaterManager.getMeshesForRegion(this.activeRegionId);
+            const targetRegionIds = new Set();
+            if (this.activeRegionId) targetRegionIds.add(this.activeRegionId);
+
+            if (this.applyToAllSameArchetype) {
+                const allRegions = canvas.scene?.regions?.contents ?? canvas.scene?.regions ?? [];
+                for (const r of allRegions) {
+                    if (this.#getRegionArchetype(r) === this.activeArchetype) {
+                        targetRegionIds.add(r.id);
+                    }
+                }
+            }
+
+            const meshes = [];
+            for (const rid of targetRegionIds) {
+                meshes.push(...WaterManager.getMeshesForRegion(rid));
+            }
+
             for (const mesh of meshes) {
                 mesh.setSpeed(this.fx.speed);
                 mesh.setIntensity(this.fx.intensity);
@@ -1233,17 +1653,34 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 mesh.setScale(this.fx.scale);
                 mesh.setFlowAngle(this.fx.flowAngle);
                 mesh.setShoreWaves(this.fx.shoreWaves);
+                mesh.setWaveCount(this.fx.waveCount ?? 4);
                 mesh.setWaveSegment(this.fx.waveSegment);
                 mesh.setWaveRegularity(this.fx.waveRegularity);
                 mesh.setSwashSurge(this.fx.swashSurge);
+                mesh.setSurfFoam(this.fx.surfFoam);
                 mesh.setChoppySeas(this.fx.choppySeas);
+                const isSmallBody = (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle');
+                mesh.setArchetype?.(this.activeArchetype);
                 mesh.setRiverWaves(this.fx.riverWaves ?? 0.0);
-                mesh.setLakeWaves(this.fx.lakeWaves ?? 0.0);
-                mesh.setLakeRings(this.fx.lakeRings !== false);
+                mesh.setLakeWaves(isSmallBody ? (this.fx.lakeWaves ?? 0.0) : 0.0);
+                mesh.setLakeRings(isSmallBody ? (typeof this.fx.lakeRings === 'number' ? this.fx.lakeRings : (this.fx.lakeRings ? 0.70 : 0.0)) : 0.0);
                 mesh.setWhitecaps(this.fx.whitecaps);
                 mesh.setSunGlint(this.fx.sunGlint);
                 mesh.setSpindriftWake(this.fx.spindriftWake);
                 mesh.setCrestBound(this.fx.crestBound);
+                mesh.setCoastSurf?.(this.activeArchetype === 'coast' || this.activeArchetype === 'ocean');
+
+                if (!this.fx.autoColor && this.fx.colorOverride && this.fx.colorOverride.length >= 6) {
+                    const hex = this.fx.colorOverride.replace('#', '');
+                    const rgb = [
+                        parseInt(hex.slice(0, 2), 16) / 255,
+                        parseInt(hex.slice(2, 4), 16) / 255,
+                        parseInt(hex.slice(4, 6), 16) / 255
+                    ];
+                    mesh.setWaterColor(rgb);
+                } else if (this.fx.autoColor && (mesh.baseSampledColor || mesh.waterColor)) {
+                    mesh.setWaterColor(mesh.baseSampledColor || mesh.waterColor);
+                }
             }
         });
     }
@@ -1258,7 +1695,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         if (!activeRegion) return;
 
         const behaviorType = `${MODULE_ID}.waterFX`;
-        const colorOverride = this.fx.autoColor ? '' : this.fx.colorOverride;
+        const colorOverride = this.fx.autoColor ? '' : (this.fx.colorOverride || '');
+        const isSmallBody = (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle');
         const systemUpdate = {
             archetype: this.activeArchetype,
             waterType: this.activePreset,
@@ -1270,13 +1708,15 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             scale: this.fx.scale,
             flowAngle: this.fx.flowAngle,
             shoreWaves: this.fx.shoreWaves,
+            waveCount: this.fx.waveCount ?? 4,
             waveSegment: this.fx.waveSegment,
             waveRegularity: this.fx.waveRegularity,
             swashSurge: this.fx.swashSurge,
+            surfFoam: this.fx.surfFoam,
             choppySeas: this.fx.choppySeas,
             riverWaves: this.fx.riverWaves ?? 0.0,
-            lakeWaves: this.fx.lakeWaves ?? 0.0,
-            lakeRings: this.fx.lakeRings !== false,
+            lakeWaves: isSmallBody ? (this.fx.lakeWaves ?? 0.0) : 0.0,
+            lakeRings: isSmallBody ? (typeof this.fx.lakeRings === 'number' ? this.fx.lakeRings : (this.fx.lakeRings ? 0.70 : 0.0)) : 0.0,
             whitecaps: this.fx.whitecaps,
             sunGlint: this.fx.sunGlint,
             spindriftWake: this.fx.spindriftWake,
@@ -1289,9 +1729,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             const allRegions = canvas.scene?.regions?.contents ?? canvas.scene?.regions ?? [];
             for (const r of allRegions) {
                 if (r.id === activeRegion.id) continue;
-                const beh = r.behaviors?.find(b => b.type === behaviorType);
+                const beh = this.#getRegionWaterBehavior(r);
                 if (beh) {
-                    const rArch = beh.system?.archetype || WaterManager.inferArchetype(beh.system?.waterType);
+                    const rArch = this.#getRegionArchetype(r);
                     if (rArch === this.activeArchetype) targetRegions.push(r);
                 }
             }
@@ -1299,16 +1739,24 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         let updated = 0;
         for (const r of targetRegions) {
-            const beh = r.behaviors?.find(b => b.type === behaviorType);
+            const beh = this.#getRegionWaterBehavior(r);
             try {
                 if (!beh) {
                     await r.createEmbeddedDocuments('RegionBehavior', [{
                         type: behaviorType,
                         name: 'Water FX',
+                        flags: {
+                            [MODULE_ID]: { configured: true }
+                        },
                         system: systemUpdate
                     }]);
                 } else {
-                    await beh.update({ system: systemUpdate });
+                    await beh.update({
+                        flags: {
+                            [MODULE_ID]: { configured: true }
+                        },
+                        system: systemUpdate
+                    });
                 }
                 await r.setFlag(MODULE_ID, 'configured', true);
                 updated++;

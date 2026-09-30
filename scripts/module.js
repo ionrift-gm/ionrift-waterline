@@ -151,11 +151,14 @@ Hooks.on('getSceneControlButtons', (controls) => {
 // ---------------------------------------------------------------
 Hooks.on('canvasReady', async () => {
     WaterlineStudioApp.closeIfOpen();
+    WaterManager.clearSampledColorCache?.();
     WaterManager.init();
     await WaterManager.refreshAll();
     WakeManager.init();
-    // Re-wire click handler on new canvas
-    DrawingFX._wireCanvasClick();
+    // Re-wire click handler on new canvas (debug only)
+    if (game.settings?.get?.(MODULE_ID, 'debug')) {
+        DrawingFX._wireCanvasClick();
+    }
 });
 
 // ---------------------------------------------------------------
@@ -167,8 +170,21 @@ Hooks.on('deleteRegion', () => WaterManager.debouncedRefresh());
 
 // Behavior CRUD
 Hooks.on('createRegionBehavior', () => WaterManager.debouncedRefresh());
-Hooks.on('updateRegionBehavior', () => WaterManager.debouncedRefresh());
+Hooks.on('updateRegionBehavior', (behaviorDoc, changes) => WaterManager.onUpdateBehavior(behaviorDoc, changes));
 Hooks.on('deleteRegionBehavior', () => WaterManager.debouncedRefresh());
+
+// ---------------------------------------------------------------
+// Canvas Region Selection: Sync active region in Waterline Studio
+// ---------------------------------------------------------------
+Hooks.on('controlRegion', (placeable, controlled) => {
+    if (!controlled || !game.user.isGM) return;
+    const app = WaterlineStudioApp._instance;
+    if (!app) return;
+    const regionId = placeable.document?.id;
+    if (regionId && regionId !== app.activeRegionId) {
+        app.loadRegion(regionId);
+    }
+});
 
 // ---------------------------------------------------------------
 // Token Movement: Emit water wake ripples

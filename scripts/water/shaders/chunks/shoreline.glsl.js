@@ -1,134 +1,161 @@
 export const SHORELINE_CHUNK = `
-    // Shoreline boundary wavelets and gentle foam wash
-    float computeShoreWaves(float smoothDist, float cornerness, vec2 worldPos, float tWave, float tAnim) {
-        if (smoothDist > 55.0) return 0.0;
+    // Discrete Wavelet Packet Emission:
+    // Replaces continuous concentric lines with organically distributed individual wave packets.
+    // In oceans: rolls perpendicular to coastlines across a wide nearshore shelf (50-74px).
+    // In rivers: responds dynamically to main stream current (flow) -- wavelets start tight to
+    // the bank (16-28px), drift downstream, shear obliquely into graceful downstream peelers,
+    // and exhibit emergent drop-off on leeward trailing shores.
+    float computeShoreWaves(float smoothDist, float cornerness, vec2 worldPos, vec2 flow, vec2 shoreNormal, float tWave, float tAnim) {
+        float countMul = clamp(uWaveCount, 1.0, 8.0);
+        float isRiver = clamp(uRiverWaves * 2.5 * (1.0 - uCoastSurf), 0.0, 1.0);
+
+        // Nearshore shelf approach distance:
+        // Ocean/Coast: wide 50-74px surf shelf.
+        // River: tight 16-28px near-bank littoral zone so wavelets never intrude into mid-stream.
+        float maxApproach = mix(50.0 + countMul * 3.0, 16.0 + countMul * 1.5, isRiver);
+        if (smoothDist >= maxApproach || smoothDist <= 0.0) return 0.0;
+
+        // Downstream bank alignment & emergent directional drop-off:
+        // shoreNormal points inward into water from bank; -shoreNormal points toward bank.
+        vec2 shoreTangent = vec2(-shoreNormal.y, shoreNormal.x);
+        float flowAlongBank = dot(flow, shoreTangent);
+        float bankParallel = abs(flowAlongBank);
+        vec2 downBankTang = (flowAlongBank >= 0.0) ? shoreTangent : -shoreTangent;
+        float bankFacing = dot(flow, -shoreNormal);
+
+        // Drop-off in consideration of main stream direction:
+        // Leeward shores (water flowing away from bank) gracefully drop off to calm water.
+        // Parallel riverbanks maintain clean, graceful bank lapping.
+        // Headlands facing oncoming torrent maintain full wave impact.
+        float flowExposure = smoothstep(-0.40, 0.15, bankFacing);
+        float streamDropOff = mix(1.0, flowExposure, isRiver);
+        if (streamDropOff <= 0.001) return 0.0;
 
         float reg = clamp(uWaveRegularity, 0.0, 1.0);
 
-        // 1. Dynamic 2D stretch and shear vector field
-        float shearMul = mix(1.0, 0.35, reg);
-        vec2 waveStretchVec = vec2(
-            sin(worldPos.y * 0.022 + tAnim * 0.45) * 8.5 + cos(worldPos.x * 0.016 - tAnim * 0.35) * 6.5,
-            cos(worldPos.x * 0.020 + tAnim * 0.40) * 8.5 - sin(worldPos.y * 0.018 + tAnim * 0.30) * 6.5
-        ) * shearMul;
-        vec2 stretchedPos = worldPos + waveStretchVec;
-
-        // 2. 2D domain warping
-        float warp1 = noise21(stretchedPos / 55.0 + vec2(tAnim * 0.28, -tAnim * 0.22)) - 0.5;
-        float warp2 = noise21(stretchedPos / 110.0 - vec2(tAnim * 0.14, tAnim * 0.11) + 23.4) - 0.5;
-        float distWarp = (warp1 * 8.0 + warp2 * 13.0) * mix(1.0, 0.40, reg);
-        float warpedDist = max(0.0, smoothDist + distWarp);
-
-        // 3. Corner softening: suppresses harsh angles
+        // Corner softening: suppresses wave crests inside tight concave vertices
         float cornerBreak = 1.0 - smoothstep(0.20, 0.70, cornerness) * 0.65;
-        float crestTight1 = mix(7.5, 3.8, cornerness);
-        float crestTight2 = mix(8.0, 4.0, cornerness);
 
-        // 4. 2D spatial phase offsets: suppresses phase jitter when regularity is high
-        float phaseJitterMul = (1.0 - reg * 0.85);
-        float pOffset1 = (noise21(stretchedPos / 220.0 + vec2(tAnim * 0.06, -tAnim * 0.04)) - 0.5) * (4.5 * phaseJitterMul);
-        float pOffset2 = (noise21(stretchedPos / 150.0 - vec2(tAnim * 0.04, tAnim * 0.07) + 37.8) - 0.5) * (4.5 * phaseJitterMul);
+        // Organic domain warp for natural ripple curvature and undulation
+        float warp = (noise21(worldPos / 42.0 + vec2(tAnim * 0.15, -tAnim * 0.12)) - 0.5) * (4.5 * (1.0 - reg * 0.60));
+        float localDist = max(0.0, smoothDist + warp);
 
-        // Along-shore desynchronization: medium-frequency phase jitter so adjacent
-        // wavelet fragments on small bodies lap independently at staggered times
-        float lapJitter1 = (noise21(stretchedPos / 55.0 + vec2(-tAnim * 0.06, tAnim * 0.05) + 91.4) - 0.5) * (1.8 * phaseJitterMul);
-        float lapJitter2 = (noise21(stretchedPos / 40.0 + vec2(tAnim * 0.07, -tAnim * 0.05) + 57.6) - 0.5) * (1.5 * phaseJitterMul);
-        pOffset1 += lapJitter1;
-        pOffset2 += lapJitter2;
+        // Lattice cell size: spaced further apart along riverbanks (68px vs 45px) to eliminate line crowding
+        float cellSize = mix(45.0, 68.0, isRiver);
+        vec2 cell = floor(worldPos / cellSize);
 
-        // 5. Chunking and tearing: opens gate for continuous bands as regularity increases
-        // Breathing oscillation causes emission points to ebb and flow along the shore
-        float chunkBreath = sin(tAnim * 0.18) * 0.6;
-        float maskNoise1 = noise21((stretchedPos + waveStretchVec * 0.8) / 95.0 + vec2(tAnim * 0.22 + chunkBreath, tAnim * 0.15));
-        float mask1 = smoothstep(0.46, 0.74, maskNoise1);
+        // Constant propagation speed (pixels per second): completely independent of wave count
+        float waveSpeedPx = 16.0;
+        float wavelength = maxApproach / (0.45 + 0.18 * countMul);
+        float interval = (wavelength / waveSpeedPx) * mix(1.0, 1.7, isRiver);
 
-        float chunkNoise1 = noise21((stretchedPos + waveStretchVec * 1.2) / 42.0 + vec2(-tAnim * 0.38 - chunkBreath * 0.7, tAnim * 0.30) + 15.7);
-        float chunk1 = smoothstep(0.38, 0.68, chunkNoise1);
+        float totalCrest = 0.0;
+        float foamScale = mix(clamp(uSurfFoam * 1.3, 0.0, 1.25), clamp(uSurfFoam * 0.65, 0.0, 0.65), isRiver);
 
-        float tearNoise1 = noise21((stretchedPos - waveStretchVec) / 28.0 + vec2(tAnim * 0.45 + chunkBreath * 0.5, -tAnim * 0.35) + 63.1);
-        float tear1 = smoothstep(0.32, 0.65, tearNoise1);
+        // Precomputed spatial noise shared across all wavelet packet emitters
+        float meander = (noise21(worldPos / 24.0 + vec2(tAnim * 0.20, -tAnim * 0.15)) - 0.5) * (3.5 * (1.0 - reg * 0.5));
+        float froth = noise21(worldPos / 14.0 + tAnim * 0.35);
 
-        float rawGate1 = mask1 * chunk1 * tear1;
-        float regGate = smoothstep(0.65, 0.95, reg) * 0.90;
-        float waveGate1 = mix(rawGate1, 1.0, regGate);
+        // Rivers use single solitary packets in flight; ocean uses up to 2
+        int maxPackets = (isRiver > 0.4) ? 1 : 2;
 
-        // 6. Wave Set 1: Primary swell packets
-        float crestSurge1 = waveGate1 * 0.38;
-        float phase1 = warpedDist * 0.042 + tWave * 0.65 + pOffset1 + crestSurge1;
-        float s1 = fract(phase1);
+        // 3x3 search over adjacent wavelet packet emitters
+        for (int y = -1; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+                vec2 neighbor = vec2(float(x), float(y));
+                vec2 c = cell + neighbor;
+                vec2 h = hash22(c);
 
-        // Crestline travel meander
-        float maturity1 = sin(s1 * 3.14159);
-        float meander1 = sin(worldPos.x * 0.035 + worldPos.y * 0.028 + tAnim * 1.2 + phase1 * 2.5) * (6.0 * (1.0 - reg * 0.75)) * maturity1;
-        float dynamicDist1 = warpedDist + meander1;
-        float s1D = fract(dynamicDist1 * 0.042 + tWave * 0.65 + pOffset1 + crestSurge1);
+                // Jittered emitter seed in world space
+                vec2 seedPos = (c + 0.15 + 0.70 * h) * cellSize;
 
-        // Dynamic crest thickness modulation
-        float stretchFactor1 = noise21(stretchedPos / 55.0 + vec2(tAnim * 0.16, -tAnim * 0.12));
-        float dynTight1 = mix(mix(crestTight1 * 0.65, crestTight1 * 1.35, stretchFactor1), crestTight1, regGate);
+                // Emitter phase offset and individual speed jitter
+                float phaseOffset = mix(h.x, 0.0, reg * 0.5) * interval;
+                float speedJitter = mix(0.92 + 0.16 * fract(h.x * 7.3), 1.0, reg * 0.7);
+                float cellSpeed = waveSpeedPx * speedJitter;
+                float cellTransit = maxApproach / cellSpeed;
 
-        // Aerated crest profile with cellular wash
-        float shoreLace1 = 1.0 - smoothstep(0.0, 0.22, voronoiBubbles(stretchedPos * 0.075, tAnim));
-        float core1 = pow(max(0.0, 1.0 - abs(s1D - 0.5) * dynTight1), 2.2);
-        float wash1 = pow(max(0.0, 1.0 - abs(s1D - 0.5) * 3.2), 1.6) * 0.35 * mix(0.65, 1.35, shoreLace1);
-        float microFoam1 = mix(0.70, 1.0, noise21(stretchedPos / 16.0 + tAnim * 0.35));
-        float crest1 = (core1 + wash1) * microFoam1 * waveGate1 * cornerBreak;
+                // Local packet age relative to emission cycle
+                float tLocal = tWave + phaseOffset;
+                float age0 = mod(tLocal, interval);
 
-        // 7. Wave Set 2: Secondary lapping wavelets
-        float chunkBreath2 = sin(tAnim * 0.22 + 2.1) * 0.5;
-        float maskNoise2 = noise21((stretchedPos - waveStretchVec * 0.6) / 65.0 - vec2(tAnim * 0.18 + chunkBreath2, -tAnim * 0.24) + 47.1);
-        float mask2 = smoothstep(0.48, 0.76, maskNoise2);
+                for (int p = 0; p < 2; p++) {
+                    if (p >= maxPackets) break;
+                    float age = (p == 0) ? age0 : (age0 + interval);
+                    if (age >= cellTransit) continue;
 
-        float chunkNoise2 = noise21((stretchedPos - waveStretchVec * 1.0) / 36.0 + vec2(tAnim * 0.35 - chunkBreath2 * 0.6, -tAnim * 0.40) + 82.4);
-        float chunk2 = smoothstep(0.36, 0.66, chunkNoise2);
+                    // Physical distance from shoreline: starts at maxApproach, decreases to 0 at shore
+                    float packetTargetDist = maxApproach - cellSpeed * age;
+                    if (packetTargetDist < 0.0 || packetTargetDist > maxApproach) continue;
 
-        float tearNoise2 = noise21((stretchedPos + waveStretchVec) / 24.0 - vec2(tAnim * 0.42 + chunkBreath2 * 0.4, tAnim * 0.45) + 39.8);
-        float tear2 = smoothstep(0.30, 0.62, tearNoise2);
+                    // In river mode: packet physically drifts downstream with the river current as it travels
+                    vec2 packetCenter = seedPos + isRiver * downBankTang * (age * (waveSpeedPx * 1.5 + uSpeed * 8.0));
+                    vec2 toFrag = worldPos - packetCenter;
+                    float distToSeed = length(toFrag);
 
-        float rawGate2 = mask2 * chunk2 * tear2;
-        float waveGate2 = mix(rawGate2, 1.0, regGate);
+                    // Bite-sized packet lateral span
+                    float spanRadius = mix(22.0, 36.0, h.y) * mix(1.0, 0.85, isRiver);
+                    if (distToSeed > spanRadius * 1.25) continue;
 
-        float crestSurge2 = waveGate2 * 0.30;
-        float phase2 = (warpedDist + warp1 * 4.0) * 0.065 + tWave * 0.95 + pOffset2 + crestSurge2 + 1.7;
-        float s2 = fract(phase2);
+                    // Lateral envelope: smooth bell curve tapering gracefully to 0 at both tips
+                    float normDist = distToSeed / spanRadius;
+                    float spanEnv = max(0.0, 1.0 - normDist * normDist);
+                    spanEnv = spanEnv * spanEnv;
 
-        float maturity2 = sin(s2 * 3.14159);
-        float meander2 = cos(worldPos.x * 0.040 - worldPos.y * 0.032 - tAnim * 1.4 + phase2 * 2.5) * (4.5 * (1.0 - reg * 0.75)) * maturity2;
-        float dynamicDist2 = warpedDist + meander2;
-        float s2D = fract((dynamicDist2 + warp1 * 4.0) * 0.065 + tWave * 0.95 + pOffset2 + crestSurge2 + 1.7);
+                    // Parabolic crest curvature
+                    float crestBow = (1.0 - normDist * normDist) * mix(3.0, 5.0, fract(h.x * 13.7));
 
-        float stretchFactor2 = noise21(stretchedPos / 45.0 - vec2(tAnim * 0.14, tAnim * 0.18) + 19.3);
-        float dynTight2 = mix(mix(crestTight2 * 0.70, crestTight2 * 1.35, stretchFactor2), crestTight2, regGate);
+                    // Organic wavelet slant and heading jitter
+                    float slant = (toFrag.x * (h.x - 0.5) + toFrag.y * (h.y - 0.5)) * 0.10;
 
-        float shoreLace2 = 1.0 - smoothstep(0.0, 0.22, voronoiBubbles(stretchedPos * 0.085 + 24.3, tAnim));
-        float core2 = pow(max(0.0, 1.0 - abs(s2D - 0.5) * dynTight2), 2.2);
-        float wash2 = pow(max(0.0, 1.0 - abs(s2D - 0.5) * 3.4), 1.6) * 0.28 * mix(0.65, 1.35, shoreLace2);
-        float microFoam2 = mix(0.70, 1.0, noise21(stretchedPos / 15.0 - tAnim * 0.40 + 51.2));
-        float crest2 = (core2 + wash2) * microFoam2 * 0.75 * waveGate2 * cornerBreak;
+                    // Downstream shear & wrapping:
+                    // Tilts the wave crest so it wraps along the riverbank in the downstream direction
+                    float distAlongDown = dot(toFrag, downBankTang);
+                    float streamShear = distAlongDown * (0.38 * isRiver * smoothstep(0.0, 0.35, bankParallel));
 
-        // 8. Wave Set 3: High-frequency surface ripples
-        float phase3 = warpedDist * 0.095 + tWave * 1.20 + pOffset1 * 0.5 + 3.4;
-        float s3 = fract(phase3);
-        float core3 = pow(max(0.0, 1.0 - abs(s3 - 0.5) * 8.5), 2.2) * 0.16;
-        float crest3 = core3 * (waveGate1 * 0.35 + waveGate2 * 0.35) * cornerBreak;
+                    // Distance from current pixel to the advancing curved packet crest
+                    float curvedTargetDist = packetTargetDist - crestBow + slant + meander - streamShear;
+                    float distToCrest = localDist - curvedTargetDist;
 
-        // 9. Soft constructive combination
-        float merged = crest1 + crest2 - crest1 * crest2 * 0.45;
-        merged = merged + crest3 * (1.0 - merged * 0.5);
+                    // Crest sharpness and profile (tighter, more delicate on rivers)
+                    float crestTight = mix(mix(2.6, 4.0, reg), 3.2, isRiver);
+                    float coreWidth = mix(3.6, 2.4, isRiver);
+                    float core = pow(max(0.0, 1.0 - abs(distToCrest) / coreWidth), crestTight);
 
-        // 10. Shoaling and depth envelope
-        float shoal = 1.0 + (1.0 - smoothstep(4.0, 28.0, smoothDist)) * uWaveShoaling;
-        float shoreZone = smoothstep(3.0, 9.0, smoothDist) * (1.0 - smoothstep(14.0, 48.0, smoothDist));
+                    // Aerated wash / foam
+                    float washWidth = mix(7.5, 4.0, isRiver);
+                    float wash = pow(max(0.0, 1.0 - abs(distToCrest) / washWidth), 1.6) * mix(0.32, 0.14, isRiver) * mix(0.70, 1.30, froth) * foamScale;
 
-        float waveFoam = merged * shoreZone * shoal * uWaveSegment;
+                    // Lifecycle maturity: rises as it travels, peaks before the beach, softens at landing
+                    float normAge = age / cellTransit;
+                    float maturity = sin(normAge * 3.14159);
+                    maturity = pow(max(0.0, maturity), 0.85);
 
-        // 11. Waterline contact wash
-        float edgeNoise = noise21(stretchedPos / 70.0 - vec2(tAnim * 0.07, -tAnim * 0.05));
-        float edgeChunk = smoothstep(0.35, 0.65, noise21(stretchedPos / 30.0 + vec2(tAnim * 0.12, -tAnim * 0.10) + 77.3));
-        float edgeMask = smoothstep(0.40, 0.72, edgeNoise) * edgeChunk;
-        float edgeWash = (1.0 - smoothstep(0.0, 6.0, smoothDist)) * edgeMask * 0.35;
-        float edgePulse = sin(stretchedPos.x * 0.018 + stretchedPos.y * 0.022 - tAnim * 1.6) * 0.5 + 0.5;
-        float edgeFoam = edgeWash * (0.5 + 0.5 * edgePulse) * mix(1.0, 0.5, cornerness);
+                    // Shoaling amplification in shallow water
+                    float shoaling = 1.0 + (1.0 - smoothstep(4.0, 32.0, localDist)) * uWaveShoaling * mix(1.0, 0.5, isRiver);
+
+                    float packetIntensity = (core + wash) * spanEnv * maturity * shoaling;
+                    totalCrest = max(totalCrest, packetIntensity);
+                }
+            }
+        }
+
+        // Shelf approach fade: gracefully transitions to open water offshore
+        float approachFade = 1.0 - smoothstep(maxApproach * 0.70, maxApproach, smoothDist);
+        // Waterline surf landing fade: smoothly hands off to beach surf wash
+        float surfLanding = mix(smoothstep(2.0, 14.0, smoothDist), smoothstep(1.5, 8.0, smoothDist), isRiver);
+
+        // River overall presence scaling and emergent directional drop-off
+        float riverPresence = mix(1.0, 0.60, isRiver);
+        float waveFoam = totalCrest * approachFade * surfLanding * cornerBreak * uWaveSegment * streamDropOff * riverPresence;
+
+        // Waterline contact wash: pulses downstream with river current
+        float edgeNoise = noise21(worldPos / 60.0 - vec2(tAnim * 0.07, -tAnim * 0.05));
+        float edgeWash = (1.0 - smoothstep(0.0, 5.0, smoothDist)) * smoothstep(0.35, 0.65, edgeNoise) * 0.25;
+        float streamCoord = dot(worldPos, flow);
+        float riverEdgePulse = sin(streamCoord * 0.045 - tWave * 2.8) * 0.5 + 0.5;
+        float edgePulse = mix(sin(worldPos.x * 0.018 + worldPos.y * 0.022 - tAnim * 1.4) * 0.5 + 0.5, riverEdgePulse, isRiver);
+        float edgeFoam = edgeWash * edgePulse * mix(1.0, 0.5, cornerness) * foamScale * streamDropOff;
 
         return waveFoam + edgeFoam;
     }

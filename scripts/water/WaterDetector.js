@@ -196,6 +196,9 @@ export class WaterDetector {
                 type: 'polygon',
                 points: regionPoints
             }],
+            flags: {
+                [MODULE_ID]: { configured: true }
+            },
             behaviors: []
         };
 
@@ -205,6 +208,9 @@ export class WaterDetector {
                 await created[0].createEmbeddedDocuments('RegionBehavior', [{
                     type: `${MODULE_ID}.waterFX`,
                     name: 'Water FX',
+                    flags: {
+                        [MODULE_ID]: { configured: true }
+                    },
                     system: {
                         archetype,
                         waterType: presetKey,
@@ -222,7 +228,7 @@ export class WaterDetector {
                         choppySeas: preset.choppySeas ?? 0.0,
                         riverWaves: preset.riverWaves ?? (archetype === 'river' ? 0.65 : 0.0),
                         lakeWaves: preset.lakeWaves ?? (archetype === 'lake' || archetype === 'pond' ? 0.25 : 0.0),
-                        lakeRings: preset.lakeRings ?? true,
+                        lakeRings: preset.lakeRings ?? (archetype === 'lake' || archetype === 'pond' || archetype === 'puddle'),
                         whitecaps: preset.whitecaps ?? 0.1,
                         sunGlint: preset.sunGlint ?? 0.3,
                         colorOverride: preset.colorOverride || ''

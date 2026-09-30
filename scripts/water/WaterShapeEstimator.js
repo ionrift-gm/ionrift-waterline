@@ -56,13 +56,21 @@ export class WaterShapeEstimator {
         const cx = sumX / vertCount;
         const cy = sumY / vertCount;
 
-        // Shoelace polygon area
+        // Shoelace polygon area & true geometric centroid
         let doubleArea = 0;
+        let cX = 0, cY = 0;
         for (let i = 0; i < points.length; i += 2) {
             const nextI = (i + 2) % points.length;
-            doubleArea += points[i] * points[nextI + 1] - points[nextI] * points[i + 1];
+            const x0 = points[i], y0 = points[i + 1];
+            const x1 = points[nextI], y1 = points[nextI + 1];
+            const a = x0 * y1 - x1 * y0;
+            doubleArea += a;
+            cX += (x0 + x1) * a;
+            cY += (y0 + y1) * a;
         }
         const polyArea = Math.abs(doubleArea) / 2;
+        const polyCx = Math.abs(doubleArea) > 1e-4 ? cX / (3 * doubleArea) : cx;
+        const polyCy = Math.abs(doubleArea) > 1e-4 ? cY / (3 * doubleArea) : cy;
         const coverage = sceneArea > 0 ? polyArea / sceneArea : 0;
 
         // ── 1. Map Edge Boundary Contact Analysis ─────────────────────────────
@@ -103,8 +111,12 @@ export class WaterShapeEstimator {
         const riverFlowDeg = (Math.round(majorAngle * 180 / Math.PI) + 360) % 360;
 
         // ── 3. Inland Shoreline Normal & Wave Heading (Coastline) ─────────────
+        // Coastal waves roll head-on toward the beach (perpendicular to the shoreline curve, directed inland).
         let shoreHeadingDeg = 270;
-        if (inlandPoints.length > 0) {
+        const awayX = (touches.left ? 1 : 0) - (touches.right ? 1 : 0);
+        const awayY = (touches.top ? 1 : 0) - (touches.bottom ? 1 : 0);
+
+        if (inlandPoints && inlandPoints.length >= 2) {
             let sumInX = 0, sumInY = 0;
             for (const p of inlandPoints) {
                 sumInX += p.x;
@@ -112,9 +124,54 @@ export class WaterShapeEstimator {
             }
             const shoreCx = sumInX / inlandPoints.length;
             const shoreCy = sumInY / inlandPoints.length;
-            const toShoreX = shoreCx - cx;
-            const toShoreY = shoreCy - cy;
-            const shoreAngle = Math.atan2(toShoreY, toShoreX);
+
+            let inVarXX = 0, inVarYY = 0, inCovXY = 0;
+            for (const p of inlandPoints) {
+                const dx = p.x - shoreCx;
+                const dy = p.y - shoreCy;
+                inVarXX += dx * dx;
+                inVarYY += dy * dy;
+                inCovXY += dx * dy;
+            }
+            inVarXX /= inlandPoints.length;
+            inVarYY /= inlandPoints.length;
+            inCovXY /= inlandPoints.length;
+
+            const inDiff = inVarXX - inVarYY;
+            const inDelta = Math.sqrt(Math.max(0, inDiff * inDiff + 4 * inCovXY * inCovXY));
+
+            // If the inland shoreline forms an extended curve/line, compute its normal via PCA
+            if (inDelta > 1.0) {
+                // Shoreline tangent angle along principal variance axis
+                const shoreTangent = 0.5 * Math.atan2(2 * inCovXY, inDiff);
+                // Two candidate normals perpendicular to the beach tangent
+                const n1 = shoreTangent + Math.PI / 2;
+                const n2 = shoreTangent - Math.PI / 2;
+
+                // Vector from true water centroid toward the inland shoreline/land
+                let toLandX = shoreCx - polyCx;
+                let toLandY = shoreCy - polyCy;
+
+                // Reinforce with away-from-borders direction when water touches map borders
+                if (touches.count > 0 && touches.count < 4) {
+                    toLandX += awayX * 200;
+                    toLandY += awayY * 200;
+                }
+
+                // Choose the normal that points into the land (away from water)
+                const dot1 = Math.cos(n1) * toLandX + Math.sin(n1) * toLandY;
+                const chosen = dot1 >= 0 ? n1 : n2;
+                shoreHeadingDeg = (Math.round(chosen * 180 / Math.PI) + 360) % 360;
+            } else {
+                // Concentrated or symmetric shoreline: vector from water center to shoreline
+                const toLandX = shoreCx - polyCx + (touches.count > 0 ? awayX * 100 : 0);
+                const toLandY = shoreCy - polyCy + (touches.count > 0 ? awayY * 100 : 0);
+                const shoreAngle = Math.atan2(toLandY, toLandX);
+                shoreHeadingDeg = (Math.round(shoreAngle * 180 / Math.PI) + 360) % 360;
+            }
+        } else if (touches.count > 0 && touches.count < 4) {
+            // Fallback: aim directly away from touched map borders
+            const shoreAngle = Math.atan2(awayY, awayX);
             shoreHeadingDeg = (Math.round(shoreAngle * 180 / Math.PI) + 360) % 360;
         }
 
@@ -141,8 +198,8 @@ export class WaterShapeEstimator {
             flowAngle = shoreHeadingDeg;
             explanation = `Coastal shoreline facing inland (${shoreHeadingDeg}°)`;
         }
-        // C. River: high elongation (>= 2.0), or channel crossing opposite borders
-        else if ((elongation >= 2.0 || isOppositeCrossing) && touches.count < 4) {
+        // C. River: high elongation (>= 2.3 inland, >= 2.0 border-touching), or channel crossing opposite borders
+        else if (((touches.count > 0 ? elongation >= 2.0 : elongation >= 2.3) || isOppositeCrossing) && touches.count < 4) {
             archetype = 'river';
             preset = 'river';
             flowAngle = riverFlowDeg;
@@ -150,12 +207,15 @@ export class WaterShapeEstimator {
         }
         // D. Inland basins: compact / circular lakes, ponds, or puddles
         else {
-            if (polyArea < 8000) {
+            const gridSize = dims.size || dims.grid?.size || canvas?.grid?.size || canvas?.dimensions?.size || canvas?.scene?.grid?.size || 100;
+            const gridCells = polyArea / (gridSize * gridSize);
+
+            if (gridCells <= 3.5 || polyArea < 25000) {
                 archetype = 'puddle';
                 preset = 'puddle_rain';
                 flowAngle = 0;
                 explanation = 'Small standing water';
-            } else if (polyArea < 45000) {
+            } else if ((gridCells <= 60 || polyArea < 500000) && coverage < 0.15) {
                 archetype = 'pond';
                 preset = 'pond_woodland';
                 flowAngle = 30;
@@ -188,6 +248,64 @@ export class WaterShapeEstimator {
         };
     }
 
+    /**
+     * Extract flat polygon coordinates [x, y, x, y, ...] from a RegionDocument.
+     * Supports polygon, rectangle, and ellipse shapes.
+     * @param {RegionDocument} region
+     * @returns {number[]|null}
+     */
+    static extractRegionPoints(region) {
+        if (!region) return null;
+        const shapes = region.shapes?.contents ?? region.shapes ?? [];
+        if (!shapes.length) return null;
+
+        for (const shape of shapes) {
+            const pts = shape.points ?? shape.coordinates;
+            if (Array.isArray(pts) && pts.length >= 6) {
+                return Array.from(pts);
+            }
+        }
+
+        const rect = shapes.find(s => (s.width > 0 && s.height > 0));
+        if (rect) {
+            const x = rect.x ?? 0, y = rect.y ?? 0, w = rect.width, h = rect.height;
+            return [x, y, x + w, y, x + w, y + h, x, y + h];
+        }
+
+        const ellipse = shapes.find(s => (s.radiusX > 0 || s.radius > 0));
+        if (ellipse) {
+            const rx = ellipse.radiusX ?? ellipse.radius ?? 0;
+            const ry = ellipse.radiusY ?? ellipse.radius ?? 0;
+            const cx = (ellipse.x ?? 0) + rx;
+            const cy = (ellipse.y ?? 0) + ry;
+            const pts = [];
+            const steps = 32;
+            for (let i = 0; i < steps; i++) {
+                const angle = (i / steps) * Math.PI * 2;
+                pts.push(cx + Math.cos(angle) * rx, cy + Math.sin(angle) * ry);
+            }
+            return pts;
+        }
+
+        return null;
+    }
+
+    /**
+     * Analyze an existing RegionDocument directly.
+     * @param {RegionDocument} region
+     * @param {object} [dimensions]
+     * @returns {object|null} Estimation result or null if region has no valid shape
+     */
+    static estimateRegion(region, dimensions) {
+        const points = this.extractRegionPoints(region);
+        if (!points || points.length < 6) return null;
+        const dims = dimensions || canvas?.dimensions || canvas?.scene?.dimensions;
+        return this.estimate({
+            points,
+            vertexCount: Math.round(points.length / 2)
+        }, dims);
+    }
+
     static #fallbackResult() {
         return {
             archetype: 'river',
@@ -207,3 +325,4 @@ export class WaterShapeEstimator {
         };
     }
 }
+

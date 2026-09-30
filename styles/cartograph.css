@@ -2630,6 +2630,226 @@
     flex: 0 0 160px;
 }
 
+/* 5. Water Color & Tint Card */
+.waterline-studio-root .wc-color-card {
+    background: linear-gradient(180deg, rgba(28, 22, 50, 0.55), rgba(14, 11, 26, 0.65));
+    border: 1px solid rgba(139, 92, 246, 0.28);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.waterline-studio-root .wc-color-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.18);
+}
+
+.waterline-studio-root .wc-color-card-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.waterline-studio-root .wc-color-card-title i {
+    color: #a78bfa;
+}
+
+.waterline-studio-root .wc-color-auto-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.74rem;
+    color: #c4b5fd;
+    cursor: pointer;
+    user-select: none;
+}
+
+.waterline-studio-root .wc-color-auto-toggle input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.waterline-studio-root .wc-color-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.waterline-studio-root .wc-color-picker-wrap {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(139, 92, 246, 0.45);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    background: rgba(10, 8, 20, 0.65);
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+}
+
+.waterline-studio-root .wc-color-picker-wrap:hover {
+    border-color: #a78bfa;
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+.waterline-studio-root .wc-color-picker-wrap input[type="color"].wc-color-swatch-input {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    border-radius: 5px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+
+.waterline-studio-root .wc-color-picker-wrap input[type="color"].wc-color-swatch-input::-webkit-color-swatch-wrapper {
+    padding: 0 !important;
+    border: none !important;
+}
+
+.waterline-studio-root .wc-color-picker-wrap input[type="color"].wc-color-swatch-input::-webkit-color-swatch {
+    border: none !important;
+    border-radius: 5px !important;
+}
+
+.waterline-studio-root .wc-color-picker-wrap input[type="color"].wc-color-swatch-input::-moz-color-swatch {
+    border: none !important;
+    border-radius: 5px !important;
+}
+
+.waterline-studio-root .wc-eyedropper-btn {
+    height: 30px;
+    flex: 0 0 auto;
+    padding: 0 10px;
+    gap: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(139, 92, 246, 0.18);
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    border-radius: 6px;
+    color: #e2e8f0;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.waterline-studio-root .wc-eyedropper-btn:hover {
+    background: rgba(139, 92, 246, 0.38);
+    border-color: #a78bfa;
+    color: #fff;
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+.waterline-studio-root .wc-eyedropper-btn.active {
+    background: rgba(139, 92, 246, 0.55) !important;
+    border-color: #c4b5fd !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(167, 139, 250, 0.6) !important;
+    animation: wc-eyedropper-pulse 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes wc-eyedropper-pulse {
+    from {
+        box-shadow: 0 0 6px rgba(139, 92, 246, 0.4);
+    }
+    to {
+        box-shadow: 0 0 14px rgba(167, 139, 250, 0.85);
+    }
+}
+
+.waterline-studio-root .wc-color-hex-field-wrap {
+    display: flex;
+    align-items: center;
+    position: relative;
+    background: rgba(10, 8, 20, 0.65);
+    border: 1px solid rgba(139, 92, 246, 0.32);
+    border-radius: 6px;
+    padding: 0 8px;
+    height: 30px;
+    width: 98px;
+    flex: 0 0 98px;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+}
+
+.waterline-studio-root .wc-color-hex-field-wrap:focus-within {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 6px rgba(139, 92, 246, 0.4);
+}
+
+.waterline-studio-root .wc-color-hex-prefix {
+    color: #8b5cf6;
+    font-size: 0.82rem;
+    font-weight: 700;
+    user-select: none;
+    margin-right: 4px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.waterline-studio-root .wc-color-hex-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #f1f5f9;
+    font-family: monospace;
+    font-size: 0.84rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    line-height: 1;
+}
+
+.waterline-studio-root .wc-color-status-pill {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    font-weight: 500;
+    user-select: none;
+    pointer-events: none;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+
+.waterline-studio-root .wc-color-status-pill.status-auto {
+    color: #38bdf8;
+}
+
+.waterline-studio-root .wc-color-status-pill.status-override {
+    color: #c4b5fd;
+}
+
 /* 6. Footer Actions */
 .waterline-studio-root .wc-footer-actions {
     position: static !important;
@@ -2698,6 +2918,40 @@
     color: #ffffff !important;
     box-shadow: 0 0 16px rgba(16, 185, 129, 0.5) !important;
 }
+
+
+/* Unattached Scene Regions Bar */
+.waterline-studio-root .wc-unattached-bar {
+    margin-top: 8px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+}
+
+.waterline-studio-root .wc-unattached-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.waterline-studio-root .wc-unattached-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.waterline-studio-root .wc-unattached-select {
+    flex: 1;
+    font-size: 0.75rem;
+}
+
 
 
 

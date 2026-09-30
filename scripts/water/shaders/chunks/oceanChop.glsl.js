@@ -246,12 +246,17 @@ export const OCEAN_CHOP_CHUNK = `
         vec2 warpedPos = worldPos + eddyWarpA * 0.45 + warpNoise * 36.0 + warpNoise2 * 20.0;
 
         // 2. Three interacting wave trains
-        // Train 1: Primary swell
+        // Train 1: Primary swell (wavelength scaled by uWaveCount so count slider controls ocean wave density)
         vec2 dir1 = localFlow;
         vec2 tan1 = localPerp;
-        float lam1 = max(uScale * 1.85, 90.0);
+        float countMul = clamp(uWaveCount, 1.0, 8.0);
+        // Responsive scaling: gentle widening below 4, balanced wave crowding (~3.3x density) above 4
+        float countScale = (countMul <= 4.0)
+            ? mix(1.65, 1.0, (countMul - 1.0) / 3.0)
+            : mix(1.0, 0.30, pow((countMul - 4.0) / 4.0, 0.82));
+        float lam1 = max(uScale * 1.85 * countScale, 36.0);
         float k1 = 6.28318 / lam1;
-        float spd1 = 2.0;
+        float spd1 = 2.0 / countScale;
 
         // Train 2: Oblique swell (+24 deg)
         float ca2 = cos(0.42); float sa2 = sin(0.42);
@@ -259,7 +264,7 @@ export const OCEAN_CHOP_CHUNK = `
         vec2 tan2 = vec2(-dir2.y, dir2.x);
         float lam2 = lam1 * 0.62;
         float k2 = 6.28318 / lam2;
-        float spd2 = 1.65;
+        float spd2 = 1.65 / countScale;
 
         // Train 3: Dispersive counter-chop (-22 deg)
         float ca3 = cos(-0.38); float sa3 = sin(-0.38);
@@ -267,7 +272,7 @@ export const OCEAN_CHOP_CHUNK = `
         vec2 tan3 = vec2(-dir3.y, dir3.x);
         float lam3 = lam1 * 0.36;
         float k3 = 6.28318 / lam3;
-        float spd3 = 2.45;
+        float spd3 = 2.45 / countScale;
 
         // Swell set envelope groups
         float setPhase1 = dot(warpedPos, dir1) * (k1 * 0.08) - tWave * (spd1 * 0.18);
@@ -277,7 +282,8 @@ export const OCEAN_CHOP_CHUNK = `
         float energyNoise2 = noise21(warpedPos / 520.0 - localPerp * (tAnim * 0.02) + 38.2);
         float setPulse = sin(setPhase1 + setInterference * 1.2) * 0.5 + 0.5;
         float macroEnergy = smoothstep(0.18, 0.78, energyNoise1 * 0.45 + energyNoise2 * 0.25 + setPulse * 0.30);
-        float swellSetGate = mix(0.55, 1.0, macroEnergy);
+        float highCountBoost = clamp((countMul - 4.0) / 4.0, 0.0, 1.0);
+        float swellSetGate = mix(mix(0.55, 0.72, highCountBoost), 1.0, macroEnergy);
 
         // 3. Wave packet envelopes
         vec2 envCoord1 = vec2(
@@ -311,15 +317,16 @@ export const OCEAN_CHOP_CHUNK = `
         float crestMeander1 = sin(along1 * 0.026 + tAnim * 1.5) * 8.0;
         float pOffset1 = (noise21(stretchedPos1 / 180.0 + vec2(tAnim * 0.07, -tAnim * 0.05)) - 0.5) * 3.5;
 
+        float chunkScale = max(0.42, countScale);
         vec2 chunkCoord1 = vec2(
-            (along1 + waveStretchVec1.x * 0.8) / 58.0 + tAnim * 0.05,
-            (across1 - tWave * (spd1 * 0.48) / k1 + waveStretchVec1.y * 0.8) / 78.0 + 17.4
+            (along1 + waveStretchVec1.x * 0.8) / (58.0 * chunkScale) + tAnim * 0.05,
+            (across1 - tWave * (spd1 * 0.48) / k1 + waveStretchVec1.y * 0.8) / (78.0 * chunkScale) + 17.4
         );
         float chunk1 = smoothstep(0.32, 0.72, noise21(chunkCoord1));
 
         vec2 tearCoord1 = vec2(
-            (along1 - waveStretchVec1.x * 0.6) / 36.0 - tAnim * 0.04,
-            (across1 - tWave * (spd1 * 0.52) / k1 - waveStretchVec1.y * 0.6) / 48.0 + 61.2
+            (along1 - waveStretchVec1.x * 0.6) / (36.0 * chunkScale) - tAnim * 0.04,
+            (across1 - tWave * (spd1 * 0.52) / k1 - waveStretchVec1.y * 0.6) / (48.0 * chunkScale) + 61.2
         );
         float tear1 = smoothstep(0.28, 0.68, noise21(tearCoord1));
         float packetEnvelope1 = env1 * mix(0.42, 1.0, chunk1) * mix(0.45, 1.0, tear1);
@@ -340,14 +347,14 @@ export const OCEAN_CHOP_CHUNK = `
         float pOffset2 = (noise21(stretchedPos2 / 160.0 - vec2(tAnim * 0.05, -tAnim * 0.07) + 52.6) - 0.5) * 3.5;
 
         vec2 chunkCoord2 = vec2(
-            (along2 + waveStretchVec2.x * 0.7) / 48.0 - tAnim * 0.04,
-            (across2 - tWave * (spd2 * 0.48) / k2 + waveStretchVec2.y * 0.7) / 68.0 + 43.8
+            (along2 + waveStretchVec2.x * 0.7) / (48.0 * chunkScale) - tAnim * 0.04,
+            (across2 - tWave * (spd2 * 0.48) / k2 + waveStretchVec2.y * 0.7) / (68.0 * chunkScale) + 43.8
         );
         float chunk2 = smoothstep(0.32, 0.70, noise21(chunkCoord2));
 
         vec2 tearCoord2 = vec2(
-            (along2 - waveStretchVec2.x * 0.5) / 32.0 + tAnim * 0.05,
-            (across2 - tWave * (spd2 * 0.52) / k2 - waveStretchVec2.y * 0.5) / 42.0 + 79.4
+            (along2 - waveStretchVec2.x * 0.5) / (32.0 * chunkScale) + tAnim * 0.05,
+            (across2 - tWave * (spd2 * 0.52) / k2 - waveStretchVec2.y * 0.5) / (42.0 * chunkScale) + 79.4
         );
         float tear2 = smoothstep(0.28, 0.66, noise21(tearCoord2));
         float packetEnvelope2 = env2 * mix(0.40, 1.0, chunk2) * mix(0.45, 1.0, tear2);
@@ -395,7 +402,8 @@ export const OCEAN_CHOP_CHUNK = `
 
         float phase2 = basePhase2 + waveCrossCouple2;
         float s2 = sin(phase2) * 0.5 + 0.5;
-        float w2 = pow(s2, 2.4) * packetEnvelope2 * smoothstep(0.12, 0.65, uChoppySeas);
+        float chopThresh2 = mix(0.12, 0.08, highCountBoost);
+        float w2 = pow(s2, 2.4) * packetEnvelope2 * smoothstep(chopThresh2, 0.65, uChoppySeas);
         vec2 g2 = dir2 * (cos(phase2) * k2 * w2 * 2.0);
 
         float phase3A = basePhase3 + waveCrossCouple3;
@@ -412,7 +420,8 @@ export const OCEAN_CHOP_CHUNK = `
         // 4. Non-linear Stokes elevation
         float waveInterference = w1 * w2;
         float chopIntensityMul = clamp(uChoppySeas * 1.15, 0.20, 1.40);
-        float baseElevation = (w1 * 0.50 + w2 * 0.32 + w3 * 0.14 + waveInterference * 0.55) * chopIntensityMul;
+        float countElevationBoost = 1.0 + highCountBoost * 0.15;
+        float baseElevation = (w1 * 0.50 + w2 * 0.32 + w3 * 0.14 + waveInterference * 0.55) * (chopIntensityMul * countElevationBoost);
         float steepening = pow(baseElevation, 2.0) * (0.85 * swellSetGate * chopIntensityMul);
         float macroElevation = clamp(baseElevation + steepening, 0.0, 1.0);
         vec2 macroGrad = (g1 * 0.52 + g2 * 0.34 + g3 * 0.14) * (1.0 + baseElevation * 0.7) * uChoppySeas;
@@ -505,7 +514,7 @@ export const OCEAN_CHOP_CHUNK = `
                 float coupledPhaseAtClump = phiClump1 + clumpCrossMod - 1.5708;
 
                 float cellThreshold = mix(0.15, 0.85, rnd.x);
-                float setActivation = smoothstep(cellThreshold - 0.18, cellThreshold + 0.18, dynamicSetEnergy * uWhitecaps * 1.15);
+                float setActivation = smoothstep(cellThreshold - 0.18, cellThreshold + 0.18, dynamicSetEnergy * uWhitecaps * (1.15 + highCountBoost * 0.15));
                 if (setActivation <= 0.001) continue;
 
                 float patchLife = 6.5 + rnd2.y * 3.5;
@@ -661,7 +670,7 @@ export const OCEAN_CHOP_CHUNK = `
         undercurrentFoam = churnBody * 0.42 * uWhitecaps * uChoppySeas;
 
         aeratedBase = modulatedEnergy * outerEnvelope * 0.65 * uWhitecaps * uChoppySeas;
-        crestBody = smoothstep(0.18, 0.85, macroElevation) * 0.45;
+        crestBody = smoothstep(mix(0.18, 0.14, highCountBoost), 0.85, macroElevation) * mix(0.45, 0.52, highCountBoost);
 
         // Trochoidal horizontal compression and kinetic forward surge
         vec2 swellPull = (dir1 * cos(phase1) * w1 * 0.70 + dir2 * cos(phase2) * w2 * 0.40) * swellSetGate;
@@ -669,6 +678,23 @@ export const OCEAN_CHOP_CHUNK = `
         vec2 churnSwirl = flowPerp * (voroMacro - 0.5) * 0.4 * rawEnergy;
         waveDisplacement = swellPull + breakDrag + churnSwirl;
 
-        troughShadow = smoothstep(0.12, 0.56, macroElevation);
+        troughShadow = smoothstep(mix(0.12, 0.09, highCountBoost), 0.56, macroElevation);
+    }
+
+    // Strategy wrapper: populates ArchetypeResult from ocean chop physics
+    void applyOceanArchetype(vec2 pos, vec2 flow, float tWave, float tAnim, inout ArchetypeResult ar) {
+        float oFoam, oUnder, oAer, oCrest;
+        vec2 oDisp; vec3 oNorm; float oGlint, oTrough;
+        computeChoppyOcean(pos, flow, tWave, tAnim,
+            oFoam, oUnder, oAer, oCrest, oDisp, oNorm, oGlint, oTrough);
+        ar.foam = max(ar.foam, oFoam);
+        ar.displacement += oDisp * (uDistortion * 0.55 * uChoppySeas)
+            + (-oNorm.xy) * (uDistortion * 0.30 * uChoppySeas);
+        ar.normal = oNorm;
+        ar.glint += oGlint;
+        ar.troughShadow = oTrough;
+        ar.crestBody = oCrest;
+        ar.aeratedBase = oAer;
+        ar.undercurrentFoam = oUnder;
     }
 `;

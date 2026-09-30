@@ -3,8 +3,8 @@ export const CAUSTICS_CHUNK = `
     float voronoiCaustic(vec2 uv, float t) {
         vec2 i = floor(uv);
         vec2 f = fract(uv);
-        float minDist1 = 1.0;
-        float minDist2 = 1.0;
+        float minDist1 = 8.0;
+        float minDist2 = 8.0;
 
         for (int y = -1; y <= 1; y++) {
             for (int x = -1; x <= 1; x++) {

@@ -67,9 +67,6 @@
                         <span class="wc-candidate-tag" title="{{candidate.estimation.explanation}}">
                             <i class="{{candidate.estimation.icon}}" style="color: {{candidate.estimation.accentColor}};"></i>
                             {{candidate.estimation.archetypeLabel}}
-                            {{#if candidate.estimation.hasDirection}}
-                            &bull; {{candidate.estimation.flowAngle}}°
-                            {{/if}}
                         </span>
                         {{/if}}
                     </div>
@@ -139,6 +136,26 @@
                 {{else}}
                 <p class="wc-empty-hint">No waterbodies on this scene.</p>
                 {{/if}}
+
+                <!-- Unattached Scene Regions (Ready to adopt as waterbodies) -->
+                {{#if unattachedRegions.length}}
+                <div class="wc-unattached-bar ionrift-subcard">
+                    <div class="wc-unattached-header">
+                        <i class="fas fa-draw-polygon" style="color: #38bdf8;"></i>
+                        <span class="wc-unattached-label">New Scene Region:</span>
+                    </div>
+                    <div class="wc-unattached-row">
+                        <select class="ionrift-select wc-unattached-select" name="unattachedRegionSelect">
+                            {{#each unattachedRegions as |ur|}}
+                            <option value="{{ur.id}}">{{ur.name}} ({{#if ur.estimation}}{{ur.estimation.archetypeLabel}} &bull; {{/if}}{{ur.verts}} pts)</option>
+                            {{/each}}
+                        </select>
+                        <button type="button" class="cartograph-btn-mini" data-action="adoptSceneRegion" title="Convert selected scene region into a Waterline waterbody">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </div>
+                </div>
+                {{/if}}
             </div>
 
             {{#if zones.length}}
@@ -185,6 +202,7 @@
                         </div>
                     </div>
                 </div>
+
 
                 <!-- Save Preset Inline Prompt -->
                 <div class="wc-preset-save-prompt {{#unless showPresetPrompt}}hidden{{/unless}}">
@@ -261,6 +279,42 @@
                 </div>
             </div>
 
+            <!-- 4. Water Color & Tint Card (Across All Archetypes) -->
+            <div class="wc-color-card ionrift-card">
+                <div class="wc-color-card-header">
+                    <div class="wc-color-card-title">
+                        <i class="fas fa-palette"></i>
+                        <span>Water Tint &amp; Color</span>
+                    </div>
+                    <label class="wc-color-auto-toggle" title="Automatically sample fluid color from underlying map artwork">
+                        <input type="checkbox" name="autoColor" {{#if fx.autoColor}}checked{{/if}} />
+                        <span>Auto-Sample Map</span>
+                    </label>
+                </div>
+                <div class="wc-color-controls-row">
+                    <div class="wc-color-picker-wrap" title="Water tint color picker" style="background-color: {{fx.colorOverride}};">
+                        <input type="color" name="colorOverride" value="{{fx.colorOverride}}" class="wc-color-swatch-input" />
+                    </div>
+                    {{#if hasEyeDropper}}
+                    <button type="button" class="cartograph-btn-mini wc-eyedropper-btn" data-action="sampleScreenColor" title="Sample color directly from map canvas">
+                        <i class="fas fa-eye-dropper"></i>
+                        <span>Sample Map</span>
+                    </button>
+                    {{/if}}
+                    <div class="wc-color-hex-field-wrap" title="Hexadecimal color code">
+                        <span class="wc-color-hex-prefix">#</span>
+                        <input type="text" name="colorOverrideHex" class="wc-color-hex-input" value="{{colorOverrideHex}}" placeholder="0D2E4D" maxlength="6" spellcheck="false" />
+                    </div>
+                    <div class="wc-color-status-pill {{#if fx.autoColor}}status-auto{{else}}status-override{{/if}}">
+                        {{#if fx.autoColor}}
+                        <i class="fas fa-eye"></i> <span>Auto Tint</span>
+                        {{else}}
+                        <i class="fas fa-palette"></i> <span>Custom Tint</span>
+                        {{/if}}
+                    </div>
+                </div>
+            </div>
+
             {{!-- 4. Expandable Advanced FX Tuning Drawer (Disabled/Hidden for now)
             <details class="wc-advanced-drawer ionrift-card" {{#if drawerOpen}}open{{/if}}>
                 <summary class="wc-drawer-summary">
@@ -311,6 +365,11 @@
                             <span class="range-val">{{numberFormat fx.shoreWaves decimals=2}}</span>
                         </div>
                         <div class="form-group-compact">
+                            <label title="Number of incoming wave crests rolling and breaking toward the shore">Wave Count</label>
+                            <input type="range" name="waveCount" min="1" max="8" value="{{fx.waveCount}}" step="1" />
+                            <span class="range-val">{{fx.waveCount}}</span>
+                        </div>
+                        <div class="form-group-compact">
                             <label title="Breaks continuous waves into traveling sets">Wave Breakup</label>
                             <input type="range" name="waveSegment" min="0.0" max="1.0" value="{{fx.waveSegment}}" step="0.05" />
                             <span class="range-val">{{numberFormat fx.waveSegment decimals=2}}</span>
@@ -319,6 +378,11 @@
                             <label title="Distance waves lap past shoreline onto dry land">Surge Reach</label>
                             <input type="range" name="swashSurge" min="0" max="60" value="{{fx.swashSurge}}" step="2" />
                             <span class="range-val">{{fx.swashSurge}}px</span>
+                        </div>
+                        <div class="form-group-compact">
+                            <label title="Density of shoreline froth, cellular bubbles, and surf wash">Shoreline Foam</label>
+                            <input type="range" name="surfFoam" min="0.0" max="1.0" value="{{fx.surfFoam}}" step="0.05" />
+                            <span class="range-val">{{numberFormat fx.surfFoam decimals=2}}</span>
                         </div>
                     </div>
 

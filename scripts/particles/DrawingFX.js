@@ -22,6 +22,7 @@ export class DrawingFX {
         Hooks.on('destroyDrawing', DrawingFX._onDestroyDrawing);
         Hooks.on('renderDrawingHUD', DrawingFX._onRenderDrawingHUD);
         Hooks.on('canvasReady', () => {
+            if (!game.settings?.get?.(MODULE_ID, 'debug')) return;
             DrawingFX._wireCanvasClick();
             DrawingFX._startWindSimulator();
         });
@@ -149,6 +150,7 @@ export class DrawingFX {
 
     static _onGetSceneControlButtons(controls) {
         if (!game.user.isGM) return;
+        if (!game.settings?.get?.(MODULE_ID, 'debug')) return;
 
         const isV13 = !Array.isArray(controls);
         const drawGroup = isV13 ? controls.drawings : controls.find(c => c.name === 'drawings');
