@@ -463,6 +463,10 @@ export class WaterMesh {
         }
     }
 
+    get shader() {
+        return this.#shader;
+    }
+
     get uniforms() {
         return this.#shader?.uniforms;
     }

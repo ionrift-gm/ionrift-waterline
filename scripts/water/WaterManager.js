@@ -620,7 +620,7 @@ Water Tuning API:
         }
 
         // Load background texture for distortion
-        const bgPath = canvas.scene?.levels?.[0]?.background?.src ?? canvas.scene?.background?.src;
+        const bgPath = canvas.scene?.levels ? canvas.scene.levels[0]?.background?.src : canvas.scene?.background?.src;
         let bgTexture = null;
         if (bgPath) {
             try {
@@ -760,7 +760,7 @@ Water Tuning API:
     static async #sampleBackgroundColor(pointSets, regionId) {
         const fallback = [0.05, 0.15, 0.25];
 
-        const bgPath = canvas.scene?.levels?.[0]?.background?.src ?? canvas.scene?.background?.src;
+        const bgPath = canvas.scene?.levels ? canvas.scene.levels[0]?.background?.src : canvas.scene?.background?.src;
         if (!bgPath) return fallback;
 
         const cacheKey = `${regionId || 'anon'}-${bgPath}`;

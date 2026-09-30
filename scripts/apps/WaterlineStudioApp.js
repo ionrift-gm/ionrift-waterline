@@ -1219,8 +1219,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 sunGlint: Number.isFinite(s.sunGlint) ? s.sunGlint : (this.fx.sunGlint ?? 0.6),
                 spindriftWake: Boolean(s.spindriftWake),
                 crestBound: Boolean(s.crestBound),
-                colorOverride: s.colorOverride || '',
-                autoColor: !s.colorOverride
+                colorOverride: s.colorOverride || region.flags?.[MODULE_ID]?.color || '',
+                autoColor: !(s.colorOverride || region.flags?.[MODULE_ID]?.color)
             };
             this.activePreset = loadedPreset;
             this.activeArchetype = loadedArchetype;
@@ -1768,6 +1768,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                     });
                 }
                 await r.setFlag(MODULE_ID, 'configured', true);
+                if (colorOverride) {
+                    await r.setFlag(MODULE_ID, 'color', colorOverride);
+                }
                 updated++;
             } catch (err) {
                 console.error(`Waterline | Failed to update water FX on ${r.name}:`, err);

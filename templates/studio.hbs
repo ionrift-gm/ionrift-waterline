@@ -236,7 +236,7 @@
                             <div class="form-group hero-slider-group">
                                 <label title="{{slider.tooltip}}">{{slider.label}}</label>
                                 <div class="hero-input-wrap">
-                                    <input type="range" name="hero_{{slider.id}}" min="{{slider.min}}" max="{{slider.max}}" value="{{slider.value}}" step="{{slider.step}}" data-hero-id="{{slider.id}}" />
+                                    <input type="range" name="hero_{{slider.id}}" class="ws-slider" data-field="{{slider.id}}" min="{{slider.min}}" max="{{slider.max}}" value="{{slider.value}}" step="{{slider.step}}" data-hero-id="{{slider.id}}" />
                                     <span class="range-val">{{slider.displayValue}}</span>
                                 </div>
                             </div>
@@ -257,6 +257,7 @@
                                     </div>
                                     <div class="direction-center-dot"></div>
                                 </div>
+                                <input type="range" name="hero_{{slider.id}}" class="ws-slider" data-field="{{slider.id}}" min="{{slider.min}}" max="{{slider.max}}" value="{{slider.value}}" step="{{slider.step}}" data-hero-id="{{slider.id}}" style="display: none;" />
                             </div>
                             {{/if}}
                             {{/each}}
@@ -269,7 +270,7 @@
                         <div class="form-group hero-slider-group">
                             <label title="{{slider.tooltip}}">{{slider.label}}</label>
                             <div class="hero-input-wrap">
-                                <input type="range" name="hero_{{slider.id}}" min="{{slider.min}}" max="{{slider.max}}" value="{{slider.value}}" step="{{slider.step}}" data-hero-id="{{slider.id}}" />
+                                <input type="range" name="hero_{{slider.id}}" class="ws-slider" data-field="{{slider.id}}" min="{{slider.min}}" max="{{slider.max}}" value="{{slider.value}}" step="{{slider.step}}" data-hero-id="{{slider.id}}" />
                                 <span class="range-val">{{slider.displayValue}}</span>
                             </div>
                         </div>
@@ -303,7 +304,7 @@
                     {{/if}}
                     <div class="wc-color-hex-field-wrap" title="Hexadecimal color code">
                         <span class="wc-color-hex-prefix">#</span>
-                        <input type="text" name="colorOverrideHex" class="wc-color-hex-input" value="{{colorOverrideHex}}" placeholder="0D2E4D" maxlength="6" spellcheck="false" />
+                        <input type="text" name="colorOverrideHex" class="wc-color-hex-input ws-color-hex-input" value="{{colorOverrideHex}}" placeholder="0D2E4D" maxlength="6" spellcheck="false" />
                     </div>
                     <div class="wc-color-status-pill {{#if fx.autoColor}}status-auto{{else}}status-override{{/if}}">
                         {{#if fx.autoColor}}
@@ -442,7 +443,7 @@
             <!-- Tab 1 Footer -->
             <div class="wc-footer-actions">
                 {{#if zones.length}}
-                <div class="wc-footer-batch-row">
+                <div class="wc-footer-batch-row ws-batch-sync-toggle">
                     <label class="wc-batch-label" title="When checked, saves these settings to all waterbodies sharing this archetype on the scene">
                         <input type="checkbox" name="applyToAllSameArchetype" {{#if applyToAllSameArchetype}}checked{{/if}} />
                         <span>Apply to all <strong>{{activeArchetypeMeta.label}}</strong> bodies</span>
