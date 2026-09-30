@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.1] - 2026-09-30
+
+### Fixed
+- Water now renders on scenes without background image artwork.
+- Applying settings to all waterbodies archetypes now updates all matching on the scene.
+- Slider adjustments now update water visuals correctly.
+- Fix setting persistence for custom water tints.
+- Suppressed legacy console notices on Foundry v14.
+
 ## [1.0.0] - 2026-09-30
 
 ### Added
