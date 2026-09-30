@@ -1686,6 +1686,14 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         });
     }
 
+    /**
+     * Persist current FX settings to the active waterbody Region document.
+     * @returns {Promise<void>}
+     */
+    async saveActiveWaterbodyFX() {
+        return this.#saveActiveWaterbodyFX();
+    }
+
     async #saveActiveWaterbodyFX() {
         if (!this.activeRegionId) {
             ui.notifications.warn('Waterline | No waterbody selected.');

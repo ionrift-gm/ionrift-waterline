@@ -620,7 +620,7 @@ Water Tuning API:
         }
 
         // Load background texture for distortion
-        const bgPath = canvas.scene?.background?.src;
+        const bgPath = canvas.scene?.levels?.[0]?.background?.src ?? canvas.scene?.background?.src;
         let bgTexture = null;
         if (bgPath) {
             try {
@@ -631,14 +631,7 @@ Water Tuning API:
             }
         }
         if (!bgTexture) {
-            for (const points of allPoints) {
-                WaterManager.#polygons.push({
-                    points,
-                    elevation: { bottom: bottomBound, top: topBound }
-                });
-            }
-            LOG('  No background texture, skipping water mesh; wake hit-test polygons only');
-            return;
+            bgTexture = PIXI.Texture.WHITE;
         }
 
         for (const points of allPoints) {
@@ -767,7 +760,7 @@ Water Tuning API:
     static async #sampleBackgroundColor(pointSets, regionId) {
         const fallback = [0.05, 0.15, 0.25];
 
-        const bgPath = canvas.scene?.background?.src;
+        const bgPath = canvas.scene?.levels?.[0]?.background?.src ?? canvas.scene?.background?.src;
         if (!bgPath) return fallback;
 
         const cacheKey = `${regionId || 'anon'}-${bgPath}`;
