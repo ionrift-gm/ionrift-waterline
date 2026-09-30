@@ -27,8 +27,6 @@ globalThis.WakeManager = WakeManager;
 // Init: Register settings and remaining hooks
 // ---------------------------------------------------------------
 Hooks.once('init', async () => {
-    console.log('Ionrift Waterline | Initializing...');
-
     DrawingFX.init();
 
     // Register Handlebars templates for particle FX panel and studio
@@ -215,5 +213,3 @@ Hooks.on('renderTokenConfig', (app, html) => {
 
     app.setPosition?.({ height: 'auto' });
 });
-
-console.log('Ionrift Waterline | Module loaded.');

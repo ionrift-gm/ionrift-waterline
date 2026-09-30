@@ -411,7 +411,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     /** @override */
     async _renderHTML(context, _options) {
         const templatePath = `modules/${MODULE_ID}/templates/studio.hbs`;
-        const htmlString = await renderTemplate(templatePath, context);
+        const renderer = foundry.applications?.handlebars?.renderTemplate ?? globalThis.renderTemplate;
+        const htmlString = await renderer(templatePath, context);
         const el = document.createElement('div');
         el.className = 'waterline-studio-root';
         el.innerHTML = htmlString;
