@@ -3,9 +3,9 @@
 /* Glass background for water dialogs (matches ionrift-lib brand) */
 .water-config-dialog.window-app,
 .water-fx-dialog.window-app {
-    background: rgba(20, 20, 30, 0.95) !important;
+    background: rgba(14, 10, 26, 0.95) !important;
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    border: 1px solid rgba(155, 89, 182, 0.3) !important;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.8) !important;
     border-radius: 8px;
 }
@@ -1224,9 +1224,9 @@
     margin-top: 6px !important;
     padding: 0.5rem 1rem !important;
     border-radius: 5px !important;
-    border: 1px solid rgba(139, 92, 246, 0.4) !important;
-    background: rgba(139, 92, 246, 0.1) !important;
-    color: var(--ionrift-accent, #8b5cf6) !important;
+    border: 1px solid var(--ionrift-btn-secondary-border, rgba(255, 255, 255, 0.16)) !important;
+    background: var(--ionrift-btn-secondary-bg, rgba(255, 255, 255, 0.08)) !important;
+    color: var(--ionrift-btn-secondary-text, #e2e8f0) !important;
     font-size: 0.8rem !important;
     font-weight: 700 !important;
     cursor: pointer !important;
@@ -1235,22 +1235,22 @@
 }
 
 .waterline-particle-panel .pfx-place-btn:hover {
-    background: rgba(139, 92, 246, 0.22) !important;
-    border-color: rgba(139, 92, 246, 0.7) !important;
+    background: var(--ionrift-btn-secondary-hover, rgba(255, 255, 255, 0.16)) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
     color: #fff !important;
-    box-shadow: var(--ionrift-accent-glow, 0 0 12px rgba(139, 92, 246, 0.35)) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
 }
 
 .waterline-particle-panel .pfx-place-btn.pfx-placing {
-    background: rgba(139, 92, 246, 0.35) !important;
-    border-color: #a78bfa !important;
+    background: var(--ionrift-btn-primary-bg, linear-gradient(135deg, rgba(155, 89, 182, 0.85) 0%, rgba(120, 60, 150, 0.95) 100%)) !important;
+    border-color: var(--ionrift-btn-primary-border, rgba(175, 110, 205, 0.6)) !important;
     color: #fff !important;
     animation: pfx-pulse 1.2s ease-in-out infinite;
 }
 
 @keyframes pfx-pulse {
-    0%, 100% { box-shadow: 0 0 8px rgba(139, 92, 246, 0.3); }
-    50%       { box-shadow: 0 0 20px rgba(139, 92, 246, 0.6); }
+    0%, 100% { box-shadow: 0 0 8px rgba(155, 89, 182, 0.3); }
+    50%       { box-shadow: 0 0 20px rgba(155, 89, 182, 0.6); }
 }
 
 /* Update mode â€” green accent */
@@ -1455,7 +1455,7 @@
     background: rgba(0, 0, 0, 0.4) !important;
     padding: 3px !important;
     border-radius: 6px !important;
-    border: 1px solid rgba(139, 92, 246, 0.22) !important;
+    border: 1px solid rgba(155, 89, 182, 0.22) !important;
     margin-bottom: 10px !important;
     flex-shrink: 0 !important;
 }
@@ -1482,26 +1482,25 @@
 
 .waterline-studio-root .waterline-tab-btn:hover {
     color: #ffffff !important;
-    background: rgba(139, 92, 246, 0.15) !important;
-    border-color: rgba(139, 92, 246, 0.3) !important;
+    background: rgba(155, 89, 182, 0.15) !important;
+    border-color: rgba(155, 89, 182, 0.3) !important;
 }
 
 .waterline-studio-root .waterline-tab-btn.active {
     color: #ffffff !important;
-    background: linear-gradient(180deg, rgba(139, 92, 246, 0.35), rgba(139, 92, 246, 0.18)) !important;
-    border-color: rgba(167, 139, 250, 0.55) !important;
-    box-shadow: 0 0 10px rgba(139, 92, 246, 0.35) !important;
+    background: rgba(155, 89, 182, 0.25) !important;
+    border-color: rgba(155, 89, 182, 0.5) !important;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3) !important;
     font-weight: 700 !important;
 }
 
 .waterline-studio-root .waterline-tab-btn i {
     font-size: 0.78rem !important;
-    color: #a78bfa !important;
+    color: var(--ionrift-accent-soft, #d8b4e2) !important;
 }
 
 .waterline-studio-root .waterline-tab-btn.active i {
-    color: #c4b5fd !important;
-    text-shadow: 0 0 6px rgba(167, 139, 250, 0.6) !important;
+    color: #ffffff !important;
 }
 
 /* Tab Content Scroll Container */
@@ -1513,28 +1512,6 @@
     overflow-x: hidden !important;
     padding-right: 6px !important;
     padding-bottom: 8px !important;
-    scrollbar-color: #6d28d9 rgba(0, 0, 0, 0.35) !important;
-    scrollbar-width: thin !important;
-}
-
-.waterline-studio-dialog .waterline-tab-body::-webkit-scrollbar {
-    width: 6px !important;
-    height: 0px !important;
-}
-
-.waterline-studio-dialog .waterline-tab-body::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.35) !important;
-    border-radius: 3px !important;
-}
-
-.waterline-studio-dialog .waterline-tab-body::-webkit-scrollbar-thumb {
-    background: #6d28d9 !important;
-    border-radius: 3px !important;
-    border: 1px solid rgba(139, 92, 246, 0.4) !important;
-}
-
-.waterline-studio-dialog .waterline-tab-body::-webkit-scrollbar-thumb:hover {
-    background: #8b5cf6 !important;
 }
 
 .waterline-studio-root .wc-tab-buffer {
@@ -2884,7 +2861,7 @@
 }
 
 .waterline-studio-root .wc-batch-label input[type="checkbox"] {
-    accent-color: #8b5cf6;
+    accent-color: var(--ionrift-accent, #9b59b6);
 }
 
 .waterline-studio-root .wc-footer-buttons {
