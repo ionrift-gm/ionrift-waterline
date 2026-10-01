@@ -295,7 +295,7 @@ export class DrawingFX {
         if (!root) return;
 
         const button = document.createElement('div');
-        button.classList.add('control-icon');
+        button.classList.add('control-icon', 'ionrift-hud-btn');
         button.dataset.action = 'particle-fx';
         button.title = 'Edit in Particle FX Panel';
         button.innerHTML = '<i class="fas fa-wind"></i>';
