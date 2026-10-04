@@ -20,7 +20,7 @@ export class ShoreSdfGenerator {
     static BOUNDS_MARGIN = 128.0;
 
     /** Maximum dimension of the internal distance grid */
-    static MAX_GRID_DIM = 384;
+    static MAX_GRID_DIM = 256;
 
     /**
      * Compute an SDF texture for a polygon.
@@ -102,15 +102,20 @@ export class ShoreSdfGenerator {
         const insideDist = ShoreSdfGenerator.#computeEDT(mask, gridW, gridH, 1);
         const outsideDist = ShoreSdfGenerator.#computeEDT(mask, gridW, gridH, 0);
 
-        // Pre-extract polygon segments for analytical sub-pixel Euclidean distance refinement
+        // Pre-extract polygon segments for analytical sub-pixel Euclidean distance refinement (small vertex counts only)
         const numPts = Math.floor(flatPoints.length / 2);
-        const segs = new Float32Array(numPts * 4);
-        for (let s = 0; s < numPts; s++) {
-            const next = (s + 1) % numPts;
-            segs[s * 4 + 0] = flatPoints[s * 2];
-            segs[s * 4 + 1] = flatPoints[s * 2 + 1];
-            segs[s * 4 + 2] = flatPoints[next * 2];
-            segs[s * 4 + 3] = flatPoints[next * 2 + 1];
+        const useAnalytical = numPts <= 32;
+
+        let segs = null;
+        if (useAnalytical) {
+            segs = new Float32Array(numPts * 4);
+            for (let s = 0; s < numPts; s++) {
+                const next = (s + 1) % numPts;
+                segs[s * 4 + 0] = flatPoints[s * 2];
+                segs[s * 4 + 1] = flatPoints[s * 2 + 1];
+                segs[s * 4 + 2] = flatPoints[next * 2];
+                segs[s * 4 + 3] = flatPoints[next * 2 + 1];
+            }
         }
 
         const pointToSegmentDistSq = (px, py, x1, y1, x2, y2) => {
@@ -149,7 +154,7 @@ export class ShoreSdfGenerator {
 
                 let signedDistWorld;
 
-                if (minGridD <= 4.0) {
+                if (useAnalytical && minGridD <= 4.0) {
                     // Cell is within 4 grid cells of shoreline: compute exact Euclidean distance to polygon segments
                     const wx = worldMinX + (gx + 0.5) / scaleX;
                     let minD2 = Infinity;
@@ -170,8 +175,13 @@ export class ShoreSdfGenerator {
                     const blendWeight = Math.min(Math.max((minGridD - 2.0) / 2.0, 0.0), 1.0);
                     signedDistWorld = analyticalSigned * (1.0 - blendWeight) + edtSigned * blendWeight;
                 } else {
-                    // Deep water or far inland: use EDT distance
-                    signedDistWorld = (mask[i] === 1) ? (inD * worldScale) : (-outD * worldScale);
+                    // Deep water or high-vertex polygon: use EDT with raster anti-aliasing sub-pixel offset
+                    if (minGridD <= 1.0 && pixels[i * 4] > 0 && pixels[i * 4] < 255) {
+                        const coverage = pixels[i * 4] / 255.0;
+                        signedDistWorld = (coverage - 0.5) * worldScale;
+                    } else {
+                        signedDistWorld = (mask[i] === 1) ? (inD * worldScale) : (-outD * worldScale);
+                    }
                 }
 
                 // Encode into RGBA

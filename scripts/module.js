@@ -140,6 +140,9 @@ Hooks.on('getSceneControlButtons', (controls) => {
 // ---------------------------------------------------------------
 // Canvas Ready: Initialize water manager and render water regions
 // ---------------------------------------------------------------
+// Start compiling the water shader in the background while the scene loads
+Hooks.on('canvasInit', (cnv) => WaterManager.prepareShader(cnv?.scene));
+
 Hooks.on('canvasReady', async () => {
     WaterlineStudioApp.closeIfOpen();
     WaterManager.clearSampledColorCache?.();

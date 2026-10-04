@@ -1,4 +1,5 @@
 import { WaterMesh } from './WaterMesh.js';
+import { warmWaterShader } from './shaders/WaterShader.js';
 
 const MODULE_ID = 'ionrift-waterline';
 const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
@@ -169,6 +170,9 @@ export class WaterManager {
 
     /** @type {number|null} Debounce timer for hook-triggered refreshes */
     static #refreshTimer = null;
+
+    /** @type {number} Incremented on every full rebuild; stale async renders check it and bail */
+    static #generation = 0;
 
     static registerBehavior() {
         try {
@@ -428,6 +432,7 @@ Water Tuning API:
 
     static async refreshAll() {
         WaterManager.destroyAll();
+        const generation = ++WaterManager.#generation;
         if (!canvas.scene) return;
 
         const regions = canvas.scene.regions?.contents ?? [];
@@ -438,12 +443,23 @@ Water Tuning API:
             const config = WaterManager.#getWaterConfig(regionDoc);
             if (config) {
                 LOG(`Found water behavior on region "${regionDoc.name}"`);
-                tasks.push(WaterManager.#renderWater(regionDoc, config));
+                tasks.push(WaterManager.#renderWater(regionDoc, config, generation));
             }
         }
         await Promise.all(tasks);
 
         LOG(`refreshAll complete: ${WaterManager.#zones.size} water zones active`);
+    }
+
+    /**
+     * Starts compiling the water shader in the background if the scene has any water.
+     * Called early in canvas setup so the compile overlaps scene loading.
+     * @param {Scene} [scene=canvas?.scene]
+     */
+    static prepareShader(scene = canvas?.scene) {
+        const regions = scene?.regions?.contents ?? [];
+        if (!regions.some(r => WaterManager.#getWaterConfig(r))) return;
+        void warmWaterShader();
     }
 
     /**
@@ -471,7 +487,7 @@ Water Tuning API:
         const meshes = WaterManager.getMeshesForRegion(regionDoc.id);
         if (!meshes.length) {
             const config = WaterManager.#getWaterConfig(regionDoc);
-            if (config) await WaterManager.#renderWater(regionDoc, config);
+            if (config) await WaterManager.#renderWater(regionDoc, config, WaterManager.#generation);
             return;
         }
 
@@ -582,10 +598,13 @@ Water Tuning API:
         return PIXI.Texture.WHITE;
     }
 
-    static async #renderWater(regionDoc, config) {
+    static async #renderWater(regionDoc, config, generation = WaterManager.#generation) {
         const allPoints = WaterManager.#extractPoints(regionDoc);
         LOG(`  Extracted ${allPoints.length} point sets`);
         if (!allPoints.length) return;
+
+        // Shared across all water bodies; compiles off the main thread while colour sampling runs
+        const shaderReady = warmWaterShader();
 
         // Resolve water type preset as base defaults
         const waterType = config.waterType === 'abyssal_depths' ? 'ocean_calm' : config.waterType;
@@ -678,6 +697,13 @@ Water Tuning API:
         }
         if (!bgTexture) {
             bgTexture = WaterManager.#getSolidBgTexture();
+        }
+
+        // Meshes must not draw until the shader is ready, or the renderer compiles it synchronously
+        await shaderReady;
+        if (generation !== WaterManager.#generation || canvas.scene?.id !== regionDoc.parent?.id) {
+            LOG(`  Skipping stale water render for "${regionDoc.name}"`);
+            return;
         }
 
         for (const points of allPoints) {
@@ -787,17 +813,83 @@ Water Tuning API:
     }
 
     static #sampledColorCache = new Map();
+    static #bgThumbnailCache = new Map();
 
     /**
      * Clear cached background colors (e.g. on scene change).
      */
     static clearSampledColorCache() {
         WaterManager.#sampledColorCache.clear();
+        WaterManager.#bgThumbnailCache.clear();
         try {
             WaterManager.#solidBgTexture?.destroy?.(true);
         } catch { /* ignore */ }
         WaterManager.#solidBgTexture = null;
         WaterManager.#solidBgColor = null;
+    }
+
+    /**
+     * Retrieves or generates a downsampled thumbnail of the scene background image.
+     * Prevents multi-megabyte canvas allocations and main-thread freezes on high-res battlemaps.
+     * @param {string} bgPath
+     * @returns {Promise<{ data: Uint8ClampedArray, width: number, height: number } | null>}
+     */
+    static #getSceneThumbnail(bgPath) {
+        if (!bgPath) return Promise.resolve(null);
+        if (!WaterManager.#bgThumbnailCache.has(bgPath)) {
+            const pending = WaterManager.#buildSceneThumbnail(bgPath).then(thumb => {
+                if (!thumb && WaterManager.#bgThumbnailCache.get(bgPath) === pending) {
+                    WaterManager.#bgThumbnailCache.delete(bgPath);
+                }
+                return thumb;
+            });
+            WaterManager.#bgThumbnailCache.set(bgPath, pending);
+        }
+        return WaterManager.#bgThumbnailCache.get(bgPath);
+    }
+
+    static async #buildSceneThumbnail(bgPath) {
+        try {
+            const img = await new Promise((resolve, reject) => {
+                const i = new Image();
+                i.crossOrigin = 'anonymous';
+                i.onload = () => resolve(i);
+                i.onerror = reject;
+                i.src = bgPath;
+            });
+            // Decode off the main thread so drawImage below does not stall on large maps
+            try { await img.decode?.(); } catch { /* drawImage will decode */ }
+
+            const maxDim = 384;
+            const rawW = img.naturalWidth || img.width || 1000;
+            const rawH = img.naturalHeight || img.height || 1000;
+            let targetW = rawW;
+            let targetH = rawH;
+            if (targetW > maxDim || targetH > maxDim) {
+                if (targetW >= targetH) {
+                    targetH = Math.max(1, Math.round(rawH * (maxDim / rawW)));
+                    targetW = maxDim;
+                } else {
+                    targetW = Math.max(1, Math.round(rawW * (maxDim / rawH)));
+                    targetH = maxDim;
+                }
+            }
+
+            const offscreen = document.createElement('canvas');
+            offscreen.width = targetW;
+            offscreen.height = targetH;
+            const ctx = offscreen.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+
+            return {
+                data: ctx.getImageData(0, 0, targetW, targetH).data,
+                width: targetW,
+                height: targetH
+            };
+        } catch (err) {
+            LOG('  Background thumbnail generation failed:', err);
+            return null;
+        }
     }
 
     /**
@@ -820,29 +912,18 @@ Water Tuning API:
         }
 
         try {
-            const img = await new Promise((resolve, reject) => {
-                const i = new Image();
-                i.crossOrigin = 'anonymous';
-                i.onload = () => resolve(i);
-                i.onerror = reject;
-                i.src = bgPath;
-            });
-
-            const offscreen = document.createElement('canvas');
-            offscreen.width = img.width;
-            offscreen.height = img.height;
-            const ctx = offscreen.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(img, 0, 0);
+            const thumb = await WaterManager.#getSceneThumbnail(bgPath);
+            if (!thumb) return fallback;
 
             const dims = canvas.dimensions;
-            const scaleX = img.width / dims.sceneWidth;
-            const scaleY = img.height / dims.sceneHeight;
+            if (!dims?.sceneWidth || !dims?.sceneHeight) return fallback;
 
-            const fullImageData = ctx.getImageData(0, 0, img.width, img.height).data;
+            const scaleX = thumb.width / dims.sceneWidth;
+            const scaleY = thumb.height / dims.sceneHeight;
+            const fullImageData = thumb.data;
 
             // Collect individual samples with luminance
             const pixelSamples = [];
-            const step = 20;
 
             for (const points of pointSets) {
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -853,13 +934,16 @@ Water Tuning API:
                     maxY = Math.max(maxY, points[i + 1]);
                 }
 
+                const span = Math.max(maxX - minX, maxY - minY);
+                const step = Math.max(16, Math.round(span / 30));
+
                 for (let sy = minY; sy <= maxY; sy += step) {
                     for (let sx = minX; sx <= maxX; sx += step) {
                         const imgX = Math.round((sx - dims.sceneX) * scaleX);
                         const imgY = Math.round((sy - dims.sceneY) * scaleY);
-                        if (imgX < 0 || imgX >= img.width || imgY < 0 || imgY >= img.height) continue;
+                        if (imgX < 0 || imgX >= thumb.width || imgY < 0 || imgY >= thumb.height) continue;
 
-                        const pIdx = (imgY * img.width + imgX) * 4;
+                        const pIdx = (imgY * thumb.width + imgX) * 4;
                         const r = fullImageData[pIdx] / 255;
                         const g = fullImageData[pIdx + 1] / 255;
                         const b = fullImageData[pIdx + 2] / 255;

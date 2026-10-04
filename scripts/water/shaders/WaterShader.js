@@ -6,6 +6,7 @@ import { LAKE_POND_CHUNK } from './chunks/lakePond.glsl.js';
 import { TOKEN_WAKES_CHUNK } from './chunks/tokenWakes.glsl.js';
 import { CAUSTICS_CHUNK } from './chunks/caustics.glsl.js';
 import { COMPOSITE_CHUNK } from './chunks/composite.glsl.js';
+import { warmShaderProgram } from './ShaderWarmup.js';
 
 export const WATER_VERTEX_SRC = `
     precision highp float;
@@ -49,4 +50,22 @@ export const WATER_FRAGMENT_SRC = [
  */
 export function createWaterShader(uniforms) {
     return PIXI.Shader.from(WATER_VERTEX_SRC, WATER_FRAGMENT_SRC, uniforms);
+}
+
+/**
+ * The shared water program. PIXI caches programs by source, so every water shader uses this one.
+ * @returns {PIXI.Program}
+ */
+export function getWaterProgram() {
+    return PIXI.Program.from(WATER_VERTEX_SRC, WATER_FRAGMENT_SRC);
+}
+
+/**
+ * Compiles the water program in the background before any water mesh draws.
+ * @param {PIXI.Renderer} [renderer]
+ * @returns {Promise<boolean>}
+ */
+export function warmWaterShader(renderer = globalThis.canvas?.app?.renderer) {
+    if (!renderer || !globalThis.PIXI?.Program) return Promise.resolve(false);
+    return warmShaderProgram(renderer, getWaterProgram());
 }
