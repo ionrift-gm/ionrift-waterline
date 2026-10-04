@@ -202,6 +202,8 @@ export class WaterManager {
      */
     static inferArchetype(waterType) {
         if (WATER_PRESETS[waterType]?.archetype) return WATER_PRESETS[waterType].archetype;
+        const userArchetype = /^user_(ocean|coast|lake|river|pond|puddle)_/i.exec(waterType || '');
+        if (userArchetype) return userArchetype[1].toLowerCase();
         if (/^ocean/i.test(waterType) || waterType === 'abyssal_depths') return 'ocean';
         if (/^coast/i.test(waterType) || waterType === 'bay_chop') return 'coast';
         if (/^lake/i.test(waterType) || waterType === 'deep') return 'lake';
@@ -209,6 +211,40 @@ export class WaterManager {
         if (/^pond|cistern|swamp/i.test(waterType)) return 'pond';
         if (/^puddle/i.test(waterType)) return 'puddle';
         return 'river';
+    }
+
+    /**
+     * Split a studio preset key into the value stored on the behavior.
+     * system.waterType only accepts built-in preset keys. That list is fixed
+     * when the behavior type is registered, before world settings exist, so a
+     * user key such as user_river_willowshore is rejected and the save is dropped.
+     * User presets keep their key on a flag. The numeric settings still live on system.
+     * @param {string} presetKey
+     * @returns {{ waterType: string, customPreset: string }}
+     */
+    static persistPresetChoice(presetKey) {
+        const key = presetKey === 'abyssal_depths' ? 'ocean_calm' : (presetKey || 'river');
+        if (WATER_PRESETS[key]) return { waterType: key, customPreset: '' };
+        return { waterType: 'custom', customPreset: key };
+    }
+
+    /**
+     * Preset key to show in the studio for a saved water behavior.
+     * An explicit empty customPreset on the behavior means a built-in preset was saved later.
+     * @param {{ waterType?: string } | null | undefined} system
+     * @param {{ customPreset?: string } | null | undefined} behaviorFlags
+     * @param {{ customPreset?: string } | null | undefined} [regionFlags]
+     * @returns {string}
+     */
+    static readPresetChoice(system, behaviorFlags, regionFlags) {
+        const hasBehaviorKey = Boolean(
+            behaviorFlags && Object.prototype.hasOwnProperty.call(behaviorFlags, 'customPreset')
+        );
+        const custom = hasBehaviorKey ? behaviorFlags.customPreset : regionFlags?.customPreset;
+        if (typeof custom === 'string' && custom) return custom;
+        const waterType = system?.waterType;
+        if (waterType === 'abyssal_depths') return 'ocean_calm';
+        return waterType || 'river';
     }
 
     /**

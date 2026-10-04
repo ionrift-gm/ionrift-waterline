@@ -1190,7 +1190,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             }
         } else if (b?.system) {
             const s = b.system;
-            const loadedPreset = s.waterType === 'abyssal_depths' ? 'ocean_calm' : (s.waterType || 'river');
+            const loadedPreset = WaterManager.readPresetChoice(s, b.flags?.[MODULE_ID], region.flags?.[MODULE_ID]);
             const loadedArchetype = s.archetype || WaterManager.inferArchetype(loadedPreset);
             const isSmallBody = (loadedArchetype === 'lake' || loadedArchetype === 'pond' || loadedArchetype === 'puddle');
 
@@ -1703,9 +1703,10 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         const behaviorType = `${MODULE_ID}.waterFX`;
         const colorOverride = this.fx.autoColor ? '' : (this.fx.colorOverride || '');
         const isSmallBody = (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle');
+        const presetChoice = WaterManager.persistPresetChoice(this.activePreset);
         const systemUpdate = {
             archetype: this.activeArchetype,
-            waterType: this.activePreset,
+            waterType: presetChoice.waterType,
             speed: this.fx.speed,
             intensity: this.fx.intensity,
             opacity: this.fx.opacity,
@@ -1752,19 +1753,30 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                         type: behaviorType,
                         name: 'Water FX',
                         flags: {
-                            [MODULE_ID]: { configured: true }
+                            [MODULE_ID]: {
+                                configured: true,
+                                customPreset: presetChoice.customPreset
+                            }
                         },
                         system: systemUpdate
                     }]);
                 } else {
                     await beh.update({
                         flags: {
-                            [MODULE_ID]: { configured: true }
+                            [MODULE_ID]: {
+                                configured: true,
+                                customPreset: presetChoice.customPreset
+                            }
                         },
                         system: systemUpdate
                     });
                 }
                 await r.setFlag(MODULE_ID, 'configured', true);
+                if (presetChoice.customPreset) {
+                    await r.setFlag(MODULE_ID, 'customPreset', presetChoice.customPreset);
+                } else if (r.unsetFlag) {
+                    await r.unsetFlag(MODULE_ID, 'customPreset');
+                }
                 if (colorOverride) {
                     await r.setFlag(MODULE_ID, 'color', colorOverride);
                 }
@@ -1772,6 +1784,12 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             } catch (err) {
                 console.error(`Waterline | Failed to update water FX on ${r.name}:`, err);
             }
+        }
+
+        if (updated === 0) {
+            this.hasUnsavedChanges = true;
+            ui.notifications.warn('Waterline | Could not save these water settings.');
+            return;
         }
 
         this.hasUnsavedChanges = false;

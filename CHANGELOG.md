@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Custom water presets now save onto a waterbody. The preset stays selected, and the water settings stick.
+
 ## [1.0.2] - 2026-09-30
 
 ### Fixed
