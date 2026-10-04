@@ -1,9 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.3] - 2026-10-04
 
 ### Fixed
-- Custom water presets now save onto a waterbody. The preset stays selected, and the water settings stick.
+- Eliminated scene startup freeze when loading water shaders.
+- Custom water presets now save and persist reliably on waterbodies.
 
 ## [1.0.2] - 2026-09-30
 
