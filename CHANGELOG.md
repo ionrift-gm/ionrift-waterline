@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Water that meets the edge of the map no longer continues as a strip outside the background.
+
 ## [1.0.3] - 2026-10-04
 
 ### Fixed

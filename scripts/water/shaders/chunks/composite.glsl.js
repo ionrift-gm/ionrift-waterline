@@ -62,6 +62,12 @@ export const COMPOSITE_CHUNK = `
         float sTop    = uSceneDims.y;
         float sBottom = uSceneDims.y + uSceneDims.w;
 
+        // Border bleed keeps the waterline seamless at a map cut. That geometry
+        // continues into the canvas padding and must not be drawn.
+        if (vWorldPos.x < sLeft || vWorldPos.x > sRight || vWorldPos.y < sTop || vWorldPos.y > sBottom) {
+            discard;
+        }
+
         // If uBorderTouches was not provided, safely assume any border could be a map cut
         vec4 borderTouches = (length(uBorderTouches) > 0.01) ? uBorderTouches : vec4(1.0);
 
