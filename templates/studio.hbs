@@ -3,10 +3,10 @@
     <!-- Primary Navigation Tabs -->
     <nav class="waterline-tabs" aria-label="Waterline Tabs">
         <button type="button" class="waterline-tab-btn {{#if (eq activeTab 'water')}}active{{/if}}" data-tab="water">
-            <i class="fas fa-water"></i> <span>Water Zones & FX</span>
+            <i class="fas fa-water"></i> <span>Water Regions & FX</span>
         </button>
         <button type="button" class="waterline-tab-btn {{#if (eq activeTab 'wake')}}active{{/if}}" data-tab="wake">
-            <i class="fas fa-wave-square"></i> <span>Wake & Ripples</span>
+            <i class="fas fa-wave-square"></i> <span>Ripples</span>
         </button>
     </nav>
 
@@ -25,7 +25,7 @@
                         <span>Scene Waterbodies</span>
                         <span class="wc-zone-count-badge">{{zones.length}}</span>
                     </div>
-                    <button type="button" class="cartograph-btn-mini {{#if pickActive}}pick-active{{/if}}" data-action="togglePick" title="{{#if pickActive}}Stop sampling{{else}}Sample water from map (Shift to add, Ctrl to subtract){{/if}}">
+                    <button type="button" class="cartograph-btn-mini {{#if pickActive}}pick-active{{/if}}" data-action="togglePick" title="{{#if pickActive}}Stop sampling{{else}}Sample water color from map (Shift to add, Ctrl to subtract){{/if}}">
                         {{#if pickActive}}
                         <i class="fas fa-stop-circle"></i> Stop
                         {{else}}
@@ -38,17 +38,17 @@
                 {{#if pickActive}}
                 <div class="wc-pick-controls ionrift-subcard">
                     <div class="form-group-compact">
-                        <label title="How far from clicked color the fill spreads">Tolerance</label>
+                        <label title="How close to match the color sample">Tolerance</label>
                         <input type="range" name="pickTolerance" min="1" max="120" value="{{pickTolerance}}" step="1" />
                         <span class="range-val">{{pickTolerance}}</span>
                     </div>
                     <div class="form-group-compact">
-                        <label title="Edge smoothing: lower = detailed, higher = cleaner">Smoothing</label>
+                        <label title="Edge smoothing: lower = more detailed">Smoothing</label>
                         <input type="range" name="pickSmoothing" min="0.5" max="15" value="{{pickSmoothing}}" step="0.5" />
                         <span class="range-val">{{pickSmoothing}}</span>
                     </div>
                     <div class="wc-refine-hint">
-                        <i class="fas fa-mouse-pointer"></i> Click map to sample. <kbd>Shift</kbd>+Click to add, <kbd>Ctrl</kbd>+Click to subtract.
+                        <i class="fas fa-mouse-pointer"></i> Click map to color sample. <kbd>Shift</kbd>+Click to add, <kbd>Ctrl</kbd>+Click to subtract.
                     </div>
                 </div>
                 {{/if}}
@@ -79,13 +79,13 @@
                     <div class="wc-candidate-toolbar">
                         <span class="wc-toolbar-label"><i class="fas fa-sliders-h"></i> Boundary:</span>
                         <div class="wc-toolbar-buttons">
-                            <button type="button" class="cartograph-btn wc-btn-tool" data-action="pullBackCandidate" title="Pull boundary back / shrink inward (Erode 1 step)">
+                            <button type="button" class="cartograph-btn wc-btn-tool" data-action="pullBackCandidate" title="Erode 1 step">
                                 <i class="fas fa-compress-alt"></i> Pull Back
                             </button>
-                            <button type="button" class="cartograph-btn wc-btn-tool" data-action="expandCandidate" title="Expand boundary outward (Dilate 1 step)">
+                            <button type="button" class="cartograph-btn wc-btn-tool" data-action="expandCandidate" title="Expand 1 step">
                                 <i class="fas fa-expand-alt"></i> Expand
                             </button>
-                            <button type="button" class="cartograph-btn wc-btn-tool" data-action="smoothCandidate" title="Smooth jagged corners and stair-steps">
+                            <button type="button" class="cartograph-btn wc-btn-tool" data-action="smoothCandidate" title="Smooth jagged corners">
                                 <i class="fas fa-bezier-curve"></i> Smooth
                             </button>
                         </div>
@@ -100,7 +100,7 @@
                         <button type="button" class="cartograph-btn cartograph-btn-discard" data-action="discardCandidate">
                             <i class="fas fa-times"></i> {{#if editingRegionName}}Cancel{{else}}Discard{{/if}}
                         </button>
-                        <button type="button" class="cartograph-btn cartograph-btn-undo" data-action="undoCandidate" title="Undo adjustment (Ctrl+Z)">
+                        <button type="button" class="cartograph-btn cartograph-btn-undo" data-action="undoCandidate" title="Undo (Ctrl+Z)">
                             <i class="fas fa-undo"></i>
                         </button>
                     </div>
@@ -150,7 +150,7 @@
                             <option value="{{ur.id}}">{{ur.name}} ({{#if ur.estimation}}{{ur.estimation.archetypeLabel}} &bull; {{/if}}{{ur.verts}} pts)</option>
                             {{/each}}
                         </select>
-                        <button type="button" class="cartograph-btn-mini" data-action="adoptSceneRegion" title="Convert selected scene region into a Waterline waterbody">
+                        <button type="button" class="cartograph-btn-mini" data-action="adoptSceneRegion" title="Convert selected region into a Waterline waterbody">
                             <i class="fas fa-plus"></i> Add
                         </button>
                     </div>
@@ -163,7 +163,7 @@
             <div class="wc-archetype-bar ionrift-card">
                 <div class="wc-archetype-preset-row">
                     <div class="wc-bar-col wc-archetype-col">
-                        <label title="Fundamental waterbody fluid dynamics and environment classification">
+                        <label title="Fundamental waterbody type">
                             <i class="fas fa-shapes"></i> Archetype
                         </label>
                         <select name="waterArchetype" class="ionrift-select">
@@ -173,7 +173,7 @@
                         </select>
                     </div>
                     <div class="wc-bar-col wc-preset-col">
-                        <label title="Atmospheric preset profiles curated for this archetype">
+                        <label title="Profiles for this archetype">
                             <i class="fas fa-bookmark"></i> Preset
                         </label>
                         <div class="wc-preset-select-wrap">
@@ -285,9 +285,9 @@
                 <div class="wc-color-card-header">
                     <div class="wc-color-card-title">
                         <i class="fas fa-palette"></i>
-                        <span>Water Tint &amp; Color</span>
+                        <span>Water color</span>
                     </div>
-                    <label class="wc-color-auto-toggle" title="Automatically sample fluid color from underlying map artwork">
+                    <label class="wc-color-auto-toggle" title="Automatically sample color from region">
                         <input type="checkbox" name="autoColor" {{#if fx.autoColor}}checked{{/if}} />
                         <span>Auto-Sample Map</span>
                     </label>
@@ -297,7 +297,7 @@
                         <input type="color" name="colorOverride" value="{{fx.colorOverride}}" class="wc-color-swatch-input" />
                     </div>
                     {{#if hasEyeDropper}}
-                    <button type="button" class="cartograph-btn-mini wc-eyedropper-btn" data-action="sampleScreenColor" title="Sample color directly from map canvas">
+                    <button type="button" class="cartograph-btn-mini wc-eyedropper-btn" data-action="sampleScreenColor" title="Sample color from map">
                         <i class="fas fa-eye-dropper"></i>
                         <span>Sample Map</span>
                     </button>
@@ -497,7 +497,7 @@
             </div>
 
             <div class="wake-tg-scroll">
-                <p class="wake-tg-hint">Configure expanding ripple waves emitted as tokens navigate across water zones.</p>
+                <p class="wake-tg-hint">Configure token ripples.</p>
 
                 <!-- Visual Style -->
                 <details class="wake-tg-details" open>
@@ -506,8 +506,8 @@
                         <div class="form-group wake-tg-row">
                             <label>Display Mode</label>
                             <select name="wakeVisualMode">
-                                <option value="shader" {{#if (eq wake.visualMode 'shader')}}selected{{/if}}>Refraction only</option>
-                                <option value="sprites" {{#if (eq wake.visualMode 'sprites')}}selected{{/if}}>Crest rings only</option>
+                                <option value="shader" {{#if (eq wake.visualMode 'shader')}}selected{{/if}}>Refraction</option>
+                                <option value="sprites" {{#if (eq wake.visualMode 'sprites')}}selected{{/if}}>Crest rings</option>
                                 <option value="both" {{#if (eq wake.visualMode 'both')}}selected{{/if}}>Combined (Refraction + Rings)</option>
                             </select>
                         </div>
@@ -553,7 +553,7 @@
 
                 <!-- Motion Burst & Trail Ripples -->
                 <details class="wake-tg-details">
-                    <summary>Motion Burst & Trail Ripples</summary>
+                    <summary>Motion & Ripples</summary>
                     <div class="wake-tg-details-body">
                         <div class="form-group wake-tg-row">
                             <label title="Pixel lead ahead of moving tokens">Lead ahead (px)</label>

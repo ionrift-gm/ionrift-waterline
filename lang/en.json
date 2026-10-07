@@ -7,28 +7,28 @@
         }
     },
 
-    "IonriftWaterline.SettingsEnableTokenWake": "Token water wake (ripples)",
-    "IonriftWaterline.SettingsEnableTokenWakeHint": "When enabled, tokens moving through Ionrift water regions emit expanding ring ripples on your client.",
+    "IonriftWaterline.SettingsEnableTokenWake": "Token ripples",
+    "IonriftWaterline.SettingsEnableTokenWakeHint": "When enabled, tokens moving through water drop ripples",
 
     "IonriftWaterline.SettingsWaterlineStudio": "Waterline",
     "IonriftWaterline.SettingsWaterlineStudioLabel": "Open Waterline",
-    "IonriftWaterline.SettingsWaterlineStudioHint": "Configure water zones, wakes, and ripples.",
+    "IonriftWaterline.SettingsWaterlineStudioHint": "Configure water regions and ripples.",
 
     "IonriftWaterline.SettingsRippleTuning": "Waterline",
     "IonriftWaterline.SettingsRippleTuningLabel": "Open Waterline",
-    "IonriftWaterline.SettingsRippleTuningHint": "Configure water zones, wakes, and ripples.",
+    "IonriftWaterline.SettingsRippleTuningHint": "Configure water regions and ripples.",
 
     "IonriftWaterline.SettingsDebug": "Debug Logging",
-    "IonriftWaterline.SettingsDebugHint": "Enable verbose console logging for water and ripple state. Useful for troubleshooting; can be chatty in combat.",
+    "IonriftWaterline.SettingsDebugHint": "Enable verbose console logging",
 
-    "IonriftWaterline.WakeTuningTitle": "Waterline: Wake & Ripples",
-    "IonriftWaterline.WakeTuningHint": "Fine-tune water ripples created as tokens navigate across water zones.",
+    "IonriftWaterline.WakeTuningTitle": "Waterline: Ripples",
+    "IonriftWaterline.WakeTuningHint": "Fine-tune water ripples",
     "IonriftWaterline.WakeTuningPreview": "Preview style",
     "IonriftWaterline.WakeTuningVisualMode": "Visual style",
 
     "IonriftWaterline.WakeTuningRippleTiming": "Wave Shape & Lifetime",
     "IonriftWaterline.WakeTuningRippleVariance": "Wave Dispersion & Randomness",
-    "IonriftWaterline.WakeTuningRippleSpawnTrail": "Motion Burst & Trail Ripples",
+    "IonriftWaterline.WakeTuningRippleSpawnTrail": "Motion & Ripples",
     "IonriftWaterline.WakeTuningShader": "Surface Distortion & Refraction",
     "IonriftWaterline.WakeTuningSprites": "Stylized Crest Rings",
     "IonriftWaterline.WakeTuningSpriteColor": "Crest Color",
