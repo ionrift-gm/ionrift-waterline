@@ -597,29 +597,52 @@ export class WaterDetector {
         }
         if (area < 10) return null;
 
-        // ── Strategy: run both sweep directions, pick the best result ──
-        // Column-sweep handles rivers (horizontal). Row-sweep handles coastlines (vertical).
+        // Strategy: extract 2D topological contour via Marching Squares.
+        // Handles complex concave shorelines, diagonal piers, outcrops, and bays without bridging.
+        let simplified = null;
+        const rings = WaterDetector.#marchingSquares(mask, cols, rows);
+        if (rings.length > 0) {
+            let bestRing = null;
+            let maxRingArea = -1;
+            for (const r of rings) {
+                let doubleArea = 0;
+                const n = r.length;
+                for (let i = 0; i < n - 1; i++) {
+                    doubleArea += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1];
+                }
+                const ringArea = Math.abs(doubleArea) / 2;
+                if (ringArea > maxRingArea) {
+                    maxRingArea = ringArea;
+                    bestRing = r;
+                }
+            }
+            if (bestRing && maxRingArea >= 5) {
+                simplified = WaterDetector.#simplifyClosedPolygon(bestRing, smoothing);
+            }
+        }
 
-        const colPoly = WaterDetector.#columnSweepContour(mask, cols, rows, smoothing);
-        const rowPoly = WaterDetector.#rowSweepContour(mask, cols, rows, smoothing);
+        // Fallback to 1D sweep contour only if Marching Squares found no rings
+        if (!simplified || simplified.length < 6) {
+            const colPoly = WaterDetector.#columnSweepContour(mask, cols, rows, smoothing);
+            const rowPoly = WaterDetector.#rowSweepContour(mask, cols, rows, smoothing);
+            if (!colPoly && !rowPoly) return null;
+            if (!colPoly) simplified = rowPoly;
+            else if (!rowPoly) simplified = colPoly;
+            else simplified = (rowPoly.length > colPoly.length) ? rowPoly : colPoly;
+        }
 
-        // Pick the contour with more vertices (more shape detail)
-        let simplified;
-        if (!colPoly && !rowPoly) return null;
-        if (!colPoly) simplified = rowPoly;
-        else if (!rowPoly) simplified = colPoly;
-        else simplified = (rowPoly.length > colPoly.length) ? rowPoly : colPoly;
-
-        if (simplified.length < 6) return null;
+        if (!simplified || simplified.length < 6) return null;
 
         // Convert to scene coords
         const scaleX = dims.sceneWidth / imgW;
         const scaleY = dims.sceneHeight / imgH;
         let scenePoints = [];
         for (let i = 0; i < simplified.length; i += 2) {
+            const gx = Math.max(0, Math.min(cols, simplified[i]));
+            const gy = Math.max(0, Math.min(rows, simplified[i + 1]));
             scenePoints.push(
-                Math.round(dims.sceneX + simplified[i] * gridStep * scaleX),
-                Math.round(dims.sceneY + simplified[i + 1] * gridStep * scaleY)
+                Math.round(dims.sceneX + gx * gridStep * scaleX),
+                Math.round(dims.sceneY + gy * gridStep * scaleY)
             );
         }
 
@@ -728,6 +751,211 @@ export class WaterDetector {
         }
 
         return current;
+    }
+
+    /**
+     * Extract closed polygon rings from a 2D binary grid mask using Marching Squares.
+     * Preserves topological detail around diagonal piers, jetties, outcrops, and coves.
+     * @param {Uint8Array} mask
+     * @param {number} cols
+     * @param {number} rows
+     * @returns {Array<Array<[number, number]>>} Array of closed polygon rings in grid coords
+     * @private
+     */
+    static #marchingSquares(mask, cols, rows) {
+        const pCols = cols + 2;
+        const pRows = rows + 2;
+        const pMask = new Uint8Array(pCols * pRows);
+
+        for (let y = 0; y < rows; y++) {
+            const yOff = (y + 1) * pCols;
+            const srcOff = y * cols;
+            for (let x = 0; x < cols; x++) {
+                pMask[yOff + (x + 1)] = mask[srcOff + x];
+            }
+        }
+
+        const segments = [];
+        for (let y = 0; y < pRows - 1; y++) {
+            const y0 = y * pCols;
+            const y1 = (y + 1) * pCols;
+            for (let x = 0; x < pCols - 1; x++) {
+                const tl = pMask[y0 + x];
+                const tr = pMask[y0 + x + 1];
+                const br = pMask[y1 + x + 1];
+                const bl = pMask[y1 + x];
+                const code = (tl << 3) | (tr << 2) | (br << 1) | bl;
+                if (code === 0 || code === 15) continue;
+
+                // Midpoints shifted by +0.5 so grid cell 0 boundary is 0..1
+                const N = [x, y - 0.5];
+                const E = [x + 0.5, y];
+                const S = [x, y + 0.5];
+                const W = [x - 0.5, y];
+
+                switch (code) {
+                    case 1:  segments.push([...S, ...W]); break;
+                    case 2:  segments.push([...E, ...S]); break;
+                    case 3:  segments.push([...E, ...W]); break;
+                    case 4:  segments.push([...N, ...E]); break;
+                    case 5:  segments.push([...N, ...E], [...S, ...W]); break;
+                    case 6:  segments.push([...N, ...S]); break;
+                    case 7:  segments.push([...N, ...W]); break;
+                    case 8:  segments.push([...W, ...N]); break;
+                    case 9:  segments.push([...S, ...N]); break;
+                    case 10: segments.push([...W, ...N], [...E, ...S]); break;
+                    case 11: segments.push([...E, ...N]); break;
+                    case 12: segments.push([...W, ...E]); break;
+                    case 13: segments.push([...S, ...E]); break;
+                    case 14: segments.push([...W, ...S]); break;
+                }
+            }
+        }
+
+        if (!segments.length) return [];
+
+        const key = (p) => Math.round(p[0] * 2) + ':' + Math.round(p[1] * 2);
+        const edgeMap = new Map();
+        for (let i = 0; i < segments.length; i++) {
+            const s = segments[i];
+            const k = key([s[0], s[1]]);
+            let list = edgeMap.get(k);
+            if (!list) {
+                list = [];
+                edgeMap.set(k, list);
+            }
+            list.push([s[2], s[3]]);
+        }
+
+        const rings = [];
+        const visited = new Set();
+
+        for (let i = 0; i < segments.length; i++) {
+            const s = segments[i];
+            const segId = Math.round(s[0] * 2) + ':' + Math.round(s[1] * 2) + ':' + Math.round(s[2] * 2) + ':' + Math.round(s[3] * 2);
+            if (visited.has(segId)) continue;
+
+            const startPt = [s[0], s[1]];
+            const startKey = key(startPt);
+            const ring = [startPt];
+            let curr = [s[2], s[3]];
+            visited.add(segId);
+
+            let maxHops = segments.length * 2;
+            while (curr && maxHops-- > 0) {
+                ring.push(curr);
+                const ck = key(curr);
+                if (ck === startKey) {
+                    break;
+                }
+                const nextList = edgeMap.get(ck);
+                let nextPt = null;
+                if (nextList) {
+                    for (let j = 0; j < nextList.length; j++) {
+                        const cand = nextList[j];
+                        const candId = Math.round(curr[0] * 2) + ':' + Math.round(curr[1] * 2) + ':' + Math.round(cand[0] * 2) + ':' + Math.round(cand[1] * 2);
+                        if (!visited.has(candId)) {
+                            visited.add(candId);
+                            nextPt = cand;
+                            break;
+                        }
+                    }
+                }
+                curr = nextPt;
+            }
+
+            if (ring.length >= 4) {
+                rings.push(ring);
+            }
+        }
+
+        return rings;
+    }
+
+    /**
+     * Simplify a closed polygon ring using Ramer-Douglas-Peucker line decimation.
+     * Splits closed ring at the point farthest from start to prevent degenerate chord shortcuts.
+     * @param {Array<[number, number]>} ring - Array of [x, y] coordinates
+     * @param {number} tolerance - RDP simplification tolerance
+     * @returns {number[]} Flat array of [x, y, x, y, ...] simplified points
+     * @private
+     */
+    static #simplifyClosedPolygon(ring, tolerance) {
+        if (!ring || ring.length < 3) return [];
+
+        const pts = [];
+        for (let i = 0; i < ring.length; i++) {
+            pts.push(ring[i][0], ring[i][1]);
+        }
+
+        const n = pts.length / 2;
+        if (n <= 4 || tolerance <= 0.05) {
+            if (n >= 4 && pts[0] === pts[(n - 1) * 2] && pts[1] === pts[(n - 1) * 2 + 1]) {
+                return pts.slice(0, (n - 1) * 2);
+            }
+            return pts;
+        }
+
+        const startX = pts[0];
+        const startY = pts[1];
+
+        // Find the vertex farthest from the start point
+        let maxD = 0;
+        let farIdx = Math.floor(n / 2);
+        for (let i = 1; i < n; i++) {
+            const dx = pts[i * 2] - startX;
+            const dy = pts[i * 2 + 1] - startY;
+            const dSq = dx * dx + dy * dy;
+            if (dSq > maxD) {
+                maxD = dSq;
+                farIdx = i;
+            }
+        }
+
+        function perpDist(px, py, ax, ay, bx, by) {
+            const dx = bx - ax;
+            const dy = by - ay;
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq === 0) return Math.sqrt((px - ax) ** 2 + (py - ay) ** 2);
+            let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            return Math.sqrt((px - (ax + t * dx)) ** 2 + (py - (ay + t * dy)) ** 2);
+        }
+
+        function simplifyOpen(start, end) {
+            let maxDist = 0;
+            let maxIdx = start;
+            const ax = pts[start * 2];
+            const ay = pts[start * 2 + 1];
+            const bx = pts[end * 2];
+            const by = pts[end * 2 + 1];
+
+            for (let i = start + 1; i < end; i++) {
+                const d = perpDist(pts[i * 2], pts[i * 2 + 1], ax, ay, bx, by);
+                if (d > maxDist) {
+                    maxDist = d;
+                    maxIdx = i;
+                }
+            }
+
+            if (maxDist > tolerance) {
+                const left = simplifyOpen(start, maxIdx);
+                const right = simplifyOpen(maxIdx, end);
+                return [...left.slice(0, -2), ...right];
+            }
+            return [ax, ay, bx, by];
+        }
+
+        const part1 = simplifyOpen(0, farIdx);
+        const part2 = simplifyOpen(farIdx, n - 1);
+        const result = [...part1.slice(0, -2), ...part2];
+
+        // Strip duplicate closing vertex if present
+        const resN = result.length / 2;
+        if (resN >= 4 && result[0] === result[(resN - 1) * 2] && result[1] === result[(resN - 1) * 2 + 1]) {
+            return result.slice(0, (resN - 1) * 2);
+        }
+        return result;
     }
 
     /**
