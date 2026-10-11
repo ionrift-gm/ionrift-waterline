@@ -1,9 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.4] - 2026-10-11
+
+### Added
+- Shoreline tracing now follows complex piers, jetties, and coastal geometry using marching squares.
 
 ### Fixed
-- Water that meets the edge of the map no longer continues as a strip outside the background.
+- Water shader skirts no longer bleed beyond the canvas boundary on bounded scenes.
 
 ## [1.0.3] - 2026-10-04
 
