@@ -1,7 +1,6 @@
 import { WaterManager } from './water/WaterManager.js';
 import { WakeManager } from './water/WakeManager.js';
 import { WAKE_TUNING_DEFAULTS } from './water/WakeTuning.js';
-import { DrawingFX } from './particles/DrawingFX.js';
 import { WaterlineStudioApp } from './apps/WaterlineStudioApp.js';
 
 const MODULE_ID = 'ionrift-waterline';
@@ -27,14 +26,15 @@ globalThis.WakeManager = WakeManager;
 // Init: Register settings and remaining hooks
 // ---------------------------------------------------------------
 Hooks.once('init', async () => {
-    DrawingFX.init();
-
-    // Register Handlebars templates for particle FX panel and studio
+    // Register Handlebars template for studio and partials
     const loader = foundry.applications?.handlebars?.loadTemplates ?? globalThis.loadTemplates;
     if (loader) {
         await loader([
-            `modules/${MODULE_ID}/scripts/particles/placement-panel.html`,
-            `modules/${MODULE_ID}/templates/studio.hbs`
+            `modules/${MODULE_ID}/templates/studio.hbs`,
+            `modules/${MODULE_ID}/templates/parts/deck-zones.hbs`,
+            `modules/${MODULE_ID}/templates/parts/hero-controls.hbs`,
+            `modules/${MODULE_ID}/templates/parts/tab-wakes.hbs`,
+            `modules/${MODULE_ID}/templates/parts/advanced-drawer.hbs`
         ]);
     }
 
@@ -149,10 +149,6 @@ Hooks.on('canvasReady', async () => {
     WaterManager.init();
     await WaterManager.refreshAll();
     WakeManager.init();
-    // Re-wire click handler on new canvas (debug only)
-    if (game.settings?.get?.(MODULE_ID, 'debug')) {
-        DrawingFX._wireCanvasClick();
-    }
 });
 
 // ---------------------------------------------------------------

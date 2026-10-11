@@ -1,0 +1,62 @@
+<div class="wc-hero-controls ionrift-card">
+    <div class="wc-hero-header">
+        <h4>
+            <i class="{{activeArchetypeMeta.icon}}" style="color: {{activeArchetypeMeta.accentColor}};"></i>
+            {{activeArchetypeMeta.label}} Controls
+        </h4>
+        <span class="wc-hero-hint">{{activeArchetypeMeta.description}}</span>
+    </div>
+
+    <div class="wc-hero-sliders-body">
+        {{#if hasDirection}}
+        <!-- Directional Archetypes: Sliders on Left, Directional Arrow Dial on Right -->
+        <div class="wc-hero-split-wrap wc-river-hero-wrap">
+            <div class="wc-hero-sliders-col wc-river-sliders-col">
+                {{#each heroSliders as |slider|}}
+                {{#unless slider.isDirection}}
+                <div class="form-group hero-slider-group">
+                    <label title="{{slider.tooltip}}">{{slider.label}}</label>
+                    <div class="hero-input-wrap">
+                        <input type="range" name="hero_{{slider.id}}" class="ws-slider" data-field="{{slider.id}}" min="{{slider.min}}" max="{{slider.max}}" value="{{slider.value}}" step="{{slider.step}}" data-hero-id="{{slider.id}}" />
+                        <span class="range-val">{{slider.displayValue}}</span>
+                    </div>
+                </div>
+                {{/unless}}
+                {{/each}}
+            </div>
+            <div class="wc-hero-direction-col wc-river-direction-col">
+                {{#each heroSliders as |slider|}}
+                {{#if slider.isDirection}}
+                <div class="direction-widget" title="{{slider.tooltip}}">
+                    <div class="direction-header">
+                        <label><i class="{{#if slider.icon}}{{slider.icon}}{{else}}fas fa-location-arrow{{/if}}"></i> {{slider.label}}</label>
+                        <span class="direction-angle-badge">{{slider.displayValue}}</span>
+                    </div>
+                    <div class="direction-dial">
+                        <div class="direction-arrow-pivot" style="transform: rotate({{slider.value}}deg);">
+                            <div class="direction-arrow"></div>
+                        </div>
+                        <div class="direction-center-dot"></div>
+                    </div>
+                    <input type="range" name="hero_{{slider.id}}" class="ws-slider" data-field="{{slider.id}}" min="{{slider.min}}" max="{{slider.max}}" value="{{slider.value}}" step="{{slider.step}}" data-hero-id="{{slider.id}}" style="display: none;" />
+                </div>
+                {{/if}}
+                {{/each}}
+            </div>
+        </div>
+        {{else}}
+        <!-- Standard 2-Column Grid for Non-Directional Archetypes (Pond, Puddle) -->
+        <div class="wc-hero-grid-2col">
+            {{#each heroSliders as |slider|}}
+            <div class="form-group hero-slider-group">
+                <label title="{{slider.tooltip}}">{{slider.label}}</label>
+                <div class="hero-input-wrap">
+                    <input type="range" name="hero_{{slider.id}}" class="ws-slider" data-field="{{slider.id}}" min="{{slider.min}}" max="{{slider.max}}" value="{{slider.value}}" step="{{slider.step}}" data-hero-id="{{slider.id}}" />
+                    <span class="range-val">{{slider.displayValue}}</span>
+                </div>
+            </div>
+            {{/each}}
+        </div>
+        {{/if}}
+    </div>
+</div>

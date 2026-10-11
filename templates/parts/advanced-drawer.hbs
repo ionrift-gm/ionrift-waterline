@@ -1,0 +1,120 @@
+<details class="wc-advanced-drawer ionrift-card" {{#if drawerOpen}}open{{/if}}>
+    <summary class="wc-drawer-summary">
+        <div class="summary-left">
+            <i class="fas fa-sliders-h"></i>
+            <span>Advanced Shader Levers</span>
+        </div>
+        <i class="fas fa-chevron-down drawer-chevron"></i>
+    </summary>
+
+    <div class="wc-drawer-content">
+        <!-- Subsection A: Wave & Mesh Dynamics -->
+        <div class="drawer-group-title"><i class="fas fa-wave-square"></i> Wave & Texture Dynamics</div>
+        <div class="drawer-grid-2col">
+            <div class="form-group-compact">
+                <label title="Base texture pattern scale">Scale</label>
+                <input type="range" name="scale" min="30" max="400" value="{{fx.scale}}" step="5" />
+                <span class="range-val">{{fx.scale}}</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Background refraction distortion strength">Distortion</label>
+                <input type="range" name="distortion" min="0.0" max="0.05" value="{{fx.distortion}}" step="0.001" />
+                <span class="range-val">{{numberFormat fx.distortion decimals=3}}</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Base animation speed">Speed</label>
+                <input type="range" name="speed" min="0.05" max="3.0" value="{{fx.speed}}" step="0.05" />
+                <span class="range-val">{{numberFormat fx.speed decimals=2}}</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Caustic brightness and prominence">Intensity</label>
+                <input type="range" name="intensity" min="0.0" max="2.0" value="{{fx.intensity}}" step="0.05" />
+                <span class="range-val">{{numberFormat fx.intensity decimals=2}}</span>
+            </div>
+        </div>
+
+        <!-- Subsection B: Shoreline & Swash Physics -->
+        <div class="drawer-group-title"><i class="fas fa-umbrella-beach"></i> Shoreline & Swash Physics</div>
+        <div class="drawer-grid-2col">
+            <div class="form-group-compact">
+                <label title="Width of the transparent edge blend in pixels">Edge Fade</label>
+                <input type="range" name="fadeWidth" min="0" max="200" value="{{fx.fadeWidth}}" step="5" />
+                <span class="range-val">{{fx.fadeWidth}}px</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Breaking shore wave foam intensity">Shore Waves</label>
+                <input type="range" name="shoreWaves" min="0.0" max="1.0" value="{{fx.shoreWaves}}" step="0.05" />
+                <span class="range-val">{{numberFormat fx.shoreWaves decimals=2}}</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Number of incoming wave crests rolling and breaking toward the shore">Wave Count</label>
+                <input type="range" name="waveCount" min="1" max="8" value="{{fx.waveCount}}" step="1" />
+                <span class="range-val">{{fx.waveCount}}</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Breaks continuous waves into traveling sets">Wave Breakup</label>
+                <input type="range" name="waveSegment" min="0.0" max="1.0" value="{{fx.waveSegment}}" step="0.05" />
+                <span class="range-val">{{numberFormat fx.waveSegment decimals=2}}</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Distance waves lap past shoreline onto dry land">Surge Reach</label>
+                <input type="range" name="swashSurge" min="0" max="60" value="{{fx.swashSurge}}" step="2" />
+                <span class="range-val">{{fx.swashSurge}}px</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Density of shoreline froth, cellular bubbles, and surf wash">Shoreline Foam</label>
+                <input type="range" name="surfFoam" min="0.0" max="1.0" value="{{fx.surfFoam}}" step="0.05" />
+                <span class="range-val">{{numberFormat fx.surfFoam decimals=2}}</span>
+            </div>
+        </div>
+
+        <!-- Subsection C: Open Sea & Aeration -->
+        <div class="drawer-group-title"><i class="fas fa-water"></i> Open Sea & Foam Aeration</div>
+        <div class="drawer-grid-2col">
+            <div class="form-group-compact">
+                <label title="Multi-directional chop across open water">Open Sea Chop</label>
+                <input type="range" name="choppySeas" min="0.0" max="1.5" value="{{fx.choppySeas}}" step="0.05" />
+                <span class="range-val">{{numberFormat fx.choppySeas decimals=2}}</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Aerated foam crests on swells">Whitecaps</label>
+                <input type="range" name="whitecaps" min="0.0" max="1.5" value="{{fx.whitecaps}}" step="0.05" />
+                <span class="range-val">{{numberFormat fx.whitecaps decimals=2}}</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Sun highlights on wave crests">Sun Glint</label>
+                <input type="range" name="sunGlint" min="0.0" max="2.0" value="{{fx.sunGlint}}" step="0.05" />
+                <span class="range-val">{{numberFormat fx.sunGlint decimals=2}}</span>
+            </div>
+            <div class="form-group-compact">
+                <label title="Water flow direction in degrees">Flow Direction</label>
+                <input type="range" name="flowAngle" min="0" max="355" value="{{fx.flowAngle}}" step="5" />
+                <span class="range-val">{{fx.flowAngle}}&deg;</span>
+            </div>
+            <div class="form-group-compact checkbox-compact-group">
+                <label title="Foam wakes trailing behind traveling crests">
+                    <input type="checkbox" name="spindriftWake" {{#if fx.spindriftWake}}checked{{/if}} /> Trailing Wake
+                </label>
+                <label title="Confines foam strictly to crest summits">
+                    <input type="checkbox" name="crestBound" {{#if fx.crestBound}}checked{{/if}} /> Crest-Locked
+                </label>
+            </div>
+        </div>
+
+        <!-- Subsection D: Color & Tint -->
+        <div class="drawer-group-title"><i class="fas fa-palette"></i> Color & Opacity</div>
+        <div class="drawer-color-row">
+            <div class="color-picker-wrap">
+                <input type="color" name="colorOverride" value="{{fx.colorOverride}}" {{#if fx.autoColor}}disabled{{/if}} />
+                <label class="color-auto-label">
+                    <input type="checkbox" name="autoColor" {{#if fx.autoColor}}checked{{/if}} /> Auto Sample Map
+                </label>
+            </div>
+            <div class="form-group-compact opacity-compact">
+                <label title="Water overlay tint opacity">Opacity</label>
+                <input type="range" name="opacity" min="0.05" max="0.5" value="{{fx.opacity}}" step="0.01" />
+                <span class="range-val">{{numberFormat fx.opacity decimals=2}}</span>
+            </div>
+        </div>
+    </div>
+</details>

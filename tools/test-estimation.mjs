@@ -29,6 +29,7 @@ globalThis.foundry = {
 };
 
 const { WaterShapeEstimator } = await import('../scripts/water/WaterShapeEstimator.js');
+const { WATER_PRESETS } = await import('../scripts/water/WaterPresets.js');
 const studioTemplate = readFileSync(join(__dirname, '../templates/studio.hbs'), 'utf8');
 const studioJs = readFileSync(join(__dirname, '../scripts/apps/WaterlineStudioApp.js'), 'utf8');
 const moduleJs = readFileSync(join(__dirname, '../scripts/module.js'), 'utf8');
@@ -144,20 +145,16 @@ describe('Water Color Stability & Live Uniform Updates Contract', () => {
       'puddle_rain'
     ];
     for (const key of naturalKeys) {
-      const regex = new RegExp(`${key}:\\s*{([^}]+)}`);
-      const match = waterManagerJs.match(regex);
-      assert.ok(match, `Preset ${key} not found in WaterManager.js`);
-      assert.ok(!match[1].includes('colorOverride'), `Natural preset ${key} must not declare hardcoded colorOverride`);
+      assert.ok(WATER_PRESETS[key], `Preset ${key} not found in WATER_PRESETS`);
+      assert.ok(!WATER_PRESETS[key].colorOverride, `Natural preset ${key} must not declare hardcoded colorOverride`);
     }
   });
 
   it('guarantees thematic fluid presets declare explicit color overrides', () => {
     const thematicKeys = ['puddle_mud', 'puddle_slime', 'puddle_blood'];
     for (const key of thematicKeys) {
-      const regex = new RegExp(`${key}:\\s*{([^}]+)}`);
-      const match = waterManagerJs.match(regex);
-      assert.ok(match, `Thematic preset ${key} not found in WaterManager.js`);
-      assert.ok(match[1].includes("colorOverride: '#"), `Thematic preset ${key} must declare a hex colorOverride`);
+      assert.ok(WATER_PRESETS[key], `Thematic preset ${key} not found in WATER_PRESETS`);
+      assert.match(WATER_PRESETS[key].colorOverride ?? '', /^#[0-9a-fA-F]{6}$/, `Thematic preset ${key} must declare a hex colorOverride`);
     }
   });
 

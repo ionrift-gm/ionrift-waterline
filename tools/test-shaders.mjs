@@ -253,47 +253,24 @@ describe('River Flow Shader (RIVER_FLOW_CHUNK)', () => {
     assert.match(RIVER_FLOW_CHUNK, /if\s*\(uRiverWaves\s*<=\s*0\.001\)/, 'computeRiverWaves must exit early when inactive');
   });
 
-  it('dissociates wavelet amplitudes per cycle and eliminates harmonic plane wave set interference', () => {
-    // Harmonic plane wave interference across river sections is prohibited
-    assert.ok(!RIVER_FLOW_CHUNK.includes('waveSetInterf'), 'RIVER_FLOW_CHUNK must not use river-wide harmonic waveSetInterf');
-    assert.ok(!RIVER_FLOW_CHUNK.includes('setPhase1'), 'RIVER_FLOW_CHUNK must not use periodic setPhase plane waves');
-
-    // Per-cycle hashing and amplitude dissociation
-    assert.match(RIVER_FLOW_CHUNK, /float\s+cycleIndex\s*=\s*floor\(localTime\s*\/\s*basePeriod\);/, 'Must compute cycleIndex for per-pass stochastic decoupling');
-    assert.match(RIVER_FLOW_CHUNK, /float\s+ampVariance\s*=\s*mix\(0\.35,\s*1\.65,\s*cycleRnd\.y\);/, 'Must dissociate wavelet amplitudes with wide variance');
-    assert.match(RIVER_FLOW_CHUNK, /float\s+breakCondition\s*=\s*smoothstep\(0\.40,\s*0\.85,\s*lifeAmp\);/, 'Foam must break based on individual wavelet lifecycle amplitude');
+  it('dissociates bump/dip amplitudes asynchronously across multi-scale layers', () => {
+    assert.match(RIVER_FLOW_CHUNK, /float\s+driftSpeed\s*=\s*mix\(0\.78,\s*1\.22,\s*r2\.x\)\s*\*\s*speedMult;/, 'Must decouple drift speed per cell');
+    assert.match(RIVER_FLOW_CHUNK, /float\s+amp\s*=\s*mix\(0\.55,\s*1\.10,\s*r3\.y\)\s*\*\s*polarity\s*\*\s*lifeEnv;/, 'Must dissociate bump/dip amplitudes');
   });
 
-  it('guarantees monotonic kinetic forward surge and subordinate micro-riffles to prevent double peaks', () => {
-    // Prohibit reversing lunge that causes wavelets to stall and double-peak
-    assert.ok(!RIVER_FLOW_CHUNK.includes('sin(smoothstep'), 'RIVER_FLOW_CHUNK must not use reversing sin(smoothstep) lunge');
-    assert.match(RIVER_FLOW_CHUNK, /float\s+forwardSurge\s*=\s*smoothstep\(0\.10,\s*0\.55,\s*tau\)\s*\*\s*surgeDist;/, 'Wavelet forward surge must be monotonic');
-
-    // Prohibit full 360-degree pendulum lateral sway across line of sight
-    assert.ok(!RIVER_FLOW_CHUNK.includes('tau * 6.28318'), 'RIVER_FLOW_CHUNK must not use 360-deg pendulum lateral sway');
-
-    // Layer 2 micro-riffles must be subordinate (< 0.35) so they do not compete or double-crest with primary wavelets
-    assert.match(RIVER_FLOW_CHUNK, /float\s+posElev\s*=\s*max\(posElev1,\s*posElev2\s*\*\s*0\.28\);/, 'Layer 2 elevation must be subordinate to primary layer');
-    assert.match(RIVER_FLOW_CHUNK, /float\s+combinedFoam\s*=\s*max\(foam1,\s*foam2\s*\*\s*0\.25\);/, 'Layer 2 foam must be subordinate to primary layer');
-
-    // Steepen power must synchronize directly with lifeAmp
-    assert.match(RIVER_FLOW_CHUNK, /float\s+steepenPower\s*=\s*mix\(1\.2,\s*2\.0,\s*min\(1\.0,\s*lifeAmp\)\);/, 'Crest steepening must peak in lockstep with lifecycle amplitude');
+  it('guarantees non-additive bounded elevation saturation without amplitude doubling', () => {
+    assert.match(RIVER_FLOW_CHUNK, /float\s+kSat\s*=\s*0\.80;/, 'Must enforce kSat = 0.80 soft saturation');
+    assert.match(RIVER_FLOW_CHUNK, /float\s+denom\s*=\s*sqrt\(1\.0\s*\+\s*kSat\s*\*\s*sumElev\s*\*\s*sumElev\);/, 'Must calculate soft saturation denominator');
+    assert.match(RIVER_FLOW_CHUNK, /float\s+riverElevation\s*=\s*sumElev\s*\/\s*denom;/, 'Must bound riverElevation strictly via H = S / denom');
   });
 
-  it('morphs wavelet geometry dynamically through lifecycle tau', () => {
-    // Dynamic bow amplitude evolving with tau
-    assert.match(RIVER_FLOW_CHUNK, /float\s+dynBowAmp\s*=\s*bowAmp\s*\*\s*bowMorph;/, 'Must evolve crescent bow amplitude over lifecycle');
-    // Dynamic wing shear drift
-    assert.match(RIVER_FLOW_CHUNK, /float\s+dynWingSkew\s*=\s*clamp\(wingSkew\s*\+\s*\(tau\s*-\s*0\.38\)\s*\*\s*shearRate/, 'Must shear wings dynamically over lifecycle');
-    // Organic crest flex
-    assert.match(RIVER_FLOW_CHUNK, /float\s+crestFlex\s*=\s*sin\(flexPhase\)\s*\*\s*flexAmp;/, 'Must apply dynamic organic crest flex');
-    // Crest sharpening and lifecycle diffusion
-    assert.match(RIVER_FLOW_CHUNK, /float\s+crestDiffusion\s*=\s*1\.0\s*\+\s*0\.35\s*\*\s*smoothstep\(0\.48,\s*0\.95,\s*tau\);/, 'Must diffuse crest width as wavelet decays');
+  it('evaluates dense multi-scale layers (macro, meso, micro) and ambient undulation', () => {
+    assert.match(RIVER_FLOW_CHUNK, /sumElev\s*\+=\s*mesoElev\s*\*\s*0\.65;/, 'Must evaluate Layer 2 meso babbling ripples');
+    assert.match(RIVER_FLOW_CHUNK, /sumElev\s*\+=\s*microElev\s*\*\s*0\.35;/, 'Must evaluate Layer 3 micro capillary ripples');
+    assert.match(RIVER_FLOW_CHUNK, /sumElev\s*\+=\s*ambRipple;/, 'Must evaluate ambient stream undulation');
   });
 
-  it('guarantees cellular seam prevention with bounded search envelope (Delta_max + R_max < 1.50)', () => {
-    // Prohibit uncentered row stagger that pushed features beyond 3x3 search bounds
-    assert.doesNotMatch(RIVER_FLOW_CHUNK, /mod\(abs\(cId\.y\),\s*2\.0\)\s*\*\s*\(cellSize\.x\s*\*\s*0\.5\)/, 'Row stagger must not use uncentered positive-only offset');
+  it('guarantees cellular seam prevention with bounded search envelope', () => {
     // Enforce centered row stagger (mod - 0.5) * 0.25 (range [-0.125, +0.125] of cellSize)
     assert.match(RIVER_FLOW_CHUNK, /\(mod\(abs\(cId\.y\),\s*2\.0\)\s*-\s*0\.5\)\s*\*\s*\(cellSize\.x\s*\*\s*0\.25\)/, 'Row stagger must be centered at [-0.125, 0.125] of cellSize');
     // Bounded jitter centered on (r1 - 0.5)
@@ -301,18 +278,6 @@ describe('River Flow Shader (RIVER_FLOW_CHUNK)', () => {
     // Bounded feature radius
     assert.match(RIVER_FLOW_CHUNK, /float\s+radU\s*=\s*cellSize\.x\s*\*\s*0\.44\s*\*\s*aspect\s*\*\s*layerScale;/, 'radU must scale with 0.44 * aspect');
     assert.match(RIVER_FLOW_CHUNK, /float\s+radV\s*=\s*cellSize\.y\s*\*\s*0\.46\s*\*\s*layerScale;/, 'radV must scale with 0.46');
-
-    // Theoretical maximum envelope:
-    // deltaMax = max(rowStagger) + max(jitter) + max(driftDist)
-    //          = 0.125 + 0.5 * 0.22 * 0.70 + 0.5 * 0.18 * 0.60
-    //          = 0.125 + 0.077 + 0.054 = 0.256
-    // rMax = 0.44 * 1.35 = 0.594
-    // totalReach = deltaMax + rMax = 0.850
-    // Must be strictly < 1.50 (search radius of 3x3 neighbor cell) to guarantee zero boundary jump
-    const deltaMax = 0.125 + 0.077 + 0.054;
-    const rMax = 0.44 * 1.35;
-    const totalReach = deltaMax + rMax;
-    assert.ok(totalReach < 1.50, `Total feature reach (${totalReach}) must be strictly less than 1.50 to prevent cellular seams`);
   });
 
   it('calibrates normal slope gain, whitewater foam threshold, and benthic refraction displacement', () => {

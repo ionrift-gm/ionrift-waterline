@@ -1,0 +1,130 @@
+<!-- Wake Presets -->
+<div class="wake-tg-presets">
+    <label class="wake-tg-presets-label"><i class="fas fa-bookmark"></i> Preset</label>
+    <select name="wakePresetSelect" class="wake-tg-preset-select">
+        <option value="" disabled {{#unless activeWakePreset}}selected{{/unless}}>
+            {{#if wakePresets.length}}Select preset...{{else}}No presets saved{{/if}}
+        </option>
+        {{#each wakePresets as |n|}}
+        <option value="{{n}}" {{#if (eq ../activeWakePreset n)}}selected{{/if}}>{{n}}</option>
+        {{/each}}
+    </select>
+    <button type="button" class="wake-tg-preset-save wc-preset-btn" data-action="promptSaveWakePreset" title="Save current ripple settings">
+        <i class="fas fa-save"></i>
+    </button>
+    {{#if activeWakePreset}}
+    <button type="button" class="wake-tg-preset-del wc-preset-btn wc-preset-delete" data-action="deleteWakePreset" title="Delete selected ripple preset">
+        <i class="fas fa-trash"></i>
+    </button>
+    {{/if}}
+</div>
+
+<div class="wake-tg-save-prompt {{#unless showWakePresetPrompt}}hidden{{/unless}}">
+    <input type="text" name="newWakePresetName" class="wake-tg-preset-name wc-preset-name" placeholder="Preset name..." />
+    <button type="button" class="wake-tg-preset-confirm cartograph-btn wc-preset-confirm" data-action="confirmSaveWakePreset">
+        <i class="fas fa-check"></i>
+    </button>
+    <button type="button" class="wake-tg-preset-cancel cartograph-btn wc-preset-cancel" data-action="cancelSaveWakePreset">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+
+<div class="wake-tg-scroll">
+    <p class="wake-tg-hint">Configure token ripples.</p>
+
+    <!-- Visual Style -->
+    <details class="wake-tg-details" open>
+        <summary>Visual Style</summary>
+        <div class="wake-tg-details-body">
+            <div class="form-group wake-tg-row">
+                <label>Display Mode</label>
+                <select name="wakeVisualMode">
+                    <option value="shader" {{#if (eq wake.visualMode 'shader')}}selected{{/if}}>Refraction</option>
+                    <option value="sprites" {{#if (eq wake.visualMode 'sprites')}}selected{{/if}}>Crest rings</option>
+                    <option value="both" {{#if (eq wake.visualMode 'both')}}selected{{/if}}>Combined (Refraction + Rings)</option>
+                </select>
+            </div>
+        </div>
+    </details>
+
+    <!-- Wave Shape & Lifetime -->
+    <details class="wake-tg-details" open>
+        <summary>Wave Shape & Lifetime</summary>
+        <div class="wake-tg-details-body">
+            <div class="form-group wake-tg-row">
+                <label title="Lifespan of motion ripples">Lifetime (s)</label>
+                <input type="range" name="wake_duration" min="0.35" max="4" step="0.05" value="{{wake.duration}}" />
+                <span class="wake-tg-val">{{numberFormat wake.duration decimals=2}}</span>
+            </div>
+            <div class="form-group wake-tg-row">
+                <label title="Initial ring radius relative to token size">Start radius (x token)</label>
+                <input type="range" name="wake_rippleStartMul" min="0.2" max="2.0" step="0.05" value="{{wake.rippleStartMul}}" />
+                <span class="wake-tg-val">{{numberFormat wake.rippleStartMul decimals=2}}</span>
+            </div>
+            <div class="form-group wake-tg-row">
+                <label title="Maximum ring expansion relative to token size">Max radius (x token)</label>
+                <input type="range" name="wake_rippleMaxMul" min="1.0" max="5.0" step="0.1" value="{{wake.rippleMaxMul}}" />
+                <span class="wake-tg-val">{{numberFormat wake.rippleMaxMul decimals=2}}</span>
+            </div>
+            <div class="form-group wake-tg-row">
+                <label title="Number of concentric rings per ripple">Ring count</label>
+                <input type="range" name="wake_ringCount" min="1" max="6" step="1" value="{{wake.ringCount}}" />
+                <span class="wake-tg-val">{{wake.ringCount}}</span>
+            </div>
+            <div class="form-group wake-tg-row">
+                <label title="Peak opacity of ripple crests">Strength</label>
+                <input type="range" name="wake_baseAlpha" min="0.1" max="1" step="0.05" value="{{wake.baseAlpha}}" />
+                <span class="wake-tg-val">{{numberFormat wake.baseAlpha decimals=2}}</span>
+            </div>
+            <div class="form-group wake-tg-row">
+                <label title="Variation in ring spacing and decay">Wave Dispersion</label>
+                <input type="range" name="wake_rippleVariance" min="0" max="2" step="0.05" value="{{wake.rippleVariance}}" />
+                <span class="wake-tg-val">{{numberFormat wake.rippleVariance decimals=2}}</span>
+            </div>
+        </div>
+    </details>
+
+    <!-- Motion Burst & Trail Ripples -->
+    <details class="wake-tg-details">
+        <summary>Motion & Ripples</summary>
+        <div class="wake-tg-details-body">
+            <div class="form-group wake-tg-row">
+                <label title="Pixel lead ahead of moving tokens">Lead ahead (px)</label>
+                <input type="range" name="wake_rippleLeadPx" min="0" max="30" step="1" value="{{wake.rippleLeadPx}}" />
+                <span class="wake-tg-val">{{wake.rippleLeadPx}}</span>
+            </div>
+            <div class="form-group wake-tg-row">
+                <label title="Minimum movement distance to trigger ripple burst">Min move for burst (px)</label>
+                <input type="range" name="wake_minMoveDist" min="0" max="80" step="1" value="{{wake.minMoveDist}}" />
+                <span class="wake-tg-val">{{wake.minMoveDist}}</span>
+            </div>
+            <div class="form-group wake-tg-row">
+                <label title="Distance traveled between ripple emissions">Spawn cooldown (px)</label>
+                <input type="range" name="wake_spawnCooldownPx" min="5" max="100" step="1" value="{{wake.spawnCooldownPx}}" />
+                <span class="wake-tg-val">{{wake.spawnCooldownPx}}</span>
+            </div>
+            <div class="form-group wake-tg-row">
+                <label title="Maximum concurrent active ripples allowed">Total ripple budget</label>
+                <input type="range" name="wake_maxRipplesPool" min="10" max="120" step="1" value="{{wake.maxRipplesPool}}" />
+                <span class="wake-tg-val">{{wake.maxRipplesPool}}</span>
+            </div>
+            <div class="form-group wake-tg-row">
+                <label title="Duration movement wake persists">Trail lifetime (s)</label>
+                <input type="range" name="wake_refreshDuration" min="0.4" max="3" step="0.05" value="{{wake.refreshDuration}}" />
+                <span class="wake-tg-val">{{numberFormat wake.refreshDuration decimals=2}}</span>
+            </div>
+            <div class="form-group wake-tg-row">
+                <label title="Opacity of trailing movement wake">Trail strength</label>
+                <input type="range" name="wake_refreshBaseAlpha" min="0.1" max="1" step="0.05" value="{{wake.refreshBaseAlpha}}" />
+                <span class="wake-tg-val">{{numberFormat wake.refreshBaseAlpha decimals=2}}</span>
+            </div>
+        </div>
+    </details>
+</div>
+
+<!-- Tab 2 Footer -->
+<div class="wc-footer-actions">
+    <button type="button" class="cartograph-btn" data-action="resetWakeDefaults">
+        <i class="fas fa-undo"></i> Reset Default Physics
+    </button>
+</div>
