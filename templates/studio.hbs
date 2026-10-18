@@ -118,23 +118,21 @@
             {{/if}}
 
             <!-- Tab 1 Footer -->
+            {{#if zones.length}}
             <div class="wc-footer-actions">
-                {{#if zones.length}}
                 <div class="wc-footer-batch-row ws-batch-sync-toggle">
                     <label class="wc-batch-label" title="When checked, saves these settings to all waterbodies sharing this archetype on the scene">
                         <input type="checkbox" name="applyToAllSameArchetype" class="ws-batch-archetype-checkbox" {{#if applyToAllSameArchetype}}checked{{/if}} />
                         <span>Apply to all <strong>{{activeArchetypeMeta.label}}</strong> bodies</span>
                     </label>
                 </div>
-                {{/if}}
                 <div class="wc-footer-buttons">
-                    {{#if zones.length}}
                     <button type="button" class="cartograph-btn cartograph-btn-save-fx" data-action="saveWaterFX">
                         <i class="fas fa-save"></i> Save to Waterbody
                     </button>
-                    {{/if}}
                 </div>
             </div>
+            {{/if}}
         </section>
 
         <!-- ========================================================= -->

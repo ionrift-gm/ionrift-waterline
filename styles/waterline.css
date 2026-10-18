@@ -622,18 +622,127 @@
     color: #38bdf8 !important;
 }
 
+.waterline-studio-root .wc-candidate-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 6px;
+}
+
+.waterline-studio-root .wc-candidate-header i {
+    color: #38bdf8;
+}
+
 .waterline-studio-root .wc-candidate-tag {
     margin-left: auto;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 7px;
+    gap: 5px;
+    padding: 2px 8px;
     font-size: 0.72rem;
     font-weight: 600;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
     color: #e2e8f0;
+    user-select: none;
+    cursor: default;
+}
+
+.waterline-studio-root .wc-candidate-tag .wc-tag-prefix {
+    font-size: 0.66rem;
+    font-weight: 500;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.waterline-studio-root .wc-vert-warning {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.74rem;
+    color: #facc15;
+    background: rgba(250, 204, 21, 0.08);
+    border: 1px solid rgba(250, 204, 21, 0.2);
+    border-radius: 4px;
+    padding: 5px 8px;
+    margin: 6px 0;
+    line-height: 1.3;
+}
+
+.waterline-studio-root .wc-vert-warning i {
+    color: #facc15;
+    flex-shrink: 0;
+    font-size: 0.74rem;
+}
+
+/* Candidate boundary toolbar */
+.waterline-studio-root .wc-candidate-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 5px;
+    padding: 4px 8px;
+    margin: 6px 0;
+}
+
+.waterline-studio-root .wc-toolbar-label {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #a1a1aa;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.waterline-studio-root .wc-toolbar-label i {
+    color: var(--ionrift-accent, #a78bfa);
+}
+
+.waterline-studio-root .wc-toolbar-buttons {
+    display: flex;
+    gap: 5px;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+.waterline-studio-root .wc-btn-tool {
+    padding: 3px 8px !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    height: 24px !important;
+    border-radius: 4px !important;
+    background: rgba(139, 92, 246, 0.12) !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    color: #d4d4d8 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+    margin: 0 !important;
+    width: auto !important;
+}
+
+.waterline-studio-root .wc-btn-tool:hover {
+    background: rgba(139, 92, 246, 0.28) !important;
+    border-color: rgba(139, 92, 246, 0.6) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.25) !important;
+}
+
+.waterline-studio-root .wc-btn-tool:active {
+    transform: scale(0.97);
 }
 
 .waterline-studio-root .wc-refine-hint {
@@ -675,7 +784,36 @@
 .waterline-studio-root .wc-candidate-actions {
     display: flex;
     gap: 6px;
-    margin-top: 6px;
+    margin-top: 8px;
+}
+
+.waterline-studio-root .wc-candidate-actions .cartograph-btn-accept,
+.waterline-studio-root .wc-candidate-actions .cartograph-btn-discard {
+    flex: 1 1 0;
+    height: 28px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+    padding: 0 10px;
+    cursor: pointer;
+}
+
+.waterline-studio-root .wc-candidate-actions .cartograph-btn-undo {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 28px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
 }
 
 .waterline-studio-root .cartograph-btn-accept {
@@ -908,6 +1046,14 @@
     border-color: rgba(248, 113, 113, 0.6) !important;
     color: #fca5a5 !important;
     box-shadow: 0 0 10px rgba(239, 68, 68, 0.3) !important;
+}
+.waterline-studio-root .wc-empty-hint {
+    font-size: 0.76rem;
+    color: #71717a;
+    font-style: italic;
+    text-align: center;
+    padding: 10px 8px 4px 8px;
+    margin: 4px 0 0 0;
 }
 
 .waterline-studio-root .wc-entity-list {
