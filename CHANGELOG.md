@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.5] - 2026-10-18
+
+### Added
+- Water sounds through Ionrift Resonance: entering, leaving and wading through water each have their own sound, set up in Resonance's Waterline tab.
+
+### Changed
+- Refreshed Waterline Studio layout and detection panel styling.
+- Simpler hint text for complex water boundaries.
+
 ## [1.0.4] - 2026-10-11
 
 ### Added
