@@ -163,27 +163,35 @@ export class WaterDetector {
      * Create a Foundry Region from a detection candidate.
      * @param {object} candidate - Result from detectCandidates
      * @param {string} [name] - Region name
+     * @param {object} [overrides] - Optional archetype, preset, and FX overrides from Studio UI
      * @returns {Promise<RegionDocument|null>}
      */
-    static async createRegionFromCandidate(candidate, name = 'Water') {
+    static async createRegionFromCandidate(candidate, name = 'Water', overrides = null) {
         const scene = canvas.scene;
         if (!scene || !game.user.isGM) return null;
 
         const est = candidate.estimation ?? WaterShapeEstimator.estimate(candidate);
-        const archetype = est?.archetype || 'river';
-        const presetKey = est?.preset || 'river';
+        const archetype = overrides?.archetype || est?.archetype || 'river';
+        const presetKey = overrides?.preset || est?.preset || WATER_ARCHETYPES[archetype]?.defaultPreset || 'river';
         const preset = WATER_PRESETS[presetKey] ?? {};
-        const flowAngle = est?.flowAngle ?? preset.flowAngle ?? 90;
+        const fx = overrides?.fx ?? {};
+        const flowAngle = Number.isFinite(fx.flowAngle) ? fx.flowAngle : (est?.flowAngle ?? preset.flowAngle ?? 90);
+        const colorOverride = (fx.autoColor === false && fx.colorOverride) ? fx.colorOverride : (preset.colorOverride || '');
 
         let regionName = name;
         if (!regionName || regionName === 'Water') {
-            const allRegions = scene.regions?.contents ?? scene.regions ?? [];
-            const existingCount = allRegions.filter(r => {
-                const beh = r.behaviors?.find ? r.behaviors.find(b => b.type === `${MODULE_ID}.waterFX`) : null;
+            const allRegions = Array.from(scene.regions?.values?.() ?? scene.regions?.contents ?? scene.regions ?? []);
+            const archLabel = WATER_ARCHETYPES[archetype]?.label || est?.archetypeLabel || 'Water';
+            const existingNames = new Set(allRegions.map(r => (r.name || '').trim().toLowerCase()));
+            let nextIndex = allRegions.filter(r => {
+                const behaviors = Array.from(r.behaviors?.values?.() ?? r.behaviors?.contents ?? r.behaviors ?? []);
+                const beh = behaviors.find(b => b.type === `${MODULE_ID}.waterFX`);
                 return beh?.system?.archetype === archetype;
-            }).length;
-            const archLabel = est?.archetypeLabel || 'Water';
-            regionName = `${archLabel} ${existingCount + 1}`;
+            }).length + 1;
+            while (existingNames.has(`${archLabel} ${nextIndex}`.toLowerCase())) {
+                nextIndex++;
+            }
+            regionName = `${archLabel} ${nextIndex}`;
         }
 
         const regionPoints = (est?.touches?.count > 0)
@@ -192,13 +200,16 @@ export class WaterDetector {
 
         const regionData = {
             name: regionName,
-            color: preset.colorOverride || WATER_ARCHETYPES[archetype]?.accentColor || '#2a6496',
+            color: colorOverride || (archetype === 'puddle' ? '#38bdf8' : WATER_ARCHETYPES[archetype]?.accentColor) || '#2a6496',
             shapes: [{
                 type: 'polygon',
                 points: regionPoints
             }],
             flags: {
-                [MODULE_ID]: { configured: true }
+                [MODULE_ID]: {
+                    configured: true,
+                    ...(colorOverride ? { color: colorOverride } : {})
+                }
             },
             behaviors: []
         };
@@ -206,6 +217,7 @@ export class WaterDetector {
         try {
             const created = await scene.createEmbeddedDocuments('Region', [regionData]);
             if (created.length && CONFIG.RegionBehavior.dataModels[`${MODULE_ID}.waterFX`]) {
+                const isSmallBody = (archetype === 'lake' || archetype === 'pond' || archetype === 'puddle');
                 await created[0].createEmbeddedDocuments('RegionBehavior', [{
                     type: `${MODULE_ID}.waterFX`,
                     name: 'Water FX',
@@ -216,23 +228,27 @@ export class WaterDetector {
                         archetype,
                         waterType: presetKey,
                         flowAngle,
-                        speed: preset.speed ?? 1.0,
-                        intensity: preset.intensity ?? 0.3,
-                        opacity: preset.opacity ?? 0.2,
-                        distortion: preset.distortion ?? 0.02,
-                        fadeWidth: preset.fadeWidth ?? 50,
-                        scale: preset.scale ?? 90,
-                        shoreWaves: preset.shoreWaves ?? 0.2,
-                        swashSurge: preset.swashSurge ?? 16.0,
-                        waveSegment: preset.waveSegment ?? 0.85,
-                        waveRegularity: preset.waveRegularity ?? 0.60,
-                        choppySeas: preset.choppySeas ?? 0.0,
-                        riverWaves: preset.riverWaves ?? (archetype === 'river' ? 0.65 : 0.0),
-                        lakeWaves: preset.lakeWaves ?? (archetype === 'lake' || archetype === 'pond' ? 0.25 : 0.0),
-                        lakeRings: preset.lakeRings ?? (archetype === 'lake' || archetype === 'pond' || archetype === 'puddle'),
-                        whitecaps: preset.whitecaps ?? 0.1,
-                        sunGlint: preset.sunGlint ?? 0.3,
-                        colorOverride: preset.colorOverride || ''
+                        speed: Number.isFinite(fx.speed) ? fx.speed : (preset.speed ?? 1.0),
+                        intensity: Number.isFinite(fx.intensity) ? fx.intensity : (preset.intensity ?? 0.3),
+                        opacity: Number.isFinite(fx.opacity) ? fx.opacity : (preset.opacity ?? 0.2),
+                        distortion: Number.isFinite(fx.distortion) ? fx.distortion : (preset.distortion ?? 0.02),
+                        fadeWidth: Number.isFinite(fx.fadeWidth) ? fx.fadeWidth : (preset.fadeWidth ?? 50),
+                        scale: Number.isFinite(fx.scale) ? fx.scale : (preset.scale ?? 90),
+                        shoreWaves: Number.isFinite(fx.shoreWaves) ? fx.shoreWaves : (preset.shoreWaves ?? 0.2),
+                        waveCount: Number.isFinite(fx.waveCount) ? fx.waveCount : (preset.waveCount ?? 4),
+                        swashSurge: Number.isFinite(fx.swashSurge) ? fx.swashSurge : (preset.swashSurge ?? 16.0),
+                        surfFoam: Number.isFinite(fx.surfFoam) ? fx.surfFoam : (preset.surfFoam ?? 0.70),
+                        waveSegment: Number.isFinite(fx.waveSegment) ? fx.waveSegment : (preset.waveSegment ?? 0.85),
+                        waveRegularity: Number.isFinite(fx.waveRegularity) ? fx.waveRegularity : (preset.waveRegularity ?? 0.60),
+                        choppySeas: Number.isFinite(fx.choppySeas) ? fx.choppySeas : (preset.choppySeas ?? 0.0),
+                        riverWaves: Number.isFinite(fx.riverWaves) ? fx.riverWaves : (preset.riverWaves ?? (archetype === 'river' ? 0.65 : 0.0)),
+                        lakeWaves: isSmallBody ? (Number.isFinite(fx.lakeWaves) ? fx.lakeWaves : (preset.lakeWaves ?? (archetype === 'lake' || archetype === 'pond' ? 0.25 : 0.0))) : 0.0,
+                        lakeRings: isSmallBody ? (Number.isFinite(fx.lakeRings) ? fx.lakeRings : (preset.lakeRings ?? (archetype === 'lake' || archetype === 'pond' || archetype === 'puddle' ? 0.70 : 0.0))) : 0.0,
+                        whitecaps: Number.isFinite(fx.whitecaps) ? fx.whitecaps : (preset.whitecaps ?? 0.1),
+                        sunGlint: Number.isFinite(fx.sunGlint) ? fx.sunGlint : (preset.sunGlint ?? 0.3),
+                        spindriftWake: Boolean(fx.spindriftWake ?? preset.spindriftWake),
+                        crestBound: Boolean(fx.crestBound ?? preset.crestBound),
+                        colorOverride
                     }
                 }]);
             }

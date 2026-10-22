@@ -206,7 +206,7 @@ export class WaterShapeEstimator {
             const gridSize = dims.size || dims.grid?.size || canvas?.grid?.size || canvas?.dimensions?.size || canvas?.scene?.grid?.size || 100;
             const gridCells = polyArea / (gridSize * gridSize);
 
-            if (gridCells <= 3.5 || polyArea < 25000) {
+            if (gridCells <= 1.5 || (gridCells <= 3.5 && vertCount <= 8)) {
                 archetype = 'puddle';
                 preset = 'puddle_rain';
                 flowAngle = 0;

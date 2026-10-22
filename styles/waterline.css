@@ -1060,7 +1060,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    max-height: 135px;
+    max-height: 184px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(139, 92, 246, 0.4) transparent;
@@ -1179,7 +1179,33 @@
     margin-bottom: 6px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
+}
+
+.waterline-studio-root .wc-active-target-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.18);
+    color: #c4b5fd;
+}
+
+.waterline-studio-root .wc-active-target-label {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #9d95b0;
+}
+
+.waterline-studio-root .wc-active-target-name {
+    color: #ffffff;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .waterline-studio-root .wc-archetype-preset-row {

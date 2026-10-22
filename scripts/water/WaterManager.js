@@ -419,6 +419,8 @@ Water Tuning API:
             }
 
             if (colorHex) {
+                const baseOpacity = config.opacity ?? preset.opacity ?? 0.2;
+                mesh.setOpacity(Math.min(0.75, baseOpacity + 0.28));
                 const hex = colorHex.replace('#', '');
                 const rgb = [
                     parseInt(hex.slice(0, 2), 16) / 255,
@@ -530,6 +532,9 @@ Water Tuning API:
             colorHex = config.colorOverride.length >= 6 ? config.colorOverride : null;
         } else if (preset.colorOverride && preset.colorOverride.length >= 6) {
             colorHex = preset.colorOverride;
+        }
+        if (colorHex) {
+            resolvedConfig.opacity = Math.min(0.75, (resolvedConfig.opacity ?? 0.2) + 0.28);
         }
 
         // Auto-sample background (cached per region) and shift toward blue
@@ -827,6 +832,7 @@ Water Tuning API:
 
                 for (let sy = minY; sy <= maxY; sy += step) {
                     for (let sx = minX; sx <= maxX; sx += step) {
+                        if (!WaterManager.#pointInPolygon(sx, sy, points)) continue;
                         const imgX = Math.round((sx - dims.sceneX) * scaleX);
                         const imgY = Math.round((sy - dims.sceneY) * scaleY);
                         if (imgX < 0 || imgX >= thumb.width || imgY < 0 || imgY >= thumb.height) continue;
@@ -849,13 +855,12 @@ Water Tuning API:
 
             if (!pixelSamples.length) return fallback;
 
-            // Pass 1: Filter out high-saturation pixels (vegetation/terrain)
-            // Water tends to be desaturated (grey/blue)
-            const desaturated = pixelSamples.filter(s => s.sat < 0.35);
-            LOG(`  Saturation filter: ${pixelSamples.length} total, ${desaturated.length} low-sat`);
+            // Pass 1: Discard warm shore/mud bleed when cool/neutral water samples exist inside polygon
+            const waterHued = pixelSamples.filter(s => s.b >= s.r * 0.85);
+            LOG(`  Water-hue filter: ${pixelSamples.length} total, ${waterHued.length} cool/neutral`);
 
-            // Use desaturated if enough samples, otherwise fall back to all
-            const pool = desaturated.length >= 5 ? desaturated : pixelSamples;
+            // Use water-hued samples if enough exist, otherwise fall back to all in-polygon samples
+            const pool = waterHued.length >= 5 ? waterHued : pixelSamples;
 
             // Pass 2: IQR on luminance to remove remaining outliers
             pool.sort((a, b) => a.lum - b.lum);

@@ -157,6 +157,7 @@ Hooks.on('canvasReady', async () => {
 Hooks.on('updateRegion', () => WaterManager.debouncedRefresh());
 Hooks.on('createRegion', () => WaterManager.debouncedRefresh());
 Hooks.on('deleteRegion', () => WaterManager.debouncedRefresh());
+Hooks.on('refreshRegion', (placeable) => WaterlineStudioApp.onRefreshRegion(placeable));
 
 // Behavior CRUD
 Hooks.on('createRegionBehavior', () => WaterManager.debouncedRefresh());
@@ -170,8 +171,12 @@ Hooks.on('controlRegion', (placeable, controlled) => {
     if (!controlled || !game.user.isGM) return;
     const app = WaterlineStudioApp._instance;
     if (!app) return;
-    const regionId = placeable.document?.id;
-    if (regionId && regionId !== app.activeRegionId) {
+    if (app.sampler?.isActive || app.sampler?.editingRegionId) return;
+    const region = placeable.document;
+    const regionId = region?.id;
+    if (!regionId || regionId === app.activeRegionId) return;
+    const behaviors = Array.from(region.behaviors?.values?.() ?? region.behaviors ?? []);
+    if (behaviors.some(b => b.type === `${MODULE_ID}.waterFX`)) {
         app.loadRegion(regionId);
     }
 });

@@ -20,9 +20,14 @@
             <!-- 1. Scene Waterbodies Entity Deck -->
             {{> "modules/ionrift-waterline/templates/parts/deck-zones.hbs"}}
 
-            {{#if zones.length}}
+            {{#if showFXControls}}
             <!-- 2. Active Waterbody Archetype & Preset Selector (Unified Row) -->
             <div class="wc-archetype-bar ionrift-card">
+                <div class="wc-active-target-header">
+                    <i class="{{activeArchetypeMeta.icon}}" style="color: {{activeArchetypeMeta.accentColor}};"></i>
+                    <span class="wc-active-target-label">{{#if isConfiguringCandidate}}New Waterbody:{{else}}Selected:{{/if}}</span>
+                    <strong class="wc-active-target-name">{{activeTargetName}}</strong>
+                </div>
                 <div class="wc-archetype-preset-row">
                     <div class="wc-bar-col wc-archetype-col">
                         <label title="Fundamental waterbody type">
@@ -118,7 +123,7 @@
             {{/if}}
 
             <!-- Tab 1 Footer -->
-            {{#if zones.length}}
+            {{#if hasActiveZone}}
             <div class="wc-footer-actions">
                 <div class="wc-footer-batch-row ws-batch-sync-toggle">
                     <label class="wc-batch-label" title="When checked, saves these settings to all waterbodies sharing this archetype on the scene">

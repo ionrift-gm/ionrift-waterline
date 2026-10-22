@@ -1,6 +1,7 @@
 import { WaterDetector } from '../water/WaterDetector.js';
 import { MapBorderDetector } from '../water/MapBorderDetector.js';
 import { WaterShapeEstimator } from '../water/WaterShapeEstimator.js';
+import { WATER_ARCHETYPES } from '../water/WaterManager.js';
 
 /**
  * Controller for interactive water sampling (pick mode) on the canvas.
@@ -202,7 +203,23 @@ export class WaterSamplingController {
         }
 
         candidate.maskData = maskData;
-        candidate.estimation = WaterShapeEstimator.estimate(candidate, canvas.dimensions ?? canvas.scene?.dimensions);
+        const baseEst = WaterShapeEstimator.estimate(candidate, canvas.dimensions ?? canvas.scene?.dimensions);
+        const behaviors = Array.from(region.behaviors?.values?.() ?? region.behaviors?.contents ?? region.behaviors ?? []);
+        const beh = behaviors.find(b => b.type === 'ionrift-waterline.waterFX');
+        const configuredArch = beh?.system?.archetype;
+        if (configuredArch && WATER_ARCHETYPES[configuredArch]) {
+            const archMeta = WATER_ARCHETYPES[configuredArch];
+            candidate.estimation = {
+                ...baseEst,
+                archetype: configuredArch,
+                archetypeLabel: archMeta.label,
+                icon: archMeta.icon,
+                accentColor: archMeta.accentColor,
+                preset: beh.system?.waterType || archMeta.defaultPreset
+            };
+        } else {
+            candidate.estimation = baseEst;
+        }
         this.#currentCandidate = candidate;
         this.#currentMaskData = maskData;
         this.#editingRegionId = regionId;
@@ -227,9 +244,10 @@ export class WaterSamplingController {
     /**
      * Accept current candidate and create or update a RegionDocument on the active scene.
      * @param {string} [name]
+     * @param {object} [overrides]
      * @returns {Promise<RegionDocument|null>}
      */
-    async acceptCandidate(name) {
+    async acceptCandidate(name, overrides = null) {
         if (!this.#currentCandidate) return null;
 
         if (this.#editingRegionId) {
@@ -258,7 +276,7 @@ export class WaterSamplingController {
         }
 
         const region = await WaterDetector.createRegionFromCandidate(
-            this.#currentCandidate, name
+            this.#currentCandidate, name, overrides
         );
 
         this.discardCandidate();

@@ -48,6 +48,14 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
     /** @type {number|null} RequestAnimationFrame id for live uniform updates */
     #rafId = null;
+    /** @type {number|null} Debounce timer for auto-persisting FX updates */
+    #autoSaveTimer = null;
+    /** @type {boolean} Suppress toast notifications during background auto-save */
+    #silentSave = false;
+    /** @type {string|null} Previously active region ID before entering New Waterbody pick mode */
+    #previousRegionId = null;
+    /** @type {boolean} Scroll active waterbody card into view on next render */
+    #scrollActiveIntoView = true;
     /** @type {boolean} */
     #isSamplingColor = false;
     /** @type {Function|null} */
@@ -125,7 +133,47 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         }
 
         app.render({ force: true });
+        WaterlineStudioApp.syncRegionOverlays(true);
         return app;
+    }
+
+    /**
+     * Suppresses or restores Foundry's native Region polygon hatching on water regions
+     * while Waterline is open so the GM sees the true water shader and tint without
+     * Foundry's region fill overlay obscuring the waterbody. Also repairs legacy
+     * brown (#d97706) region colors on natural water regions.
+     * @param {boolean} [hide]
+     */
+    static syncRegionOverlays(hide = Boolean(WaterlineStudioApp._instance)) {
+        const regions = Array.from(canvas?.scene?.regions?.values?.() ?? canvas?.scene?.regions ?? []);
+        const behaviorType = `${MODULE_ID}.waterFX`;
+        for (const region of regions) {
+            const behaviors = Array.from(region.behaviors?.values?.() ?? region.behaviors ?? []);
+            const beh = behaviors.find(b => b.type === behaviorType);
+            if (!beh) continue;
+            if (region.object) {
+                region.object.alpha = hide ? 0 : 1;
+            }
+            const rawColor = String(region.color ?? '').toLowerCase();
+            if (rawColor === '#d97706' && beh.system?.colorOverride !== '#d97706') {
+                void region.update?.({ color: beh.system?.colorOverride || '#0284c7' });
+            }
+        }
+    }
+
+    /**
+     * Hook callback for refreshRegion to keep water region polygon hatching hidden while Waterline is open.
+     * @param {Region} placeable
+     */
+    static onRefreshRegion(placeable) {
+        if (!WaterlineStudioApp._instance) return;
+        const region = placeable?.document;
+        if (!region) return;
+        const behaviorType = `${MODULE_ID}.waterFX`;
+        const behaviors = Array.from(region.behaviors?.values?.() ?? region.behaviors ?? []);
+        if (behaviors.some(b => b.type === behaviorType)) {
+            placeable.alpha = 0;
+        }
     }
 
     /**
@@ -138,6 +186,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             try { app.close({ force: true, animate: false }); } catch { /* ignore */ }
         }
         WaterlineStudioApp._instance = null;
+        WaterlineStudioApp.syncRegionOverlays(false);
     }
 
     /**
@@ -234,6 +283,14 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             cancelAnimationFrame(this.#rafId);
             this.#rafId = null;
         }
+        if (this.#autoSaveTimer) {
+            clearTimeout(this.#autoSaveTimer);
+            this.#autoSaveTimer = null;
+        }
+        if (this.hasUnsavedChanges && this.activeRegionId) {
+            this.#silentSave = true;
+            void this.#saveActiveWaterbodyFX().finally(() => { this.#silentSave = false; });
+        }
         this.sampler?.cleanup();
         this.#cancelColorSampler?.();
     }
@@ -241,6 +298,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     /** @override */
     _onClose(_options) {
         WaterlineStudioApp._instance = null;
+        WaterlineStudioApp.syncRegionOverlays(false);
     }
 
     // ------------------------------------------------------------------
@@ -282,6 +340,20 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     /** @override */
     async _prepareContext(_options) {
         const regions = Array.from(canvas.scene?.regions?.values?.() ?? canvas.scene?.regions ?? []);
+        const isCreatingNew = Boolean(this.sampler?.isActive && !this.sampler?.editingRegionId);
+        const waterRegions = regions.filter(r => Boolean(this.#getRegionWaterBehavior(r)));
+
+        // Auto-select first zone if activeRegionId is invalid or not yet set (unless creating a new waterbody)
+        if (!isCreatingNew) {
+            if ((!this.activeRegionId || !waterRegions.some(r => r.id === this.activeRegionId)) && waterRegions.length > 0) {
+                this.activeRegionId = waterRegions[0].id;
+                this.hasUnsavedChanges = false;
+                this.#loadActiveRegionFX(this.activeRegionId);
+            } else if (this.activeRegionId && !this.hasUnsavedChanges) {
+                this.#loadActiveRegionFX(this.activeRegionId);
+            }
+        }
+
         const zones = [];
         const unattachedRegions = [];
 
@@ -290,7 +362,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             const pts = WaterShapeEstimator.extractRegionPoints(region);
             const verts = pts ? Math.round(pts.length / 2) : 0;
             if (behavior) {
-                const archKey = (region.id === this.activeRegionId && this.activeArchetype)
+                const isActive = !isCreatingNew && region.id === this.activeRegionId;
+                const archKey = (isActive && this.activeArchetype)
                     ? this.activeArchetype
                     : this.#getRegionArchetype(region);
                 const archMeta = WATER_ARCHETYPES[archKey] ?? WATER_ARCHETYPES.river;
@@ -304,7 +377,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                     archetypeLabel: archMeta.label,
                     archetypeIcon: archMeta.icon,
                     archetypeColor: archMeta.accentColor,
-                    isActive: region.id === this.activeRegionId
+                    isActive
                 });
             } else if (verts >= 3) {
                 const est = pts && pts.length >= 6 ? WaterShapeEstimator.estimate({ points: pts, vertexCount: verts }, canvas?.dimensions) : null;
@@ -315,16 +388,6 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                     verts,
                     estimation: est
                 });
-            }
-        }
-
-        // Auto-select first zone if activeRegionId is invalid or not yet set
-        if ((!this.activeRegionId || !zones.some(z => z.id === this.activeRegionId)) && zones.length > 0) {
-            this.activeRegionId = zones[0].id;
-            this.#loadActiveRegionFX(this.activeRegionId);
-            // Update isActive flag
-            for (const z of zones) {
-                z.isActive = z.id === this.activeRegionId;
             }
         }
 
@@ -371,12 +434,22 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         const heroSliders = this.#buildHeroSliders(this.activeArchetype, this.fx);
         const hasDirection = heroSliders.some(s => s.isDirection);
         const activeArchMeta = WATER_ARCHETYPES[this.activeArchetype] ?? WATER_ARCHETYPES.river;
+        const activeZone = zones.find(z => z.isActive) ?? null;
+        const isConfiguringCandidate = Boolean(isCreatingNew && this.sampler?.candidate);
+        const showFXControls = Boolean(activeZone || isConfiguringCandidate);
+        const activeTargetName = isConfiguringCandidate
+            ? `New ${activeArchMeta.label} (Preview)`
+            : (activeZone?.name || 'Waterbody');
 
         return {
             activeTab: this.activeTab,
             zones,
             unattachedRegions,
             activeRegionId: this.activeRegionId,
+            hasActiveZone: Boolean(activeZone),
+            showFXControls,
+            isConfiguringCandidate,
+            activeTargetName,
             archetypes: WATER_ARCHETYPES,
             activeArchetype: this.activeArchetype,
             activeArchetypeMeta: activeArchMeta,
@@ -422,7 +495,23 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
     /** @override */
     _replaceHTML(result, content, _options) {
+        const prevListScroll = content.querySelector?.('.wc-entity-list')?.scrollTop ?? 0;
+        const prevBodyScroll = content.querySelector?.('.waterline-tab-body')?.scrollTop ?? 0;
         content.replaceChildren(result);
+
+        const newBody = content.querySelector?.('.waterline-tab-body');
+        if (newBody && prevBodyScroll > 0) {
+            newBody.scrollTop = prevBodyScroll;
+        }
+        const newList = content.querySelector?.('.wc-entity-list');
+        if (newList) {
+            if (prevListScroll > 0) newList.scrollTop = prevListScroll;
+            if (this.#scrollActiveIntoView) {
+                this.#scrollActiveIntoView = false;
+                const activeCard = newList.querySelector?.('.wc-entity-card.active');
+                activeCard?.scrollIntoView?.({ block: 'nearest' });
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -444,12 +533,27 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             if (this.sampler.isActive || this.sampler.editingRegionId) {
                 this.sampler.discardCandidate();
                 this.sampler.stop();
+                if (!this.activeRegionId && this.#previousRegionId) {
+                    this.activeRegionId = this.#previousRegionId;
+                    this.#previousRegionId = null;
+                    this.hasUnsavedChanges = false;
+                    this.#scrollActiveIntoView = true;
+                    this.#loadActiveRegionFX(this.activeRegionId);
+                }
                 this.render();
             } else {
+                this.#flushAutoSave();
+                this.#previousRegionId = this.activeRegionId;
+                this.activeRegionId = null;
+                this.hasUnsavedChanges = false;
+                this.applyToAllSameArchetype = false;
                 this.sampler.start(
                     { tolerance: this.sampler.tolerance, smoothing: this.sampler.smoothing },
                     {
-                        onCandidate: () => this.render(),
+                        onCandidate: (cand) => {
+                            this.#applyCandidateEstimation(cand);
+                            this.render();
+                        },
                         onClear: () => this.render(),
                         onStatus: (msg) => ui.notifications.info(`Waterline | ${msg}`)
                     }
@@ -476,16 +580,36 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         // Candidate actions
         root.querySelector('[data-action="acceptCandidate"]')?.addEventListener('click', async () => {
-            const region = await this.sampler.acceptCandidate();
+            const isEditing = Boolean(this.sampler.editingRegionId);
+            const creationOverrides = !isEditing ? {
+                archetype: this.activeArchetype,
+                preset: this.activePreset,
+                fx: { ...this.fx }
+            } : null;
+            const region = await this.sampler.acceptCandidate(undefined, creationOverrides);
+            this.sampler.stop();
+            this.#previousRegionId = null;
             if (region) {
                 this.activeRegionId = region.id;
-                this.#loadActiveRegionFX(region.id);
-                this.#liveUpdateFX();
+                this.#scrollActiveIntoView = true;
+                if (isEditing && this.hasUnsavedChanges) {
+                    this.#silentSave = true;
+                    try { await this.#saveActiveWaterbodyFX(); } finally { this.#silentSave = false; }
+                } else {
+                    this.hasUnsavedChanges = false;
+                    this.#loadActiveRegionFX(region.id);
+                }
+                this.#liveUpdateFX(false);
+                WaterlineStudioApp.syncRegionOverlays(true);
             }
             this.render();
         });
         root.querySelector('[data-action="discardCandidate"]')?.addEventListener('click', () => {
+            const wasEditing = Boolean(this.sampler.editingRegionId);
             this.sampler.discardCandidate();
+            if (wasEditing) {
+                this.sampler.stop();
+            }
             this.render();
         });
         root.querySelector('[data-action="undoCandidate"]')?.addEventListener('click', () => {
@@ -509,14 +633,21 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         root.querySelectorAll('[data-action="selectZone"]').forEach(cardEl => {
             cardEl.addEventListener('click', () => {
                 const regionId = cardEl.dataset.regionId;
-                if (!regionId || regionId === this.activeRegionId) return;
-                if (this.sampler?.editingRegionId && this.sampler.editingRegionId !== regionId) {
+                if (!regionId) return;
+                const wasPickActive = Boolean(this.sampler?.isActive || this.sampler?.editingRegionId);
+                if (wasPickActive) {
                     this.sampler.discardCandidate();
+                    this.sampler.stop();
+                    this.#previousRegionId = null;
+                } else if (regionId === this.activeRegionId) {
+                    return;
                 }
+                this.#flushAutoSave();
                 this.applyToAllSameArchetype = false;
                 this.activeRegionId = regionId;
+                this.hasUnsavedChanges = false;
+                this.#scrollActiveIntoView = true;
                 this.#loadActiveRegionFX(regionId);
-                this.#liveUpdateFX();
                 this.render();
             });
         });
@@ -531,6 +662,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 // Toggle off if already editing this region
                 if (this.sampler.editingRegionId === regionId) {
                     this.sampler.discardCandidate();
+                    this.sampler.stop();
                     this.render();
                     return;
                 }
@@ -544,6 +676,15 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             btn.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 const regionId = btn.dataset.regionId;
+                if (regionId && regionId !== this.activeRegionId && !this.sampler?.isActive) {
+                    this.#flushAutoSave();
+                    this.applyToAllSameArchetype = false;
+                    this.activeRegionId = regionId;
+                    this.hasUnsavedChanges = false;
+                    this.#scrollActiveIntoView = true;
+                    this.#loadActiveRegionFX(regionId);
+                    this.render();
+                }
                 this.#focusRegionOnCanvas(regionId);
             });
         });
@@ -837,11 +978,21 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         }
 
         if (colorInput) {
-            colorInput.addEventListener('input', (ev) => {
-                this.fx.colorOverride = ev.target.value;
+            const applyColorInput = (ev) => {
+                this.fx.colorOverride = ev.target.value || '#0d2e4d';
                 this.fx.autoColor = false;
                 updateColorUIState(this.fx.colorOverride, false);
                 this.#liveUpdateFX();
+            };
+            colorInput.addEventListener('input', applyColorInput);
+            colorInput.addEventListener('change', applyColorInput);
+            colorInput.addEventListener('click', () => {
+                if (this.fx.autoColor) {
+                    this.fx.colorOverride = colorInput.value || '#0d2e4d';
+                    this.fx.autoColor = false;
+                    updateColorUIState(this.fx.colorOverride, false);
+                    this.#liveUpdateFX();
+                }
             });
         }
 
@@ -1005,6 +1156,11 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             return;
         }
 
+        if (this.sampler?.isActive || this.sampler?.editingRegionId) {
+            this.sampler.discardCandidate();
+            this.sampler.stop();
+        }
+
         this.#isSamplingColor = true;
         btn.classList.add('active');
         btn.setAttribute('title', 'Sampling map... Click on water or press Escape to cancel');
@@ -1132,13 +1288,45 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         }
     }
 
+    #applyCandidateEstimation(candidate) {
+        const est = candidate?.estimation;
+        if (!est) return;
+        this.activeArchetype = est.archetype || 'river';
+        this.activePreset = est.preset || WATER_ARCHETYPES[this.activeArchetype]?.defaultPreset || 'river';
+        const preset = WATER_PRESETS[this.activePreset] ?? {};
+        this.fx = {
+            ...this.fx,
+            speed: preset.speed ?? 1.0,
+            intensity: preset.intensity ?? 0.3,
+            opacity: preset.opacity ?? 0.2,
+            distortion: preset.distortion ?? 0.02,
+            fadeWidth: preset.fadeWidth ?? 50,
+            scale: preset.scale ?? 90,
+            flowAngle: est.flowAngle ?? preset.flowAngle ?? 90,
+            shoreWaves: preset.shoreWaves ?? 0.2,
+            waveCount: preset.waveCount ?? 4,
+            waveSegment: preset.waveSegment ?? 0.85,
+            waveRegularity: preset.waveRegularity ?? 0.60,
+            swashSurge: preset.swashSurge ?? 16.0,
+            surfFoam: preset.surfFoam ?? 0.70,
+            choppySeas: preset.choppySeas ?? 0.0,
+            riverWaves: preset.riverWaves ?? (this.activeArchetype === 'river' ? 0.65 : 0.0),
+            lakeWaves: (this.activeArchetype === 'lake' || this.activeArchetype === 'pond') ? (preset.lakeWaves ?? 0.25) : 0.0,
+            lakeRings: (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle') ? (typeof preset.lakeRings === 'number' ? preset.lakeRings : (preset.lakeRings ? 0.70 : 0.0)) : 0.0,
+            whitecaps: preset.whitecaps ?? 0.1,
+            sunGlint: preset.sunGlint ?? 0.3,
+            spindriftWake: preset.spindriftWake ?? false,
+            crestBound: preset.crestBound ?? false,
+            colorOverride: preset.colorOverride || '',
+            autoColor: !preset.colorOverride
+        };
+    }
+
     #loadActiveRegionFX(regionId) {
         if (!regionId) return;
         const region = canvas.scene?.regions?.get(regionId);
         if (!region) return;
-        const behaviorType = `${MODULE_ID}.waterFX`;
-        const behaviors = region.behaviors?.contents ?? region.behaviors ?? [];
-        const b = Array.isArray(behaviors) ? behaviors.find(beh => beh.type === behaviorType) : null;
+        const b = this.#getRegionWaterBehavior(region);
 
         const hasConfiguredFlag = Boolean(
             region.flags?.[MODULE_ID]?.configured ||
@@ -1152,71 +1340,45 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             b.system.archetype !== 'river'
         );
 
-        // One-time initial estimation for brand new or unconfigured waterbodies
-        const shouldEstimate = !isConfigured;
+        // One-time initial estimation for brand new or unconfigured waterbodies (or fallback if behavior system is absent)
+        const shouldEstimate = !isConfigured || !b?.system;
 
         if (shouldEstimate) {
-            const est = WaterShapeEstimator.estimateRegion(region);
+            const est = WaterShapeEstimator.estimateRegion(region, canvas?.dimensions);
             if (est) {
-                this.activeArchetype = est.archetype;
-                this.activePreset = est.preset;
-                const preset = WATER_PRESETS[est.preset] ?? {};
-                this.fx = {
-                    ...this.fx,
-                    speed: preset.speed ?? 1.0,
-                    intensity: preset.intensity ?? 0.3,
-                    opacity: preset.opacity ?? 0.2,
-                    distortion: preset.distortion ?? 0.02,
-                    fadeWidth: preset.fadeWidth ?? 50,
-                    scale: preset.scale ?? 90,
-                    flowAngle: est.flowAngle ?? preset.flowAngle ?? 90,
-                    shoreWaves: preset.shoreWaves ?? 0.2,
-                    waveCount: preset.waveCount ?? 4,
-                    waveSegment: preset.waveSegment ?? 0.85,
-                    waveRegularity: preset.waveRegularity ?? 0.60,
-                    swashSurge: preset.swashSurge ?? 16.0,
-                    surfFoam: preset.surfFoam ?? 0.70,
-                    choppySeas: preset.choppySeas ?? 0.0,
-                    riverWaves: preset.riverWaves ?? (est.archetype === 'river' ? 0.65 : 0.0),
-                    lakeWaves: (est.archetype === 'lake' || est.archetype === 'pond') ? (preset.lakeWaves ?? 0.25) : 0.0,
-                    lakeRings: (est.archetype === 'lake' || est.archetype === 'pond' || est.archetype === 'puddle') ? (typeof preset.lakeRings === 'number' ? preset.lakeRings : (preset.lakeRings ? 0.70 : 0.0)) : 0.0,
-                    whitecaps: preset.whitecaps ?? 0.1,
-                    sunGlint: preset.sunGlint ?? 0.3,
-                    spindriftWake: preset.spindriftWake ?? false,
-                    crestBound: preset.crestBound ?? false,
-                    colorOverride: preset.colorOverride || '',
-                    autoColor: !preset.colorOverride
-                };
+                this.#applyCandidateEstimation({ estimation: est });
             }
         } else if (b?.system) {
             const s = b.system;
             const loadedPreset = WaterManager.readPresetChoice(s, b.flags?.[MODULE_ID], region.flags?.[MODULE_ID]);
             const loadedArchetype = s.archetype || WaterManager.inferArchetype(loadedPreset);
+            const customPresets = game.settings?.get?.(MODULE_ID, 'waterCustomPresets') ?? {};
+            const p = WATER_PRESETS[loadedPreset] ?? customPresets[loadedPreset] ?? WATER_PRESETS[WATER_ARCHETYPES[loadedArchetype]?.defaultPreset] ?? {};
             const isSmallBody = (loadedArchetype === 'lake' || loadedArchetype === 'pond' || loadedArchetype === 'puddle');
 
             this.fx = {
                 ...this.fx,
-                speed: Number.isFinite(s.speed) ? s.speed : this.fx.speed,
-                intensity: Number.isFinite(s.intensity) ? s.intensity : this.fx.intensity,
-                opacity: Number.isFinite(s.opacity) ? s.opacity : this.fx.opacity,
-                distortion: Number.isFinite(s.distortion) ? s.distortion : this.fx.distortion,
-                fadeWidth: Number.isFinite(s.fadeWidth) ? s.fadeWidth : this.fx.fadeWidth,
-                scale: Number.isFinite(s.scale) ? s.scale : this.fx.scale,
-                flowAngle: Number.isFinite(s.flowAngle) ? s.flowAngle : this.fx.flowAngle,
-                shoreWaves: Number.isFinite(s.shoreWaves) ? s.shoreWaves : this.fx.shoreWaves,
-                waveCount: Number.isFinite(s.waveCount) ? s.waveCount : (this.fx.waveCount ?? 4),
-                waveSegment: Number.isFinite(s.waveSegment) ? s.waveSegment : this.fx.waveSegment,
-                waveRegularity: Number.isFinite(s.waveRegularity) ? s.waveRegularity : (this.fx.waveRegularity ?? 0.60),
-                swashSurge: Number.isFinite(s.swashSurge) ? s.swashSurge : this.fx.swashSurge,
-                surfFoam: Number.isFinite(s.surfFoam) ? s.surfFoam : (this.fx.surfFoam ?? 0.70),
-                choppySeas: Number.isFinite(s.choppySeas) ? s.choppySeas : (this.fx.choppySeas ?? 0.0),
-                riverWaves: Number.isFinite(s.riverWaves) ? s.riverWaves : (this.fx.riverWaves ?? 0.0),
-                lakeWaves: isSmallBody ? (Number.isFinite(s.lakeWaves) ? s.lakeWaves : (this.fx.lakeWaves ?? 0.0)) : 0.0,
+                speed: Number.isFinite(s.speed) ? s.speed : (p.speed ?? 1.0),
+                intensity: Number.isFinite(s.intensity) ? s.intensity : (p.intensity ?? 0.3),
+                opacity: Number.isFinite(s.opacity) ? s.opacity : (p.opacity ?? 0.2),
+                distortion: Number.isFinite(s.distortion) ? s.distortion : (p.distortion ?? 0.02),
+                fadeWidth: Number.isFinite(s.fadeWidth) ? s.fadeWidth : (p.fadeWidth ?? 50),
+                scale: Number.isFinite(s.scale) ? s.scale : (p.scale ?? 90),
+                flowAngle: Number.isFinite(s.flowAngle) ? s.flowAngle : (p.flowAngle ?? 90),
+                shoreWaves: Number.isFinite(s.shoreWaves) ? s.shoreWaves : (p.shoreWaves ?? 0.2),
+                waveCount: Number.isFinite(s.waveCount) ? s.waveCount : (p.waveCount ?? 4),
+                waveSegment: Number.isFinite(s.waveSegment) ? s.waveSegment : (p.waveSegment ?? 0.85),
+                waveRegularity: Number.isFinite(s.waveRegularity) ? s.waveRegularity : (p.waveRegularity ?? 0.60),
+                swashSurge: Number.isFinite(s.swashSurge) ? s.swashSurge : (p.swashSurge ?? 16.0),
+                surfFoam: Number.isFinite(s.surfFoam) ? s.surfFoam : (p.surfFoam ?? 0.70),
+                choppySeas: Number.isFinite(s.choppySeas) ? s.choppySeas : (p.choppySeas ?? 0.0),
+                riverWaves: Number.isFinite(s.riverWaves) ? s.riverWaves : (p.riverWaves ?? (loadedArchetype === 'river' ? 0.65 : 0.0)),
+                lakeWaves: isSmallBody ? (Number.isFinite(s.lakeWaves) ? s.lakeWaves : (p.lakeWaves ?? 0.0)) : 0.0,
                 lakeRings: isSmallBody ? (Number.isFinite(s.lakeRings) ? Number(s.lakeRings) : (s.lakeRings ? 0.70 : 0.0)) : 0.0,
-                whitecaps: Number.isFinite(s.whitecaps) ? s.whitecaps : (this.fx.whitecaps ?? 0.5),
-                sunGlint: Number.isFinite(s.sunGlint) ? s.sunGlint : (this.fx.sunGlint ?? 0.6),
-                spindriftWake: Boolean(s.spindriftWake),
-                crestBound: Boolean(s.crestBound),
+                whitecaps: Number.isFinite(s.whitecaps) ? s.whitecaps : (p.whitecaps ?? 0.1),
+                sunGlint: Number.isFinite(s.sunGlint) ? s.sunGlint : (p.sunGlint ?? 0.3),
+                spindriftWake: Boolean(s.spindriftWake ?? p.spindriftWake),
+                crestBound: Boolean(s.crestBound ?? p.crestBound),
                 colorOverride: s.colorOverride || region.flags?.[MODULE_ID]?.color || '',
                 autoColor: !(s.colorOverride || region.flags?.[MODULE_ID]?.color)
             };
@@ -1228,18 +1390,49 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     #onSelectArchetype(archetypeKey) {
         if (!WATER_ARCHETYPES[archetypeKey]) return;
         this.activeArchetype = archetypeKey;
-        const defaultPresetKey = WATER_ARCHETYPES[archetypeKey].defaultPreset;
+        const archMeta = WATER_ARCHETYPES[archetypeKey];
+        const defaultPresetKey = archMeta.defaultPreset;
+        if (this.sampler?.candidate?.estimation) {
+            this.sampler.candidate.estimation = {
+                ...this.sampler.candidate.estimation,
+                archetype: archetypeKey,
+                archetypeLabel: archMeta.label,
+                icon: archMeta.icon,
+                accentColor: archMeta.accentColor,
+                preset: defaultPresetKey
+            };
+        }
+        if (this.activeRegionId) {
+            const region = canvas.scene?.regions?.get(this.activeRegionId);
+            const currentName = (region?.name || '').trim();
+            if (region && /^(Ocean|Coastline|Coastal Surf|Lake|River|Pond|Puddle|Water|Water Zone)\s+\d+$/i.test(currentName)) {
+                const allRegions = Array.from(canvas.scene?.regions?.values?.() ?? canvas.scene?.regions ?? []);
+                const otherNames = new Set(allRegions.filter(r => r.id !== region.id).map(r => (r.name || '').trim().toLowerCase()));
+                let nextIdx = 1;
+                while (otherNames.has(`${archMeta.label} ${nextIdx}`.toLowerCase())) {
+                    nextIdx++;
+                }
+                const newName = `${archMeta.label} ${nextIdx}`;
+                if (newName !== currentName) {
+                    void region.update?.({ name: newName });
+                }
+            }
+        }
         this.#onSelectWaterPreset(defaultPresetKey);
     }
 
     #onSelectWaterPreset(key) {
         if (key === 'abyssal_depths') key = 'ocean_calm';
+        const prevPresetKey = this.activePreset;
         this.activePreset = key;
         const customPresets = game.settings.get(MODULE_ID, 'waterCustomPresets') ?? {};
+        const prevPreset = WATER_PRESETS[prevPresetKey] ?? customPresets[prevPresetKey];
         const preset = WATER_PRESETS[key] ?? customPresets[key];
         if (preset) {
             if (preset.archetype) this.activeArchetype = preset.archetype;
             const isSmallBody = (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle');
+            const hadPresetColor = Boolean(prevPreset?.colorOverride);
+            const preserveManualColor = !this.fx.autoColor && this.fx.colorOverride && !hadPresetColor;
             this.fx = {
                 ...this.fx,
                 speed: preset.speed ?? this.fx.speed,
@@ -1263,9 +1456,20 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 sunGlint: preset.sunGlint ?? this.fx.sunGlint,
                 spindriftWake: preset.spindriftWake ?? false,
                 crestBound: preset.crestBound ?? false,
-                colorOverride: preset.colorOverride ?? (this.fx.autoColor ? '' : (this.fx.colorOverride || '')),
-                autoColor: preset.colorOverride ? false : (key === 'custom' ? this.fx.autoColor : true)
+                colorOverride: preset.colorOverride ?? (preserveManualColor ? this.fx.colorOverride : ''),
+                autoColor: preset.colorOverride ? false : (preserveManualColor ? false : (key === 'custom' ? this.fx.autoColor : true))
             };
+            if (this.sampler?.candidate?.estimation) {
+                const archMeta = WATER_ARCHETYPES[this.activeArchetype] ?? WATER_ARCHETYPES.river;
+                this.sampler.candidate.estimation = {
+                    ...this.sampler.candidate.estimation,
+                    archetype: this.activeArchetype,
+                    archetypeLabel: archMeta.label,
+                    icon: archMeta.icon,
+                    accentColor: archMeta.accentColor,
+                    preset: key
+                };
+            }
             this.#liveUpdateFX();
         }
         this.render();
@@ -1622,9 +1826,14 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         this.#onSelectWaterPreset(defaultPresetKey);
     }
 
-    #liveUpdateFX() {
-        this.hasUnsavedChanges = true;
+    #liveUpdateFX(autoSave = true) {
+        if (autoSave) this.hasUnsavedChanges = true;
         if (this.#rafId) cancelAnimationFrame(this.#rafId);
+
+        if (!this.activeRegionId && this.sampler?.candidate?.estimation) {
+            this.sampler.candidate.estimation.flowAngle = this.fx.flowAngle;
+            return;
+        }
 
         const targetRegionIds = new Set();
         if (this.activeRegionId) targetRegionIds.add(this.activeRegionId);
@@ -1646,7 +1855,11 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         for (const mesh of meshes) {
             mesh.setSpeed(this.fx.speed);
             mesh.setIntensity(this.fx.intensity);
-            mesh.setOpacity(this.fx.opacity);
+            const hasColorOverride = !this.fx.autoColor && this.fx.colorOverride && this.fx.colorOverride.length >= 6;
+            const effectiveOpacity = hasColorOverride
+                ? Math.min(0.75, (this.fx.opacity ?? 0.2) + 0.28)
+                : this.fx.opacity;
+            mesh.setOpacity(effectiveOpacity);
             mesh.setDistortion(this.fx.distortion);
             mesh.setFadeWidth(this.fx.fadeWidth);
             mesh.setScale(this.fx.scale);
@@ -1681,6 +1894,33 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 mesh.setWaterColor(mesh.baseSampledColor || mesh.waterColor);
             }
         }
+
+        WaterlineStudioApp.syncRegionOverlays(true);
+        if (autoSave) this.#scheduleAutoSave();
+    }
+
+    #flushAutoSave() {
+        if (!this.#autoSaveTimer) return;
+        clearTimeout(this.#autoSaveTimer);
+        this.#autoSaveTimer = null;
+        if (this.hasUnsavedChanges && this.activeRegionId) {
+            this.#silentSave = true;
+            void this.#saveActiveWaterbodyFX().finally(() => { this.#silentSave = false; });
+        }
+    }
+
+    #scheduleAutoSave() {
+        if (this.#autoSaveTimer) clearTimeout(this.#autoSaveTimer);
+        if (!this.activeRegionId) return;
+        this.#autoSaveTimer = setTimeout(async () => {
+            this.#autoSaveTimer = null;
+            this.#silentSave = true;
+            try {
+                await this.#saveActiveWaterbodyFX();
+            } finally {
+                this.#silentSave = false;
+            }
+        }, 450);
     }
 
     /**
@@ -1692,8 +1932,12 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     }
 
     async #saveActiveWaterbodyFX() {
+        if (this.#autoSaveTimer) {
+            clearTimeout(this.#autoSaveTimer);
+            this.#autoSaveTimer = null;
+        }
         if (!this.activeRegionId) {
-            ui.notifications.warn('Waterline | No waterbody selected.');
+            if (!this.#silentSave) ui.notifications?.warn('Waterline | No waterbody selected.');
             return;
         }
 
@@ -1745,6 +1989,10 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         }
 
         let updated = 0;
+        const targetRegionColor = colorOverride
+            || (this.activeArchetype === 'puddle' ? '#38bdf8' : WATER_ARCHETYPES[this.activeArchetype]?.accentColor)
+            || '#2a6496';
+
         for (const r of targetRegions) {
             const beh = this.#getRegionWaterBehavior(r);
             try {
@@ -1779,6 +2027,11 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 }
                 if (colorOverride) {
                     await r.setFlag(MODULE_ID, 'color', colorOverride);
+                } else if (r.unsetFlag) {
+                    await r.unsetFlag(MODULE_ID, 'color');
+                }
+                if (r.update && r.color !== targetRegionColor) {
+                    await r.update({ color: targetRegionColor });
                 }
                 updated++;
             } catch (err) {
@@ -1788,15 +2041,17 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         if (updated === 0) {
             this.hasUnsavedChanges = true;
-            ui.notifications.warn('Waterline | Could not save these water settings.');
+            if (!this.#silentSave) ui.notifications?.warn('Waterline | Could not save these water settings.');
             return;
         }
 
         this.hasUnsavedChanges = false;
-        if (updated > 1) {
-            ui.notifications.info(`Waterline | Saved settings to ${updated} ${WATER_ARCHETYPES[this.activeArchetype]?.label || ''} bodies.`);
-        } else {
-            ui.notifications.info(`Waterline | Saved settings for "${activeRegion.name}".`);
+        if (!this.#silentSave) {
+            if (updated > 1) {
+                ui.notifications?.info(`Waterline | Saved settings to ${updated} ${WATER_ARCHETYPES[this.activeArchetype]?.label || ''} bodies.`);
+            } else {
+                ui.notifications?.info(`Waterline | Saved settings for "${activeRegion.name}".`);
+            }
         }
     }
 
@@ -1829,7 +2084,13 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         const region = canvas.scene?.regions?.get(regionId);
         if (!region) return;
 
+        if (this.activeRegionId !== regionId) {
+            this.#flushAutoSave();
+        }
+        this.#previousRegionId = null;
         this.activeRegionId = regionId;
+        this.hasUnsavedChanges = false;
+        this.#scrollActiveIntoView = true;
         this.#loadActiveRegionFX(regionId);
         this.#focusRegionOnCanvas(regionId);
 
@@ -1850,9 +2111,14 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
      */
     loadRegion(regionId) {
         if (!regionId) return;
+        if (this.activeRegionId !== regionId) {
+            this.#flushAutoSave();
+        }
+        this.applyToAllSameArchetype = false;
         this.activeRegionId = regionId;
+        this.hasUnsavedChanges = false;
+        this.#scrollActiveIntoView = true;
         this.#loadActiveRegionFX(regionId);
-        this.#liveUpdateFX();
         this.render();
     }
 }
