@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.0] - 2026-10-25
+
+### Added
+- Create waterbodies directly from drawn scene regions using From Region in Waterline Studio.
+- Island and obstacle holes inside sampled waterbodies, with shoreline foam and waves around interior edges.
+
+### Fixed
+- Waterbody tint overrides persist properly instead of resetting to preset defaults.
+- Default scene region fill overlays stay hidden on Waterline waterbodies.
+- Selecting or deleting regions on the canvas stays in sync with Waterline Studio.
+
 ## [1.0.5] - 2026-10-18
 
 ### Added
