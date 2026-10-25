@@ -154,9 +154,25 @@ Hooks.on('canvasReady', async () => {
 // ---------------------------------------------------------------
 // Region & Behavior Updates: Re-render water when anything changes
 // ---------------------------------------------------------------
-Hooks.on('updateRegion', () => WaterManager.debouncedRefresh());
-Hooks.on('createRegion', () => WaterManager.debouncedRefresh());
-Hooks.on('deleteRegion', () => WaterManager.debouncedRefresh());
+Hooks.on('updateRegion', () => {
+    WaterManager.debouncedRefresh();
+    WaterlineStudioApp._instance?.render();
+});
+Hooks.on('createRegion', (regionDoc) => {
+    WaterManager.debouncedRefresh();
+    const app = WaterlineStudioApp._instance;
+    if (app) {
+        const behaviors = Array.from(regionDoc?.behaviors?.values?.() ?? regionDoc?.behaviors ?? []);
+        if (regionDoc?.id && !behaviors.some(b => b.type === `${MODULE_ID}.waterFX`)) {
+            app.selectedUnattachedRegionId = regionDoc.id;
+        }
+        app.render();
+    }
+});
+Hooks.on('deleteRegion', () => {
+    WaterManager.debouncedRefresh();
+    WaterlineStudioApp._instance?.render();
+});
 Hooks.on('refreshRegion', (placeable) => WaterlineStudioApp.onRefreshRegion(placeable));
 
 // Behavior CRUD
@@ -174,10 +190,17 @@ Hooks.on('controlRegion', (placeable, controlled) => {
     if (app.sampler?.isActive || app.sampler?.editingRegionId) return;
     const region = placeable.document;
     const regionId = region?.id;
-    if (!regionId || regionId === app.activeRegionId) return;
+    if (!regionId) return;
     const behaviors = Array.from(region.behaviors?.values?.() ?? region.behaviors ?? []);
     if (behaviors.some(b => b.type === `${MODULE_ID}.waterFX`)) {
-        app.loadRegion(regionId);
+        if (regionId !== app.activeRegionId) {
+            app.loadRegion(regionId);
+        }
+    } else if (app.regionPickActive) {
+        void app.adoptRegion(regionId);
+    } else if (app.selectedUnattachedRegionId !== regionId) {
+        app.selectedUnattachedRegionId = regionId;
+        app.render();
     }
 });
 

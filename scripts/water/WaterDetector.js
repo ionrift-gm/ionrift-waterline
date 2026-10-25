@@ -198,17 +198,34 @@ export class WaterDetector {
             ? MapBorderDetector.snap(candidate.points, scene?.dimensions || canvas?.dimensions)
             : candidate.points;
 
+        const shapes = [{
+            type: 'polygon',
+            points: regionPoints,
+            hole: false
+        }];
+        const validHoles = [];
+        if (Array.isArray(candidate.holes)) {
+            for (const holePts of candidate.holes) {
+                if (Array.isArray(holePts) && holePts.length >= 6) {
+                    shapes.push({
+                        type: 'polygon',
+                        points: holePts,
+                        hole: true
+                    });
+                    validHoles.push(holePts);
+                }
+            }
+        }
+
         const regionData = {
             name: regionName,
             color: colorOverride || (archetype === 'puddle' ? '#38bdf8' : WATER_ARCHETYPES[archetype]?.accentColor) || '#2a6496',
-            shapes: [{
-                type: 'polygon',
-                points: regionPoints
-            }],
+            shapes,
             flags: {
                 [MODULE_ID]: {
                     configured: true,
-                    ...(colorOverride ? { color: colorOverride } : {})
+                    ...(colorOverride ? { color: colorOverride } : {}),
+                    ...(validHoles.length ? { holes: validHoles } : {})
                 }
             },
             behaviors: []
@@ -287,6 +304,8 @@ export class WaterDetector {
     static #cachedImageData = null;
     static #cachedImgW = 0;
     static #cachedImgH = 0;
+    /** @type {{ rawRGB: Float32Array, smoothRGB: Float32Array, gridStep: number }|null} */
+    static #cachedFilteredGrid = null;
 
     /**
      * Load and cache the scene background for flood fill operations.
@@ -310,12 +329,34 @@ export class WaterDetector {
         WaterDetector.#cachedImageData = ctx.getImageData(0, 0, img.width, img.height);
         WaterDetector.#cachedImgW = img.width;
         WaterDetector.#cachedImgH = img.height;
+        WaterDetector.#cachedFilteredGrid = null;
         return true;
+    }
+
+    /**
+     * Retrieve or build the pre-filtered bilateral grid for the cached background image.
+     * @param {number} gridStep
+     * @returns {{ rawRGB: Float32Array, smoothRGB: Float32Array, gridStep: number }|null}
+     */
+    static #getFilteredGrid(gridStep) {
+        if (!WaterDetector.#cachedImageData) return null;
+        if (WaterDetector.#cachedFilteredGrid?.gridStep === gridStep) {
+            return WaterDetector.#cachedFilteredGrid;
+        }
+        const imgW = WaterDetector.#cachedImgW;
+        const imgH = WaterDetector.#cachedImgH;
+        const cols = Math.ceil(imgW / gridStep);
+        const rows = Math.ceil(imgH / gridStep);
+        WaterDetector.#cachedFilteredGrid = RasterContourTracer.buildFilteredGrid(
+            WaterDetector.#cachedImageData.data, imgW, imgH, cols, rows, gridStep
+        );
+        return WaterDetector.#cachedFilteredGrid;
     }
 
     /** Clear image cache (call on scene change) */
     static clearCache() {
         WaterDetector.#cachedImageData = null;
+        WaterDetector.#cachedFilteredGrid = null;
     }
 
     /**
@@ -340,11 +381,13 @@ export class WaterDetector {
         const cols = Math.ceil(imgW / gridStep);
         const rows = Math.ceil(imgH / gridStep);
         const filled = new Uint8Array(cols * rows);
+        const filteredGrid = WaterDetector.#getFilteredGrid(gridStep);
 
         // Run the core flood fill into the mask
         const cellCount = RasterContourTracer.floodFillIntoMask({
             mask: filled, cols, rows, gridStep, sceneX, sceneY, tolerance,
-            imgW, imgH, pixels: WaterDetector.#cachedImageData.data, dims: canvas.dimensions
+            imgW, imgH, pixels: WaterDetector.#cachedImageData.data, dims: canvas.dimensions,
+            filteredGrid
         });
 
         if (cellCount < 10) {
@@ -355,7 +398,14 @@ export class WaterDetector {
         LOG(`Waterline | Flood fill: ${cellCount} cells filled`);
 
         // Build candidate from the mask
-        const maskData = { mask: filled, cols, rows, gridStep };
+        const maskData = {
+            mask: filled,
+            cols,
+            rows,
+            gridStep,
+            seedPoint: { x: sceneX, y: sceneY },
+            subtractedCells: new Set()
+        };
         const candidate = WaterDetector.candidateFromMask(maskData, smoothing);
         if (!candidate) return null;
 
@@ -372,21 +422,50 @@ export class WaterDetector {
      * @param {'add'|'subtract'} mode
      * @param {number} tolerance
      * @param {number} smoothing - RDP smoothing tolerance
+     * @param {{ x: number, y: number }|null} [seedPoint=null] - Original water seed point
      * @returns {object|null} Updated candidate with maskData
      */
-    static async refineMask(maskData, sceneX, sceneY, mode, tolerance, smoothing) {
+    static async refineMask(maskData, sceneX, sceneY, mode, tolerance, smoothing, seedPoint = null) {
         if (!await WaterDetector.#ensureImageCache()) return null;
 
         const { mask, cols, rows, gridStep } = maskData;
+        const imgW = WaterDetector.#cachedImgW;
+        const imgH = WaterDetector.#cachedImgH;
+        const pixels = WaterDetector.#cachedImageData.data;
+        const dims = canvas.dimensions;
+        const filteredGrid = WaterDetector.#getFilteredGrid(gridStep);
+
+        let avoidColor = null;
+        const waterSeed = seedPoint ?? maskData.seedPoint ?? null;
+        if (mode === 'subtract' && waterSeed && dims) {
+            const wsX = Math.round(((waterSeed.x - dims.sceneX) / dims.sceneWidth) * imgW);
+            const wsY = Math.round(((waterSeed.y - dims.sceneY) / dims.sceneHeight) * imgH);
+            if (wsX >= 0 && wsX < imgW && wsY >= 0 && wsY < imgH) {
+                const wsIdx = (wsY * imgW + wsX) * 4;
+                avoidColor = [pixels[wsIdx], pixels[wsIdx + 1], pixels[wsIdx + 2]];
+            }
+        }
+
+        maskData.subtractedCells ??= new Set();
 
         // Run a new flood fill into a temporary mask
         const tempMask = new Uint8Array(cols * rows);
         const cellCount = RasterContourTracer.floodFillIntoMask({
-            mask: tempMask, cols, rows, gridStep, sceneX, sceneY, tolerance,
-            imgW: WaterDetector.#cachedImgW,
-            imgH: WaterDetector.#cachedImgH,
-            pixels: WaterDetector.#cachedImageData.data,
-            dims: canvas.dimensions
+            mask: tempMask,
+            cols,
+            rows,
+            gridStep,
+            sceneX,
+            sceneY,
+            tolerance,
+            imgW,
+            imgH,
+            pixels,
+            dims,
+            avoidColor,
+            maxStepDiff: mode === 'subtract' ? Math.max(18, Math.round(tolerance * 0.65)) : 0,
+            filteredGrid,
+            preservedZeroCells: maskData.subtractedCells
         });
 
         if (cellCount < 3) {
@@ -396,19 +475,34 @@ export class WaterDetector {
 
         // Apply the operation to the existing mask
         let changed = 0;
+        let preservedNewHole = false;
         for (let i = 0; i < mask.length; i++) {
-            if (mode === 'add' && tempMask[i] && !mask[i]) {
-                mask[i] = 1;
-                changed++;
-            } else if (mode === 'subtract' && tempMask[i] && mask[i]) {
-                mask[i] = 0;
-                changed++;
+            if (!tempMask[i]) continue;
+            if (mode === 'add') {
+                maskData.subtractedCells.delete(i);
+                if (!mask[i]) {
+                    mask[i] = 1;
+                    changed++;
+                }
+            } else if (mode === 'subtract') {
+                if (!maskData.subtractedCells.has(i)) {
+                    maskData.subtractedCells.add(i);
+                    preservedNewHole = true;
+                }
+                if (mask[i]) {
+                    mask[i] = 0;
+                    changed++;
+                }
             }
+        }
+
+        if (mode === 'add' && changed > 0) {
+            RasterContourTracer.closeMask(mask, cols, rows, maskData.subtractedCells);
         }
 
         LOG(`Waterline | Refine (${mode}): ${cellCount} fill cells, ${changed} mask cells changed`);
 
-        if (changed === 0) return null;
+        if (changed === 0 && !preservedNewHole) return null;
 
         // Re-trace the contour from the updated mask
         const candidate = WaterDetector.candidateFromMask(maskData, smoothing);
@@ -466,13 +560,19 @@ export class WaterDetector {
         const ctx = canvasEl.getContext('2d');
         ctx.fillStyle = '#ffffff';
 
-        // Extract shapes from region
-        const shapes = region.shapes?.contents ?? region.shapes ?? [];
-        if (!shapes.length) return null;
+        // Extract shapes from region (draw positive shapes first, then carve holes)
+        const rawShapes = Array.from(region.shapes?.contents ?? region.shapes ?? []);
+        if (!rawShapes.length) return null;
+        const shapes = [
+            ...rawShapes.filter(s => !s.hole),
+            ...rawShapes.filter(s => Boolean(s.hole))
+        ];
 
         let hasDrawn = false;
+        let hasHoleShapes = false;
         for (const shape of shapes) {
             const isHole = Boolean(shape.hole);
+            if (isHole) hasHoleShapes = true;
             ctx.globalCompositeOperation = isHole ? 'destination-out' : 'source-over';
 
             const shapeType = shape.type ?? shape.constructor?.name ?? '';
@@ -532,6 +632,23 @@ export class WaterDetector {
             }
         }
 
+        const flagHoles = region.flags?.[MODULE_ID]?.holes;
+        if (!hasHoleShapes && Array.isArray(flagHoles) && flagHoles.length) {
+            ctx.globalCompositeOperation = 'destination-out';
+            for (const pts of flagHoles) {
+                if (!Array.isArray(pts) || pts.length < 6) continue;
+                ctx.beginPath();
+                for (let i = 0; i < pts.length; i += 2) {
+                    const gx = ((pts[i] - dims.sceneX) / dims.sceneWidth) * (imgW / gridStep);
+                    const gy = ((pts[i + 1] - dims.sceneY) / dims.sceneHeight) * (imgH / gridStep);
+                    if (i === 0) ctx.moveTo(gx, gy);
+                    else ctx.lineTo(gx, gy);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
         if (!hasDrawn) return null;
 
         const imgData = ctx.getImageData(0, 0, cols, rows);
@@ -546,21 +663,24 @@ export class WaterDetector {
 
         if (filledCount < 5) return null;
 
-        return { mask, cols, rows, gridStep };
+        return { mask, cols, rows, gridStep, subtractedCells: new Set() };
     }
 
     /**
-     * Generate a candidate polygon from a cell mask.
+     * Generate a candidate polygon (plus interior island holes) from a cell mask.
      * Public so it can be called after refinement.
      * @param {object} maskData - { mask, cols, rows, gridStep }
      * @param {number} smoothing - RDP simplification tolerance
-     * @returns {object|null} Candidate with { points, area, centroid, vertexCount }
+     * @returns {object|null} Candidate with { points, holes, area, centroid, vertexCount }
      */
     static candidateFromMask(maskData, smoothing = 7.0) {
         const { mask, cols, rows, gridStep } = maskData;
-        const dims = canvas.dimensions;
-        const imgW = WaterDetector.#cachedImgW;
-        const imgH = WaterDetector.#cachedImgH;
+        const dims = maskData.dims || canvas.dimensions;
+        const imgW = maskData.imgW || WaterDetector.#cachedImgW || (cols * gridStep);
+        const imgH = maskData.imgH || WaterDetector.#cachedImgH || (rows * gridStep);
+
+        const minHoleArea = Math.max(16, Math.round(1024 / (gridStep * gridStep)));
+        RasterContourTracer.cleanMaskHoles(mask, cols, rows, minHoleArea, maskData.subtractedCells);
 
         // Count filled cells
         let area = 0;
@@ -570,12 +690,17 @@ export class WaterDetector {
         if (area < 10) return null;
 
         // Strategy: extract 2D topological contour via Marching Squares.
-        // Handles complex concave shorelines, diagonal piers, outcrops, and bays without bridging.
+        // Handles complex concave shorelines, diagonal piers, outcrops, bays, and interior islands.
         let simplified = null;
+        let bestRing = null;
+        const acceptedHoleRings = [];
         const rings = RasterContourTracer.marchingSquares(mask, cols, rows);
+        const rdpTolerance = Math.max(0.25, smoothing / Math.max(2.5, gridStep * 0.7));
+
         if (rings.length > 0) {
-            let bestRing = null;
-            let maxRingArea = -1;
+            const outerRings = [];
+            const holeCandidates = [];
+
             for (const r of rings) {
                 let doubleArea = 0;
                 const n = r.length;
@@ -583,20 +708,65 @@ export class WaterDetector {
                     doubleArea += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1];
                 }
                 const ringArea = Math.abs(doubleArea) / 2;
-                if (ringArea > maxRingArea) {
-                    maxRingArea = ringArea;
-                    bestRing = r;
+                if (doubleArea < 0) {
+                    outerRings.push({ ring: r, area: ringArea });
+                } else if (doubleArea > 0) {
+                    holeCandidates.push({ ring: r, area: ringArea });
                 }
             }
+
+            const pool = outerRings.length > 0 ? outerRings : holeCandidates;
+            let maxRingArea = -1;
+            for (const item of pool) {
+                if (item.area > maxRingArea) {
+                    maxRingArea = item.area;
+                    bestRing = item.ring;
+                }
+            }
+
             if (bestRing && maxRingArea >= 5) {
-                simplified = RasterContourTracer.simplifyClosedPolygon(bestRing, smoothing);
+                simplified = RasterContourTracer.simplifyClosedPolygon(bestRing, rdpTolerance);
+
+                // Extract interior island holes contained within bestRing
+                if (outerRings.length > 0 && holeCandidates.length > 0) {
+                    holeCandidates.sort((a, b) => b.area - a.area);
+                    const subCells = maskData.subtractedCells;
+
+                    for (const hc of holeCandidates) {
+                        let keepHole = hc.area >= minHoleArea;
+                        if (!keepHole && hc.area >= 4 && subCells?.size) {
+                            for (const cellIdx of subCells) {
+                                const cy = Math.floor(cellIdx / cols) + 0.5;
+                                const cx = (cellIdx % cols) + 0.5;
+                                if (RasterContourTracer.pointInRing(cx, cy, hc.ring)) {
+                                    keepHole = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!keepHole) continue;
+
+                        // Must lie inside the primary outer water boundary
+                        if (!RasterContourTracer.pointInRing(hc.ring[0][0], hc.ring[0][1], bestRing)) {
+                            continue;
+                        }
+
+                        // Skip if nested inside an already-accepted larger island hole
+                        const isNested = acceptedHoleRings.some(
+                            parent => RasterContourTracer.pointInRing(hc.ring[0][0], hc.ring[0][1], parent.ring)
+                        );
+                        if (!isNested) {
+                            acceptedHoleRings.push(hc);
+                        }
+                    }
+                }
             }
         }
 
         // Fallback to 1D sweep contour only if Marching Squares found no rings
         if (!simplified || simplified.length < 6) {
-            const colPoly = RasterContourTracer.columnSweepContour(mask, cols, rows, smoothing);
-            const rowPoly = RasterContourTracer.rowSweepContour(mask, cols, rows, smoothing);
+            const colPoly = RasterContourTracer.columnSweepContour(mask, cols, rows, rdpTolerance);
+            const rowPoly = RasterContourTracer.rowSweepContour(mask, cols, rows, rdpTolerance);
             if (!colPoly && !rowPoly) return null;
             if (!colPoly) simplified = rowPoly;
             else if (!rowPoly) simplified = colPoly;
@@ -608,18 +778,52 @@ export class WaterDetector {
         // Convert to scene coords
         const scaleX = dims.sceneWidth / imgW;
         const scaleY = dims.sceneHeight / imgH;
-        let scenePoints = [];
-        for (let i = 0; i < simplified.length; i += 2) {
-            const gx = Math.max(0, Math.min(cols, simplified[i]));
-            const gy = Math.max(0, Math.min(rows, simplified[i + 1]));
-            scenePoints.push(
-                Math.round(dims.sceneX + gx * gridStep * scaleX),
-                Math.round(dims.sceneY + gy * gridStep * scaleY)
-            );
-        }
+        const toSceneCoords = (gridPts) => {
+            const out = [];
+            for (let i = 0; i < gridPts.length; i += 2) {
+                const gx = Math.max(0, Math.min(cols, gridPts[i]));
+                const gy = Math.max(0, Math.min(rows, gridPts[i + 1]));
+                out.push(
+                    Math.round(dims.sceneX + gx * gridStep * scaleX),
+                    Math.round(dims.sceneY + gy * gridStep * scaleY)
+                );
+            }
+            return out;
+        };
 
+        let scenePoints = toSceneCoords(simplified);
         // Apply 1-pass corner rounding to inland vertices to eliminate discrete grid stair-stepping
         scenePoints = RasterContourTracer.smoothContour(scenePoints, 1, dims);
+
+        // Convert and smooth accepted interior island holes
+        const holes = [];
+        const holeSmoothing = Math.max(0.25, rdpTolerance * 0.65);
+        for (const hc of acceptedHoleRings) {
+            // Clear any trapped 1-cells inside the island hole so raster preview stays clean
+            let minGX = cols, maxGX = 0, minGY = rows, maxGY = 0;
+            for (const pt of hc.ring) {
+                if (pt[0] < minGX) minGX = Math.max(0, Math.floor(pt[0]));
+                if (pt[0] > maxGX) maxGX = Math.min(cols - 1, Math.ceil(pt[0]));
+                if (pt[1] < minGY) minGY = Math.max(0, Math.floor(pt[1]));
+                if (pt[1] > maxGY) maxGY = Math.min(rows - 1, Math.ceil(pt[1]));
+            }
+            for (let gy = minGY; gy <= maxGY; gy++) {
+                for (let gx = minGX; gx <= maxGX; gx++) {
+                    if (mask[gy * cols + gx] && RasterContourTracer.pointInRing(gx + 0.5, gy + 0.5, hc.ring)) {
+                        mask[gy * cols + gx] = 0;
+                        area = Math.max(10, area - 1);
+                    }
+                }
+            }
+
+            const simHole = RasterContourTracer.simplifyClosedPolygon(hc.ring, holeSmoothing);
+            if (!simHole || simHole.length < 6) continue;
+            let holeScenePts = toSceneCoords(simHole);
+            holeScenePts = RasterContourTracer.smoothContour(holeScenePts, 1, dims);
+            if (holeScenePts.length >= 6) {
+                holes.push(holeScenePts);
+            }
+        }
 
         let cx = 0, cy = 0;
         const vertCount = scenePoints.length / 2;
@@ -627,12 +831,14 @@ export class WaterDetector {
             cx += scenePoints[i];
             cy += scenePoints[i + 1];
         }
+        const holeVertCount = holes.reduce((sum, h) => sum + Math.round(h.length / 2), 0);
 
         const candidate = {
             points: scenePoints,
+            holes,
             area,
             centroid: { x: cx / vertCount, y: cy / vertCount },
-            vertexCount: vertCount
+            vertexCount: vertCount + holeVertCount
         };
         candidate.estimation = WaterShapeEstimator.estimate(candidate, dims);
         return candidate;
@@ -716,10 +922,11 @@ export class WaterDetector {
         const cols = Math.ceil(imgW / gridStep);
         const rows = Math.ceil(imgH / gridStep);
         const filled = new Uint8Array(cols * rows);
+        const filteredGrid = WaterDetector.#getFilteredGrid(gridStep);
 
         const cellCount = RasterContourTracer.floodFillIntoMask({
             mask: filled, cols, rows, gridStep, sceneX, sceneY, tolerance,
-            imgW, imgH, pixels, dims
+            imgW, imgH, pixels, dims, filteredGrid
         });
 
         if (cellCount === 0) return null;

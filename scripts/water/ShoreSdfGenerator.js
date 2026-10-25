@@ -88,6 +88,21 @@ export class ShoreSdfGenerator {
         ctx.closePath();
         ctx.fill();
 
+        const holes = Array.isArray(options.holes) ? options.holes : [];
+        if (holes.length > 0) {
+            ctx.fillStyle = '#000000';
+            for (const hole of holes) {
+                if (!hole || hole.length < 6) continue;
+                ctx.beginPath();
+                ctx.moveTo((hole[0] - worldMinX) * scaleX, (hole[1] - worldMinY) * scaleY);
+                for (let i = 2; i < hole.length; i += 2) {
+                    ctx.lineTo((hole[i] - worldMinX) * scaleX, (hole[i + 1] - worldMinY) * scaleY);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
         const imgData = ctx.getImageData(0, 0, gridW, gridH);
         const pixels = imgData.data;
 
@@ -104,7 +119,7 @@ export class ShoreSdfGenerator {
 
         // Pre-extract polygon segments for analytical sub-pixel Euclidean distance refinement (small vertex counts only)
         const numPts = Math.floor(flatPoints.length / 2);
-        const useAnalytical = numPts <= 32;
+        const useAnalytical = numPts <= 32 && holes.length === 0;
 
         let segs = null;
         if (useAnalytical) {
@@ -225,7 +240,7 @@ export class ShoreSdfGenerator {
      * @param {number} [margin=45.0] - Skirt reach in world pixels onto the dry bank
      * @returns {{ vertices: Float32Array, indices: Uint16Array | Uint32Array }}
      */
-    static buildSkirtGeometry(flatPoints, innerIndices, margin = 45.0) {
+    static buildSkirtGeometry(flatPoints, innerIndices, margin = 45.0, holes = []) {
         if (!flatPoints || flatPoints.length < 6 || !innerIndices?.length) {
             return {
                 vertices: new Float32Array(flatPoints || []),
@@ -246,6 +261,112 @@ export class ShoreSdfGenerator {
                 vertices: new Float32Array(flatPoints),
                 indices: new Uint16Array(innerIndices)
             };
+        }
+
+        if (Array.isArray(holes) && holes.length > 0) {
+            const rings = [{ pts, isHole: false }];
+            for (const h of holes) {
+                if (!h || h.length < 6) continue;
+                let hPts = Array.isArray(h) ? h : Array.from(h);
+                let hn = hPts.length / 2;
+                if (hn > 2 && Math.hypot(hPts[0] - hPts[(hn - 1) * 2], hPts[1] - hPts[(hn - 1) * 2 + 1]) < 0.001) {
+                    hPts = hPts.slice(0, (hn - 1) * 2);
+                    hn = hPts.length / 2;
+                }
+                if (hn >= 3) rings.push({ pts: hPts, isHole: true });
+            }
+
+            if (rings.length > 1) {
+                const totalVerts = rings.reduce((acc, r) => acc + (r.pts.length / 2), 0);
+                const combinedMulti = new Float32Array(totalVerts * 4);
+                const totalIdxCount = innerIndices.length + totalVerts * 6;
+                const IdxType = (totalVerts * 2 > 65535) ? Uint32Array : Uint16Array;
+                const multiIndices = new IdxType(totalIdxCount);
+                multiIndices.set(innerIndices, 0);
+
+                let vOffset = 0;
+                let idxPtr = innerIndices.length;
+
+                for (const ring of rings) {
+                    const rPts = ring.pts;
+                    const rn = rPts.length / 2;
+                    combinedMulti.set(rPts, vOffset * 2);
+
+                    let rSum = 0;
+                    let rMinX = Infinity, rMaxX = -Infinity, rMinY = Infinity, rMaxY = -Infinity;
+                    for (let i = 0; i < rn; i++) {
+                        const x1 = rPts[i * 2];
+                        const y1 = rPts[i * 2 + 1];
+                        if (x1 < rMinX) rMinX = x1;
+                        if (x1 > rMaxX) rMaxX = x1;
+                        if (y1 < rMinY) rMinY = y1;
+                        if (y1 > rMaxY) rMaxY = y1;
+                        const nextIdx = ((i + 1) % rn) * 2;
+                        rSum += (rPts[nextIdx] - x1) * (rPts[nextIdx + 1] + y1);
+                    }
+                    const rClockwise = rSum < 0;
+                    const dirSign = ring.isHole ? -1 : 1;
+                    const ringSpan = Math.min(rMaxX - rMinX, rMaxY - rMinY);
+                    const ringMargin = ring.isHole ? Math.min(margin, Math.max(4.0, ringSpan * 0.42)) : margin;
+                    const ringMiterLimit = ringMargin * 1.5;
+
+                    for (let i = 0; i < rn; i++) {
+                        const prev = ((i - 1 + rn) % rn) * 2;
+                        const curr = i * 2;
+                        const next = ((i + 1) % rn) * 2;
+
+                        const dx1 = rPts[curr] - rPts[prev];
+                        const dy1 = rPts[curr + 1] - rPts[prev + 1];
+                        const len1 = Math.hypot(dx1, dy1) || 1e-6;
+                        const nx1 = (rClockwise ? (dy1 / len1) : (-dy1 / len1)) * dirSign;
+                        const ny1 = (rClockwise ? (-dx1 / len1) : (dx1 / len1)) * dirSign;
+
+                        const dx2 = rPts[next] - rPts[curr];
+                        const dy2 = rPts[next + 1] - rPts[curr + 1];
+                        const len2 = Math.hypot(dx2, dy2) || 1e-6;
+                        const nx2 = (rClockwise ? (dy2 / len2) : (-dy2 / len2)) * dirSign;
+                        const ny2 = (rClockwise ? (-dx2 / len2) : (dx2 / len2)) * dirSign;
+
+                        let nx = nx1 + nx2;
+                        let ny = ny1 + ny2;
+                        const nlen = Math.hypot(nx, ny);
+                        if (nlen > 1e-6) {
+                            nx /= nlen;
+                            ny /= nlen;
+                        } else {
+                            nx = nx1;
+                            ny = ny1;
+                        }
+
+                        const dot = nx * nx1 + ny * ny1;
+                        const miter = Math.min(ringMargin / Math.max(dot, 0.45), ringMiterLimit);
+
+                        const outIdx = (totalVerts + vOffset + i) * 2;
+                        combinedMulti[outIdx] = rPts[curr] + nx * miter;
+                        combinedMulti[outIdx + 1] = rPts[curr + 1] + ny * miter;
+                    }
+
+                    for (let i = 0; i < rn; i++) {
+                        const next = (i + 1) % rn;
+                        const iInner = vOffset + i;
+                        const iNextInner = vOffset + next;
+                        const iOuter = totalVerts + vOffset + i;
+                        const iNextOuter = totalVerts + vOffset + next;
+
+                        multiIndices[idxPtr++] = iInner;
+                        multiIndices[idxPtr++] = iNextInner;
+                        multiIndices[idxPtr++] = iOuter;
+
+                        multiIndices[idxPtr++] = iNextInner;
+                        multiIndices[idxPtr++] = iNextOuter;
+                        multiIndices[idxPtr++] = iOuter;
+                    }
+
+                    vOffset += rn;
+                }
+
+                return { vertices: combinedMulti, indices: multiIndices };
+            }
         }
 
         // Determine winding order via shoelace formula

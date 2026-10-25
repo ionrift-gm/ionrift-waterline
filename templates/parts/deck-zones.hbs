@@ -5,14 +5,44 @@
             <span>Scene Waterbodies</span>
             <span class="wc-zone-count-badge">{{zones.length}}</span>
         </div>
-        <button type="button" class="cartograph-btn-mini {{#if pickActive}}pick-active{{/if}}" data-action="togglePick" title="{{#if pickActive}}Stop sampling{{else}}Sample water color from map (Shift to add, Ctrl to subtract){{/if}}">
-            {{#if pickActive}}
-            <i class="fas fa-stop-circle"></i> Stop
-            {{else}}
-            <i class="fas fa-crosshairs"></i> New Waterbody
-            {{/if}}
-        </button>
+        <div class="wc-deck-actions">
+            <button type="button" class="cartograph-btn-mini {{#if regionPickActive}}pick-active{{/if}}" data-action="toggleRegionPick" title="{{#if regionPickActive}}Stop region selection{{else}}Create waterbody from a drawn scene region{{/if}}">
+                {{#if regionPickActive}}
+                <i class="fas fa-stop-circle"></i> Stop
+                {{else}}
+                <i class="fas fa-draw-polygon"></i> From Region
+                {{/if}}
+            </button>
+            <button type="button" class="cartograph-btn-mini {{#if pickActive}}pick-active{{/if}}" data-action="togglePick" title="{{#if pickActive}}Stop sampling{{else}}Sample water color from map (Shift to add, Ctrl to subtract){{/if}}">
+                {{#if pickActive}}
+                <i class="fas fa-stop-circle"></i> Stop
+                {{else}}
+                <i class="fas fa-crosshairs"></i> New Waterbody
+                {{/if}}
+            </button>
+        </div>
     </div>
+
+    <!-- Region Pick Mode Controls -->
+    {{#if regionPickActive}}
+    <div class="wc-pick-controls ionrift-subcard">
+        <div class="wc-refine-hint">
+            <i class="fas fa-mouse-pointer"></i> Click a drawn region on the canvas to convert it into a waterbody{{#if unattachedRegions.length}}, or choose one below{{/if}}.
+        </div>
+        {{#if unattachedRegions.length}}
+        <div class="wc-unattached-row">
+            <select class="ionrift-select wc-unattached-select" name="unattachedRegionSelect">
+                {{#each unattachedRegions as |ur|}}
+                <option value="{{ur.id}}" {{#if ur.isSelected}}selected{{/if}}>{{ur.name}} ({{#if ur.estimation}}{{ur.estimation.archetypeLabel}} &bull; {{/if}}{{ur.verts}} pts)</option>
+                {{/each}}
+            </select>
+            <button type="button" class="cartograph-btn-mini" data-action="adoptSceneRegion" title="Convert selected region into a Waterline waterbody">
+                <i class="fas fa-plus"></i> Add
+            </button>
+        </div>
+        {{/if}}
+    </div>
+    {{/if}}
 
     <!-- Pick Mode Controls -->
     {{#if pickActive}}
@@ -117,6 +147,7 @@
 
     <!-- Unattached Scene Regions (Ready to adopt as waterbodies) -->
     {{#if unattachedRegions.length}}
+    {{#unless regionPickActive}}
     <div class="wc-unattached-bar ionrift-subcard">
         <div class="wc-unattached-header">
             <i class="fas fa-draw-polygon" style="color: #38bdf8;"></i>
@@ -125,7 +156,7 @@
         <div class="wc-unattached-row">
             <select class="ionrift-select wc-unattached-select" name="unattachedRegionSelect">
                 {{#each unattachedRegions as |ur|}}
-                <option value="{{ur.id}}">{{ur.name}} ({{#if ur.estimation}}{{ur.estimation.archetypeLabel}} &bull; {{/if}}{{ur.verts}} pts)</option>
+                <option value="{{ur.id}}" {{#if ur.isSelected}}selected{{/if}}>{{ur.name}} ({{#if ur.estimation}}{{ur.estimation.archetypeLabel}} &bull; {{/if}}{{ur.verts}} pts)</option>
                 {{/each}}
             </select>
             <button type="button" class="cartograph-btn-mini" data-action="adoptSceneRegion" title="Convert selected region into a Waterline waterbody">
@@ -133,5 +164,6 @@
             </button>
         </div>
     </div>
+    {{/unless}}
     {{/if}}
 </div>

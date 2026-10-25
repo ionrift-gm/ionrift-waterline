@@ -64,7 +64,18 @@ export class WaterShapeEstimator {
             cX += (x0 + x1) * a;
             cY += (y0 + y1) * a;
         }
-        const polyArea = Math.abs(doubleArea) / 2;
+        let polyArea = Math.abs(doubleArea) / 2;
+        if (Array.isArray(candidate?.holes)) {
+            for (const hole of candidate.holes) {
+                if (!Array.isArray(hole) || hole.length < 6) continue;
+                let hDouble = 0;
+                for (let i = 0; i < hole.length; i += 2) {
+                    const nextI = (i + 2) % hole.length;
+                    hDouble += hole[i] * hole[nextI + 1] - hole[nextI] * hole[i + 1];
+                }
+                polyArea = Math.max(100, polyArea - Math.abs(hDouble) / 2);
+            }
+        }
         const polyCx = Math.abs(doubleArea) > 1e-4 ? cX / (3 * doubleArea) : cx;
         const polyCy = Math.abs(doubleArea) > 1e-4 ? cY / (3 * doubleArea) : cy;
         const coverage = sceneArea > 0 ? polyArea / sceneArea : 0;
@@ -244,43 +255,57 @@ export class WaterShapeEstimator {
         };
     }
 
+    static #shapeToPoints(shape) {
+        if (!shape) return null;
+        const pts = shape.points ?? shape.coordinates;
+        if (Array.isArray(pts) && pts.length >= 6) {
+            return Array.from(pts);
+        }
+        if (shape.width > 0 && shape.height > 0) {
+            const x = shape.x ?? 0, y = shape.y ?? 0, w = shape.width, h = shape.height;
+            return [x, y, x + w, y, x + w, y + h, x, y + h];
+        }
+        if (shape.radiusX > 0 || shape.radius > 0) {
+            const rx = shape.radiusX ?? shape.radius ?? 0;
+            const ry = shape.radiusY ?? shape.radius ?? 0;
+            const cx = (shape.x ?? 0) + rx;
+            const cy = (shape.y ?? 0) + ry;
+            const out = [];
+            const steps = 32;
+            for (let i = 0; i < steps; i++) {
+                const angle = (i / steps) * Math.PI * 2;
+                out.push(cx + Math.cos(angle) * rx, cy + Math.sin(angle) * ry);
+            }
+            return out;
+        }
+        return null;
+    }
+
     /**
      * Extract flat polygon coordinates [x, y, x, y, ...] from a RegionDocument.
-     * Supports polygon, rectangle, and ellipse shapes.
+     * Supports polygon, rectangle, and ellipse shapes (including holes).
      * @param {RegionDocument} region
      * @returns {number[]|null}
      */
     static extractRegionPoints(region) {
         if (!region) return null;
-        const shapes = region.shapes?.contents ?? region.shapes ?? [];
+        const shapes = Array.from(region.shapes?.values?.() ?? region.shapes?.contents ?? region.shapes ?? []);
         if (!shapes.length) return null;
 
+        const holes = [];
+        let primaryPts = null;
         for (const shape of shapes) {
-            const pts = shape.points ?? shape.coordinates;
-            if (Array.isArray(pts) && pts.length >= 6) {
-                return Array.from(pts);
+            const pts = this.#shapeToPoints(shape);
+            if (!pts || pts.length < 6) continue;
+            if (Boolean(shape.hole)) {
+                holes.push(pts);
+            } else if (!primaryPts) {
+                primaryPts = pts;
             }
         }
-
-        const rect = shapes.find(s => (s.width > 0 && s.height > 0));
-        if (rect) {
-            const x = rect.x ?? 0, y = rect.y ?? 0, w = rect.width, h = rect.height;
-            return [x, y, x + w, y, x + w, y + h, x, y + h];
-        }
-
-        const ellipse = shapes.find(s => (s.radiusX > 0 || s.radius > 0));
-        if (ellipse) {
-            const rx = ellipse.radiusX ?? ellipse.radius ?? 0;
-            const ry = ellipse.radiusY ?? ellipse.radius ?? 0;
-            const cx = (ellipse.x ?? 0) + rx;
-            const cy = (ellipse.y ?? 0) + ry;
-            const pts = [];
-            const steps = 32;
-            for (let i = 0; i < steps; i++) {
-                const angle = (i / steps) * Math.PI * 2;
-                pts.push(cx + Math.cos(angle) * rx, cy + Math.sin(angle) * ry);
-            }
-            return pts;
+        if (primaryPts) {
+            if (holes.length) primaryPts.holes = holes;
+            return primaryPts;
         }
 
         return null;

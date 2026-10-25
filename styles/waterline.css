@@ -1014,6 +1014,13 @@
     color: #a78bfa;
 }
 
+.waterline-studio-root .wc-deck-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
 .waterline-studio-root .cartograph-btn-mini {
     width: auto !important;
     flex: 0 0 auto !important;

@@ -601,6 +601,7 @@ Water Tuning API:
 
         for (const points of allPoints) {
             const waterMesh = new WaterMesh(points, {
+                holes:       points.holes,
                 speed:       resolvedConfig.speed,
                 intensity:   resolvedConfig.intensity,
                 opacity:     resolvedConfig.opacity,
@@ -650,6 +651,7 @@ Water Tuning API:
                 }
                 WaterManager.#polygons.push({
                     points,
+                    holes: points.holes ?? [],
                     bounds: [pMinX, pMinY, pMaxX, pMaxY],
                     elevation: { bottom: bottomBound, top: topBound }
                 });
@@ -658,47 +660,78 @@ Water Tuning API:
         }
     }
 
+    static #shapeToPolygonPoints(shape) {
+        const shapeType = shape.type ?? shape.constructor?.name ?? '';
+
+        if (shapeType === 'polygon' || shapeType === 'PolygonShapeData') {
+            const pts = shape.points ?? shape.coordinates ?? [];
+            if (pts.length >= 6) return Array.from(pts);
+        }
+
+        if (shapeType === 'rectangle' || shapeType === 'RectangleShapeData') {
+            const x = shape.x ?? 0, y = shape.y ?? 0;
+            const w = shape.width ?? 0, h = shape.height ?? 0;
+            if (w > 0 && h > 0) {
+                return [x, y, x + w, y, x + w, y + h, x, y + h];
+            }
+        }
+
+        if (shapeType === 'ellipse' || shapeType === 'circle' || shapeType === 'EllipseShapeData' || shapeType === 'CircleShapeData') {
+            const rx = shape.radiusX ?? shape.radius ?? 0;
+            const ry = shape.radiusY ?? shape.radius ?? 0;
+            const cx = (shape.x ?? 0) + rx;
+            const cy = (shape.y ?? 0) + ry;
+            if (rx > 0 && ry > 0) {
+                const pts = [];
+                for (let i = 0; i < 24; i++) {
+                    const a = (i / 24) * Math.PI * 2;
+                    pts.push(Math.round(cx + rx * Math.cos(a)), Math.round(cy + ry * Math.sin(a)));
+                }
+                return pts;
+            }
+        }
+
+        if (shape.points?.length >= 6) return Array.from(shape.points);
+
+        if (typeof shape.toObject === 'function') {
+            const plain = shape.toObject();
+            if (plain.points?.length >= 6) return Array.from(plain.points);
+        }
+
+        return null;
+    }
+
     static #extractPoints(regionDoc) {
         const results = [];
-        const shapes = regionDoc.shapes ?? [];
+        const holePolys = [];
+        const shapes = regionDoc.shapes?.contents ?? regionDoc.shapes ?? [];
 
         for (const shape of shapes) {
-            const shapeType = shape.type ?? shape.constructor?.name ?? '';
-
-            if (shapeType === 'polygon' || shapeType === 'PolygonShapeData') {
-                const pts = shape.points ?? shape.coordinates ?? [];
-                if (pts.length >= 6) { results.push(Array.from(pts)); continue; }
+            const pts = WaterManager.#shapeToPolygonPoints(shape);
+            if (!pts) continue;
+            if (Boolean(shape.hole)) {
+                holePolys.push(pts);
+            } else {
+                results.push(pts);
             }
+        }
 
-            if (shapeType === 'rectangle' || shapeType === 'RectangleShapeData') {
-                const x = shape.x ?? 0, y = shape.y ?? 0;
-                const w = shape.width ?? 0, h = shape.height ?? 0;
-                if (w > 0 && h > 0) {
-                    results.push([x, y, x + w, y, x + w, y + h, x, y + h]);
-                    continue;
+        if (!holePolys.length && Array.isArray(regionDoc.flags?.[MODULE_ID]?.holes)) {
+            for (const h of regionDoc.flags[MODULE_ID].holes) {
+                if (Array.isArray(h) && h.length >= 6) {
+                    holePolys.push(Array.from(h));
                 }
             }
+        }
 
-            if (shapeType === 'ellipse' || shapeType === 'EllipseShapeData') {
-                const cx = (shape.x ?? 0) + (shape.radiusX ?? 0);
-                const cy = (shape.y ?? 0) + (shape.radiusY ?? 0);
-                const rx = shape.radiusX ?? 0, ry = shape.radiusY ?? 0;
-                if (rx > 0 && ry > 0) {
-                    const pts = [];
-                    for (let i = 0; i < 24; i++) {
-                        const a = (i / 24) * Math.PI * 2;
-                        pts.push(Math.round(cx + rx * Math.cos(a)), Math.round(cy + ry * Math.sin(a)));
-                    }
-                    results.push(pts);
-                    continue;
+        if (results.length && holePolys.length) {
+            if (results.length === 1) {
+                results[0].holes = holePolys;
+            } else {
+                for (const outerPts of results) {
+                    const matched = holePolys.filter(h => WaterManager.#pointInPolygon(h[0], h[1], outerPts));
+                    if (matched.length) outerPts.holes = matched;
                 }
-            }
-
-            if (shape.points?.length >= 6) { results.push(Array.from(shape.points)); continue; }
-
-            if (typeof shape.toObject === 'function') {
-                const plain = shape.toObject();
-                if (plain.points?.length >= 6) { results.push(Array.from(plain.points)); continue; }
             }
         }
 
@@ -833,6 +866,7 @@ Water Tuning API:
                 for (let sy = minY; sy <= maxY; sy += step) {
                     for (let sx = minX; sx <= maxX; sx += step) {
                         if (!WaterManager.#pointInPolygon(sx, sy, points)) continue;
+                        if (points.holes?.some(h => WaterManager.#pointInPolygon(sx, sy, h))) continue;
                         const imgX = Math.round((sx - dims.sceneX) * scaleX);
                         const imgY = Math.round((sy - dims.sceneY) * scaleY);
                         if (imgX < 0 || imgX >= thumb.width || imgY < 0 || imgY >= thumb.height) continue;
@@ -930,7 +964,13 @@ Water Tuning API:
                 continue;
             }
 
-            if (WaterManager.#pointInPolygon(px, py, pts)) return true;
+            if (WaterManager.#pointInPolygon(px, py, pts)) {
+                const holes = entry?.holes ?? pts?.holes;
+                if (holes?.length && holes.some(h => WaterManager.#pointInPolygon(px, py, h))) {
+                    continue;
+                }
+                return true;
+            }
         }
         return false;
     }

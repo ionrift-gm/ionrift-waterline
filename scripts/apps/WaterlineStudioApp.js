@@ -1,6 +1,7 @@
 import { WaterSamplingController } from '../controllers/WaterSamplingController.js';
 import { WATER_PRESETS, WATER_ARCHETYPES, WaterManager } from '../water/WaterManager.js';
 import { WaterShapeEstimator } from '../water/WaterShapeEstimator.js';
+import { RasterContourTracer } from '../water/detection/RasterContourTracer.js';
 import { WakeTuning } from '../water/WakeTuning.js';
 const MODULE_ID = 'ionrift-waterline';
 
@@ -46,6 +47,12 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     /** @type {boolean} Show wake preset save prompt */
     showWakePresetPrompt = false;
 
+    /** @type {boolean} Interactive canvas region pick mode active */
+    regionPickActive = false;
+
+    /** @type {string|null} Currently selected unattached scene region ID */
+    selectedUnattachedRegionId = null;
+
     /** @type {number|null} RequestAnimationFrame id for live uniform updates */
     #rafId = null;
     /** @type {number|null} Debounce timer for auto-persisting FX updates */
@@ -60,6 +67,10 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     #isSamplingColor = false;
     /** @type {Function|null} */
     #cancelColorSampler = null;
+    /** @type {Function|null} */
+    #regionPickClickHandler = null;
+    /** @type {Function|null} */
+    #regionPickKeyHandler = null;
 
     /** @type {object} Current water animation FX parameters */
     fx = {
@@ -292,6 +303,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             void this.#saveActiveWaterbodyFX().finally(() => { this.#silentSave = false; });
         }
         this.sampler?.cleanup();
+        this.#stopRegionPick();
         this.#cancelColorSampler?.();
     }
 
@@ -386,9 +398,24 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                     id: region.id,
                     name: region.name || 'Scene Region',
                     verts,
-                    estimation: est
+                    estimation: est,
+                    isSelected: false
                 });
             }
+        }
+
+        if (unattachedRegions.length > 0) {
+            const controlledUnattached = this.#getControlledUnattachedRegion();
+            let selectedId = controlledUnattached?.id ?? this.selectedUnattachedRegionId;
+            if (!selectedId || !unattachedRegions.some(ur => ur.id === selectedId)) {
+                selectedId = unattachedRegions[unattachedRegions.length - 1].id;
+            }
+            this.selectedUnattachedRegionId = selectedId;
+            for (const ur of unattachedRegions) {
+                ur.isSelected = ur.id === selectedId;
+            }
+        } else {
+            this.selectedUnattachedRegionId = null;
         }
 
         // Filter built-in presets by active archetype
@@ -462,6 +489,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             hasDirection,
             drawerOpen: this.drawerOpen,
             applyToAllSameArchetype: this.applyToAllSameArchetype,
+            regionPickActive: this.regionPickActive,
             pickActive: this.sampler.isActive || Boolean(this.sampler.editingRegionId),
             pickTolerance: this.sampler.tolerance,
             pickSmoothing: this.sampler.smoothing,
@@ -528,7 +556,23 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             });
         });
 
-        // Pick mode toggle
+        // Region pick mode toggle ("From Region")
+        root.querySelector('[data-action="toggleRegionPick"]')?.addEventListener('click', async () => {
+            if (this.regionPickActive) {
+                this.#stopRegionPick();
+                this.render();
+                return;
+            }
+            const controlled = this.#getControlledUnattachedRegion();
+            if (controlled) {
+                await this.adoptRegion(controlled.id);
+                return;
+            }
+            this.#startRegionPick();
+            this.render();
+        });
+
+        // Pick mode toggle ("New Waterbody")
         root.querySelector('[data-action="togglePick"]')?.addEventListener('click', () => {
             if (this.sampler.isActive || this.sampler.editingRegionId) {
                 this.sampler.discardCandidate();
@@ -542,6 +586,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 }
                 this.render();
             } else {
+                this.#stopRegionPick();
                 this.#flushAutoSave();
                 this.#previousRegionId = this.activeRegionId;
                 this.activeRegionId = null;
@@ -634,6 +679,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             cardEl.addEventListener('click', () => {
                 const regionId = cardEl.dataset.regionId;
                 if (!regionId) return;
+                this.#stopRegionPick();
                 const wasPickActive = Boolean(this.sampler?.isActive || this.sampler?.editingRegionId);
                 if (wasPickActive) {
                     this.sampler.discardCandidate();
@@ -689,21 +735,48 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             });
         });
 
-        // Delete waterbody
+        // Delete waterbody (or detach Waterline FX if region was adopted / has other behaviors)
         root.querySelectorAll('[data-action="deleteZone"]').forEach(btn => {
             btn.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 const regionId = btn.dataset.regionId;
                 const region = canvas.scene?.regions?.get(regionId);
                 if (!region) return;
+
+                const allBehaviors = Array.from(region.behaviors?.values?.() ?? region.behaviors?.contents ?? region.behaviors ?? []);
+                const waterBehaviors = allBehaviors.filter(b => b.type === `${MODULE_ID}.waterFX`);
+                const otherBehaviors = allBehaviors.filter(b => b.type !== `${MODULE_ID}.waterFX`);
+                const isAdoptedOrShared = Boolean(otherBehaviors.length > 0 || region.flags?.[MODULE_ID]?.adoptedRegion);
+
                 Dialog.confirm({
-                    title: 'Delete Waterbody',
-                    content: `<p>Delete waterbody <strong>${region.name}</strong> from the scene?</p>`,
+                    title: isAdoptedOrShared ? 'Remove Water FX' : 'Delete Waterbody',
+                    content: isAdoptedOrShared
+                        ? `<p>Remove Waterline FX from <strong>${region.name}</strong>? The scene region and its other behaviors will be kept.</p>`
+                        : `<p>Delete waterbody <strong>${region.name}</strong> from the scene?</p>`,
                     yes: async () => {
                         if (this.sampler?.editingRegionId === regionId) {
                             this.sampler.discardCandidate();
                         }
-                        await region.delete();
+                        if (isAdoptedOrShared && waterBehaviors.length > 0 && region.deleteEmbeddedDocuments) {
+                            const ids = waterBehaviors.map(b => b.id ?? b._id).filter(Boolean);
+                            if (ids.length) {
+                                await region.deleteEmbeddedDocuments('RegionBehavior', ids);
+                            }
+                            const origColor = region.flags?.[MODULE_ID]?.originalColor;
+                            if (origColor && region.update) {
+                                await region.update({ color: origColor });
+                            }
+                            if (region.unsetFlag) {
+                                await region.unsetFlag(MODULE_ID, 'configured');
+                                await region.unsetFlag(MODULE_ID, 'customPreset');
+                                await region.unsetFlag(MODULE_ID, 'color');
+                            }
+                            if (region.object) {
+                                region.object.alpha = 1;
+                            }
+                        } else {
+                            await region.delete();
+                        }
                         if (this.activeRegionId === regionId) this.activeRegionId = null;
                         this.render();
                     },
@@ -712,58 +785,20 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             });
         });
 
-        // Adopt unattached scene region
-        root.querySelector('[data-action="adoptSceneRegion"]')?.addEventListener('click', async () => {
-            const select = root.querySelector('select[name="unattachedRegionSelect"]');
-            const regionId = select?.value;
-            if (!regionId) return;
+        // Unattached scene region selector & adoption
+        root.querySelectorAll('select[name="unattachedRegionSelect"]').forEach(sel => {
+            sel.addEventListener('change', (ev) => {
+                this.selectedUnattachedRegionId = ev.target.value;
+            });
+        });
 
-            const region = canvas.scene?.regions?.get(regionId);
-            if (!region) return;
-
-            const est = WaterShapeEstimator.estimateRegion(region) ?? WaterShapeEstimator.estimate({ points: [], vertexCount: 0 });
-            const presetKey = est.preset || 'river';
-            const preset = WATER_PRESETS[presetKey] ?? {};
-
-            const system = {
-                archetype: est.archetype,
-                waterType: presetKey,
-                flowAngle: est.flowAngle ?? 90,
-                speed: preset.speed ?? 1.0,
-                intensity: preset.intensity ?? 0.3,
-                opacity: preset.opacity ?? 0.2,
-                distortion: preset.distortion ?? 0.02,
-                fadeWidth: preset.fadeWidth ?? 50,
-                scale: preset.scale ?? 90,
-                shoreWaves: preset.shoreWaves ?? 0.2,
-                swashSurge: preset.swashSurge ?? 16.0,
-                surfFoam: preset.surfFoam ?? 0.70,
-                waveSegment: preset.waveSegment ?? 0.85,
-                waveRegularity: preset.waveRegularity ?? 0.60,
-                choppySeas: preset.choppySeas ?? 0.0,
-                riverWaves: preset.riverWaves ?? (est.archetype === 'river' ? 0.65 : 0.0),
-                lakeWaves: (est.archetype === 'lake' || est.archetype === 'pond') ? (preset.lakeWaves ?? 0.25) : 0.0,
-                lakeRings: (est.archetype === 'lake' || est.archetype === 'pond' || est.archetype === 'puddle') ? (typeof preset.lakeRings === 'number' ? preset.lakeRings : (preset.lakeRings ? 0.70 : 0.0)) : 0.0,
-                whitecaps: preset.whitecaps ?? 0.1,
-                sunGlint: preset.sunGlint ?? 0.3,
-                colorOverride: preset.colorOverride || ''
-            };
-
-            await region.createEmbeddedDocuments('RegionBehavior', [{
-                type: `${MODULE_ID}.waterFX`,
-                name: 'Water FX',
-                flags: {
-                    [MODULE_ID]: { configured: true }
-                },
-                system
-            }]);
-            await region.setFlag(MODULE_ID, 'configured', true);
-
-            this.activeRegionId = regionId;
-            this.#loadActiveRegionFX(regionId);
-            this.#liveUpdateFX();
-            this.render();
-            ui.notifications.info(`Waterline | Added "${region.name}".`);
+        root.querySelectorAll('[data-action="adoptSceneRegion"]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const select = root.querySelector('select[name="unattachedRegionSelect"]');
+                const regionId = select?.value || this.selectedUnattachedRegionId;
+                if (!regionId) return;
+                await this.adoptRegion(regionId);
+            });
         });
 
         // In-place inline renaming on double click
@@ -2066,7 +2101,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         if (!regionId) return;
         const region = canvas.scene?.regions?.get(regionId);
         if (!region) return;
-        const pts = region.shapes?.[0]?.points;
+        const pts = WaterShapeEstimator.extractRegionPoints(region);
         if (!pts || !pts.length) return;
         let sumX = 0;
         let sumY = 0;
@@ -2078,6 +2113,182 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         const cx = sumX / n;
         const cy = sumY / n;
         canvas.animatePan({ x: cx, y: cy, duration: 400 });
+    }
+
+    #getControlledUnattachedRegion() {
+        const controlled = Array.from(canvas?.regions?.controlled ?? []);
+        for (const placeable of controlled) {
+            const doc = placeable?.document ?? placeable;
+            if (!doc || this.#getRegionWaterBehavior(doc)) continue;
+            const pts = WaterShapeEstimator.extractRegionPoints(doc);
+            if (pts && pts.length >= 6) return doc;
+        }
+        return null;
+    }
+
+    #startRegionPick() {
+        if (this.sampler?.isActive || this.sampler?.editingRegionId) {
+            this.sampler.discardCandidate();
+            this.sampler.stop();
+        }
+        this.#stopRegionPick();
+        this.regionPickActive = true;
+
+        // Ensure unattached scene regions are visible on the canvas so the GM can click them
+        const regions = Array.from(canvas?.scene?.regions?.values?.() ?? canvas?.scene?.regions ?? []);
+        for (const region of regions) {
+            if (!this.#getRegionWaterBehavior(region) && region.object) {
+                region.object.visible = true;
+                region.object.alpha = 1;
+            }
+        }
+
+        this.#regionPickClickHandler = async (event) => {
+            if (!this.regionPickActive) return;
+            const button = event.data?.button ?? event.button ?? 0;
+            if (button !== 0) return;
+
+            const pos = event.data?.getLocalPosition
+                ? event.data.getLocalPosition(canvas.app.stage)
+                : canvas.stage.toLocal(event.global);
+            if (!pos) return;
+
+            const allRegions = Array.from(canvas?.scene?.regions?.values?.() ?? canvas?.scene?.regions ?? []);
+            let bestUnattached = null;
+            let bestArea = Infinity;
+            let matchedWater = null;
+
+            for (const region of allRegions) {
+                const pts = WaterShapeEstimator.extractRegionPoints(region);
+                if (!pts || pts.length < 6) continue;
+                if (!RasterContourTracer.pointInPolygon(pos.x, pos.y, pts, pts.holes)) continue;
+
+                if (this.#getRegionWaterBehavior(region)) {
+                    matchedWater = region;
+                } else {
+                    const est = WaterShapeEstimator.estimate({ points: pts, vertexCount: Math.round(pts.length / 2) }, canvas?.dimensions);
+                    const area = est?.area || Infinity;
+                    if (!bestUnattached || area < bestArea) {
+                        bestUnattached = region;
+                        bestArea = area;
+                    }
+                }
+            }
+
+            if (bestUnattached) {
+                await this.adoptRegion(bestUnattached.id);
+            } else if (matchedWater) {
+                this.#stopRegionPick();
+                this.loadRegion(matchedWater.id);
+                ui.notifications?.info(`Waterline | Selected existing waterbody "${matchedWater.name}".`);
+            } else {
+                ui.notifications?.warn('Waterline | No drawn scene region found at that point.');
+            }
+        };
+
+        this.#regionPickKeyHandler = (event) => {
+            if (event.key === 'Escape' && this.regionPickActive) {
+                this.#stopRegionPick();
+                this.render();
+            }
+        };
+
+        canvas.stage?.on?.('pointerdown', this.#regionPickClickHandler);
+        document.addEventListener('keydown', this.#regionPickKeyHandler);
+        ui.notifications?.info('Waterline | Click a drawn region on the canvas to convert it into a waterbody.');
+    }
+
+    #stopRegionPick() {
+        this.regionPickActive = false;
+        if (this.#regionPickClickHandler) {
+            canvas?.stage?.off?.('pointerdown', this.#regionPickClickHandler);
+            this.#regionPickClickHandler = null;
+        }
+        if (this.#regionPickKeyHandler) {
+            document.removeEventListener('keydown', this.#regionPickKeyHandler);
+            this.#regionPickKeyHandler = null;
+        }
+    }
+
+    /**
+     * Convert an existing unattached RegionDocument into a Waterline waterbody.
+     * @param {string} regionId
+     * @returns {Promise<RegionDocument|null>}
+     */
+    async adoptRegion(regionId) {
+        if (!regionId) return null;
+        const region = canvas.scene?.regions?.get(regionId);
+        if (!region) return null;
+
+        this.#stopRegionPick();
+        this.#flushAutoSave();
+
+        if (this.#getRegionWaterBehavior(region)) {
+            this.loadRegion(regionId);
+            return region;
+        }
+
+        const pts = WaterShapeEstimator.extractRegionPoints(region);
+        const est = WaterShapeEstimator.estimateRegion(region) ?? WaterShapeEstimator.estimate({ points: [], vertexCount: 0 });
+        const presetKey = est.preset || 'river';
+        const preset = WATER_PRESETS[presetKey] ?? {};
+
+        const system = {
+            archetype: est.archetype,
+            waterType: presetKey,
+            flowAngle: est.flowAngle ?? 90,
+            speed: preset.speed ?? 1.0,
+            intensity: preset.intensity ?? 0.3,
+            opacity: preset.opacity ?? 0.2,
+            distortion: preset.distortion ?? 0.02,
+            fadeWidth: preset.fadeWidth ?? 50,
+            scale: preset.scale ?? 90,
+            shoreWaves: preset.shoreWaves ?? 0.2,
+            waveCount: preset.waveCount ?? 4,
+            swashSurge: preset.swashSurge ?? 16.0,
+            surfFoam: preset.surfFoam ?? 0.70,
+            waveSegment: preset.waveSegment ?? 0.85,
+            waveRegularity: preset.waveRegularity ?? 0.60,
+            choppySeas: preset.choppySeas ?? 0.0,
+            riverWaves: preset.riverWaves ?? (est.archetype === 'river' ? 0.65 : 0.0),
+            lakeWaves: (est.archetype === 'lake' || est.archetype === 'pond') ? (preset.lakeWaves ?? 0.25) : 0.0,
+            lakeRings: (est.archetype === 'lake' || est.archetype === 'pond' || est.archetype === 'puddle') ? (typeof preset.lakeRings === 'number' ? preset.lakeRings : (preset.lakeRings ? 0.70 : 0.0)) : 0.0,
+            whitecaps: preset.whitecaps ?? 0.1,
+            sunGlint: preset.sunGlint ?? 0.3,
+            spindriftWake: Boolean(preset.spindriftWake),
+            crestBound: Boolean(preset.crestBound),
+            colorOverride: preset.colorOverride || ''
+        };
+
+        await region.createEmbeddedDocuments('RegionBehavior', [{
+            type: `${MODULE_ID}.waterFX`,
+            name: 'Water FX',
+            flags: {
+                [MODULE_ID]: { configured: true }
+            },
+            system
+        }]);
+        await region.setFlag(MODULE_ID, 'configured', true);
+        await region.setFlag(MODULE_ID, 'adoptedRegion', true);
+        if (region.color) {
+            await region.setFlag(MODULE_ID, 'originalColor', region.color);
+        }
+        if (region.locked && region.update) {
+            await region.update({ locked: false });
+        }
+        if (pts?.holes?.length) {
+            await region.setFlag(MODULE_ID, 'holes', pts.holes);
+        }
+
+        this.activeRegionId = regionId;
+        this.hasUnsavedChanges = false;
+        this.#scrollActiveIntoView = true;
+        this.#loadActiveRegionFX(regionId);
+        this.#liveUpdateFX(false);
+        WaterlineStudioApp.syncRegionOverlays(true);
+        this.render();
+        ui.notifications?.info(`Waterline | Added "${region.name}".`);
+        return region;
     }
 
     async #editRegionBoundary(regionId) {

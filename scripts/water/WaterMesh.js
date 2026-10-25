@@ -71,7 +71,33 @@ export class WaterMesh {
             n = meshPts.length / 2;
         }
 
-        const indices = earcut(meshPts, null, 2);
+        const rawHoles = config.holes ?? flatPoints?.holes ?? [];
+        const cleanHoles = [];
+        if (Array.isArray(rawHoles)) {
+            for (const h of rawHoles) {
+                if (!Array.isArray(h) && !ArrayBuffer.isView(h)) continue;
+                let hPts = Array.isArray(h) ? [...h] : Array.from(h);
+                let hn = hPts.length / 2;
+                if (hn > 2 && Math.hypot(hPts[0] - hPts[(hn - 1) * 2], hPts[1] - hPts[(hn - 1) * 2 + 1]) < 0.001) {
+                    hPts = hPts.slice(0, (hn - 1) * 2);
+                    hn = hPts.length / 2;
+                }
+                if (hn >= 3) cleanHoles.push(hPts);
+            }
+        }
+
+        let earcutPts = meshPts;
+        let holeIndices = null;
+        if (cleanHoles.length > 0) {
+            earcutPts = [...meshPts];
+            holeIndices = [];
+            for (const hPts of cleanHoles) {
+                holeIndices.push(earcutPts.length / 2);
+                earcutPts.push(...hPts);
+            }
+        }
+
+        const indices = earcut(earcutPts, holeIndices, 2);
         if (!indices.length) {
             LOG('ERROR: Triangulation produced no indices');
             return;
@@ -91,14 +117,14 @@ export class WaterMesh {
         const boundsH = maxY - minY || 1;
 
         // Generate Signed Distance Field (SDF) texture for organic shorelines
-        const sdfResult = ShoreSdfGenerator.generate(meshPts);
+        const sdfResult = ShoreSdfGenerator.generate(meshPts, { holes: cleanHoles });
         this.#sdfTexture = sdfResult?.texture ?? null;
         const sdfBounds = sdfResult?.sdfBounds ?? new Float32Array([minX, minY, boundsW, boundsH]);
         const sdfMaxDist = sdfResult?.maxDist ?? ShoreSdfGenerator.DEFAULT_MAX_DIST;
 
         // Build extruded skirt geometry allowing waves to surge onto dry bank
         const skirtMargin = 35.0;
-        const skirtGeom = ShoreSdfGenerator.buildSkirtGeometry(meshPts, indices, skirtMargin);
+        const skirtGeom = ShoreSdfGenerator.buildSkirtGeometry(meshPts, indices, skirtMargin, cleanHoles);
 
         const geometry = new PIXI.Geometry()
             .addAttribute('aVertexPosition', skirtGeom.vertices, 2)

@@ -172,16 +172,26 @@ export class WaterSamplingController {
             return false;
         }
 
-        // Extract raw points from existing region's primary shape
-        const shapes = region.shapes?.contents ?? region.shapes ?? [];
-        const polyShape = shapes.find(s => (s.points?.length >= 6) || (s.coordinates?.length >= 6));
+        // Extract raw points and holes from existing region's shapes
+        const shapes = Array.from(region.shapes?.contents ?? region.shapes ?? []);
+        const polyShape = shapes.find(s => !s.hole && ((s.points?.length >= 6) || (s.coordinates?.length >= 6)));
         const rawPts = polyShape ? Array.from(polyShape.points ?? polyShape.coordinates ?? []) : null;
+        let rawHoles = shapes
+            .filter(s => Boolean(s.hole) && ((s.points?.length >= 6) || (s.coordinates?.length >= 6)))
+            .map(s => Array.from(s.points ?? s.coordinates ?? []));
+        if (!rawHoles.length && Array.isArray(region.flags?.['ionrift-waterline']?.holes)) {
+            rawHoles = region.flags['ionrift-waterline'].holes
+                .filter(h => Array.isArray(h) && h.length >= 6)
+                .map(h => Array.from(h));
+        }
 
         let candidate = WaterDetector.candidateFromMask(maskData, this.smoothing);
         if (candidate && rawPts && rawPts.length >= 6) {
             // Keep the exact original boundary vertices until modified by user
             candidate.points = rawPts;
-            candidate.vertexCount = Math.round(rawPts.length / 2);
+            if (rawHoles.length) candidate.holes = rawHoles;
+            const holeVerts = (candidate.holes ?? []).reduce((sum, h) => sum + Math.round(h.length / 2), 0);
+            candidate.vertexCount = Math.round(rawPts.length / 2) + holeVerts;
         } else if (!candidate && rawPts && rawPts.length >= 6) {
             let cx = 0, cy = 0;
             const vertCount = rawPts.length / 2;
@@ -189,11 +199,13 @@ export class WaterSamplingController {
                 cx += rawPts[i];
                 cy += rawPts[i + 1];
             }
+            const holeVerts = rawHoles.reduce((sum, h) => sum + Math.round(h.length / 2), 0);
             candidate = {
                 points: rawPts,
+                holes: rawHoles,
                 area: vertCount * 10,
                 centroid: { x: cx / vertCount, y: cy / vertCount },
-                vertexCount: vertCount
+                vertexCount: vertCount + holeVerts
             };
         }
 
@@ -259,11 +271,32 @@ export class WaterSamplingController {
                     ? MapBorderDetector.snap(this.#currentCandidate.points, dims)
                     : this.#currentCandidate.points;
 
+                const shapes = [{
+                    type: 'polygon',
+                    points,
+                    hole: false
+                }];
+                const validHoles = [];
+                if (Array.isArray(this.#currentCandidate.holes)) {
+                    for (const holePts of this.#currentCandidate.holes) {
+                        if (Array.isArray(holePts) && holePts.length >= 6) {
+                            shapes.push({
+                                type: 'polygon',
+                                points: holePts,
+                                hole: true
+                            });
+                            validHoles.push(holePts);
+                        }
+                    }
+                }
+
                 const updateData = {
-                    shapes: [{
-                        type: 'polygon',
-                        points
-                    }]
+                    shapes,
+                    flags: {
+                        'ionrift-waterline': {
+                            holes: validHoles
+                        }
+                    }
                 };
                 if (name && name.trim() && name.trim() !== region.name) {
                     updateData.name = name.trim();
@@ -321,7 +354,9 @@ export class WaterSamplingController {
         if (!this.#currentMaskData) return;
         const entry = {
             mask: new Uint8Array(this.#currentMaskData.mask),
-            points: this.#currentCandidate?.points ? Array.from(this.#currentCandidate.points) : null
+            subtractedCells: this.#currentMaskData.subtractedCells ? new Set(this.#currentMaskData.subtractedCells) : new Set(),
+            points: this.#currentCandidate?.points ? Array.from(this.#currentCandidate.points) : null,
+            holes: Array.isArray(this.#currentCandidate?.holes) ? this.#currentCandidate.holes.map(h => Array.from(h)) : []
         };
         this.#undoStack.push(entry);
         if (this.#undoStack.length > 20) this.#undoStack.shift();
@@ -339,10 +374,15 @@ export class WaterSamplingController {
         const entry = this.#undoStack.pop();
         const mask = (entry instanceof Uint8Array) ? entry : entry.mask;
         this.#currentMaskData.mask = mask;
+        if (entry.subtractedCells) {
+            this.#currentMaskData.subtractedCells = entry.subtractedCells;
+        }
 
         if (entry.points && this.#currentCandidate) {
             this.#currentCandidate.points = entry.points;
-            this.#currentCandidate.vertexCount = Math.round(entry.points.length / 2);
+            this.#currentCandidate.holes = entry.holes ?? [];
+            const holeVerts = this.#currentCandidate.holes.reduce((sum, h) => sum + Math.round(h.length / 2), 0);
+            this.#currentCandidate.vertexCount = Math.round(entry.points.length / 2) + holeVerts;
             this.#currentCandidate.estimation = WaterShapeEstimator.estimate(this.#currentCandidate, canvas.dimensions ?? canvas.scene?.dimensions);
         } else {
             const candidate = WaterDetector.candidateFromMask(this.#currentMaskData, this.smoothing);
@@ -435,7 +475,13 @@ export class WaterSamplingController {
         const dims = canvas.dimensions;
         const smoothed = WaterDetector.smoothContour(this.#currentCandidate.points, 1, dims);
         this.#currentCandidate.points = smoothed;
-        this.#currentCandidate.vertexCount = Math.round(smoothed.length / 2);
+        if (Array.isArray(this.#currentCandidate.holes) && this.#currentCandidate.holes.length) {
+            this.#currentCandidate.holes = this.#currentCandidate.holes.map(
+                h => WaterDetector.smoothContour(h, 1, dims)
+            );
+        }
+        const holeVerts = (this.#currentCandidate.holes ?? []).reduce((sum, h) => sum + Math.round(h.length / 2), 0);
+        this.#currentCandidate.vertexCount = Math.round(smoothed.length / 2) + holeVerts;
         this.#currentCandidate.estimation = WaterShapeEstimator.estimate(this.#currentCandidate, dims);
 
         this.#showPolyPreview(this.#currentCandidate);
@@ -502,17 +548,7 @@ export class WaterSamplingController {
 
         this.clearPreviews();
 
-        // Generate flood preview mask sprite
-        const sprite = await WaterDetector.generateFloodPreview(
-            this.#seedPoint.x, this.#seedPoint.y, this.tolerance
-        );
-        if (sprite) {
-            const layer = canvas.controls ?? canvas.stage;
-            layer.addChild(sprite);
-            this.#previewSprite = sprite;
-        }
-
-        // Generate polygon contour candidate
+        // Generate polygon contour candidate (and clean mask speckles/holes)
         try {
             this.#currentCandidate = await WaterDetector.floodFillFromPoint(
                 this.#seedPoint.x, this.#seedPoint.y, this.tolerance, 4, this.smoothing
@@ -522,6 +558,15 @@ export class WaterSamplingController {
             console.error('Waterline | Flood fill error:', err);
             this.#currentCandidate = null;
             this.#currentMaskData = null;
+        }
+
+        const sprite = this.#currentMaskData
+            ? WaterDetector.previewFromMask(this.#currentMaskData)
+            : await WaterDetector.generateFloodPreview(this.#seedPoint.x, this.#seedPoint.y, this.tolerance);
+        if (sprite) {
+            const layer = canvas.controls ?? canvas.stage;
+            layer.addChild(sprite);
+            this.#previewSprite = sprite;
         }
 
         if (this.#currentCandidate) {
@@ -540,7 +585,7 @@ export class WaterSamplingController {
 
         try {
             const refined = await WaterDetector.refineMask(
-                this.#currentMaskData, sceneX, sceneY, mode, this.tolerance, this.smoothing
+                this.#currentMaskData, sceneX, sceneY, mode, this.tolerance, this.smoothing, this.#seedPoint
             );
             if (!refined) {
                 ui.notifications.info(`Waterline | No change from ${mode} operation.`);
@@ -583,7 +628,33 @@ export class WaterSamplingController {
             gfx.lineTo(pts[i], pts[i + 1]);
         }
         gfx.closePath();
+
+        const holes = Array.isArray(candidate.holes) ? candidate.holes : [];
+        for (const holePts of holes) {
+            if (!Array.isArray(holePts) || holePts.length < 6) continue;
+            if (typeof gfx.beginHole === 'function') {
+                gfx.beginHole();
+                gfx.moveTo(holePts[0], holePts[1]);
+                for (let i = 2; i < holePts.length; i += 2) {
+                    gfx.lineTo(holePts[i], holePts[i + 1]);
+                }
+                gfx.closePath();
+                gfx.endHole?.();
+            }
+        }
         gfx.endFill();
+
+        if (holes.length) {
+            gfx.lineStyle(2, 0x4a9ad9, 0.85);
+            for (const holePts of holes) {
+                if (!Array.isArray(holePts) || holePts.length < 6) continue;
+                gfx.moveTo(holePts[0], holePts[1]);
+                for (let i = 2; i < holePts.length; i += 2) {
+                    gfx.lineTo(holePts[i], holePts[i + 1]);
+                }
+                gfx.closePath();
+            }
+        }
 
         const layer = canvas.controls ?? canvas.stage;
         layer.addChild(gfx);
