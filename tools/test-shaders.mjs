@@ -298,6 +298,10 @@ describe('River Flow Shader (RIVER_FLOW_CHUNK)', () => {
     assert.match(RIVER_FLOW_CHUNK, /riverFoam\s*=\s*clamp\(foam,\s*0\.0,\s*0\.96\);/, 'Foam must be clamped to 0.96');
     // Refraction displacement derived from -worldGrad
     assert.match(RIVER_FLOW_CHUNK, /riverDisplacement\s*=\s*\(-worldGrad\)\s*\*\s*\(uDistortion\s*\*\s*1\.5\s*\*\s*uRiverWaves\);/, 'Displacement must scale with -worldGrad and uDistortion * 1.5');
+    assert.match(RIVER_FLOW_CHUNK, /float\s+cycleIdx\s*=\s*floor\(clockTime\s*\/\s*period\);/, 'Must index boil lifecycle to re-seed cells between cycles');
+    assert.match(RIVER_FLOW_CHUNK, /vec2\s+cSeed\s*=\s*cId\s*\+\s*vec2\(cycleIdx\s*\*\s*7\.13,\s*cycleIdx\s*\*\s*13\.79\);/, 'Must re-hash boil seed per cycle so bloblets cannot be tracked across screen');
+    assert.match(RIVER_FLOW_CHUNK, /float\s+facetSlopeMask\s*=\s*smoothstep\(0\.16,\s*0\.48,\s*steepness\);/, 'Specular glints must gate on tilted facet slopes to avoid glossy flat caps');
+    assert.ok(!RIVER_FLOW_CHUNK.includes('voronoiBubbleField'), 'River whitewater must not project a regular Voronoi bubble grid over current');
   });
 });
 

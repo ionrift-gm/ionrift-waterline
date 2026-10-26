@@ -302,9 +302,14 @@ export const COMPOSITE_CHUNK = `
         vec3 foamTint = vec3(0.98, 0.99, 1.0);
         float foamOpacity = 0.0;
         if (totalWave > 0.001 || ar.undercurrentFoam > 0.001) {
+            float riverFoamMode = (1.0 - isCoastSurf) * step(0.001, uRiverWaves);
             vec3 bgCalm = texture2D(uBackground, clamp(vBgUv + (dispPx * 0.08) / uSceneDims.zw, 0.0, 1.0)).rgb;
             vec3 cleanSeaBase = mix(bgCalm, uWaterColor * depth, max(uOpacity, 0.85));
-            vec3 seaInfluencedTint = mix(clamp(cleanSeaBase * 1.45 + vec3(0.14, 0.24, 0.28), 0.0, 1.0), vec3(0.90, 0.96, 0.98), 0.72);
+            vec3 seaInfluencedTint = mix(
+                clamp(cleanSeaBase * 1.42 + vec3(0.12, 0.22, 0.26), 0.0, 1.0),
+                vec3(0.90, 0.96, 0.98),
+                mix(0.72, 0.44, riverFoamMode)
+            );
             vec3 pureWhiteTint = vec3(0.98, 0.99, 1.0);
 
             // Multi-scale fluid texturing noise
@@ -312,20 +317,22 @@ export const COMPOSITE_CHUNK = `
             float tintMeso = noise21(vWorldPos / 22.0 + vec2(t * 0.02, -t * 0.015));
             float tintNoise = tintSwirl * 0.60 + tintMeso * 0.40;
 
-            // Whiteness modulation
+            // Whiteness modulation (rivers keep more translucent water-tinted froth on riffle fringes)
             float whiteness = smoothstep(0.28, 0.70, tintNoise);
-            whiteness = mix(whiteness, 1.0, clamp(totalWave * 0.85, 0.0, 1.0));
-            whiteness = clamp(whiteness * 0.45 + 0.55, 0.0, 1.0);
+            whiteness = mix(whiteness, 1.0, clamp(totalWave * mix(0.85, 0.68, riverFoamMode), 0.0, 1.0));
+            float minWhiteness = mix(0.55, 0.22, riverFoamMode);
+            whiteness = clamp(whiteness * (1.0 - minWhiteness) + minWhiteness, 0.0, 1.0);
 
             foamTint = mix(seaInfluencedTint, pureWhiteTint, whiteness);
-            color = mix(color, cleanSeaBase, smoothstep(0.16, 0.76, max(totalWave, ar.undercurrentFoam * 0.75)) * 0.85);
+            color = mix(color, cleanSeaBase, smoothstep(0.16, 0.76, max(totalWave, ar.undercurrentFoam * 0.75)) * mix(0.85, 0.58, riverFoamMode));
 
             // Secondary under-lapping wake sub-mesh
             float underWaveAlpha = clamp(ar.undercurrentFoam * 0.68, 0.0, 0.74) * (1.0 - clamp(totalWave * 0.62, 0.0, 0.78));
             vec3 underWaveTint = mix(cleanSeaBase, seaInfluencedTint, 0.66);
             color = mix(color, underWaveTint, underWaveAlpha);
 
-            foamOpacity = clamp(totalWave * 0.95, 0.0, 0.96);
+            float foamAlphaGain = mix(0.95, 0.84, riverFoamMode);
+            foamOpacity = clamp(totalWave * foamAlphaGain, 0.0, 0.96);
             color = mix(color, foamTint, foamOpacity);
         }
 
