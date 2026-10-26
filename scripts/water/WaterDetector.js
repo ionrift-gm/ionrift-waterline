@@ -258,7 +258,7 @@ export class WaterDetector {
                         waveSegment: Number.isFinite(fx.waveSegment) ? fx.waveSegment : (preset.waveSegment ?? 0.85),
                         waveRegularity: Number.isFinite(fx.waveRegularity) ? fx.waveRegularity : (preset.waveRegularity ?? 0.60),
                         choppySeas: Number.isFinite(fx.choppySeas) ? fx.choppySeas : (preset.choppySeas ?? 0.0),
-                        riverWaves: Number.isFinite(fx.riverWaves) ? fx.riverWaves : (preset.riverWaves ?? (archetype === 'river' ? 0.65 : 0.0)),
+                        riverWaves: Number.isFinite(fx.riverWaves) ? fx.riverWaves : (preset.riverWaves ?? (archetype === 'river' ? 0.36 : 0.0)),
                         lakeWaves: isSmallBody ? (Number.isFinite(fx.lakeWaves) ? fx.lakeWaves : (preset.lakeWaves ?? (archetype === 'lake' || archetype === 'pond' ? 0.25 : 0.0))) : 0.0,
                         lakeRings: isSmallBody ? (Number.isFinite(fx.lakeRings) ? fx.lakeRings : (preset.lakeRings ?? (archetype === 'lake' || archetype === 'pond' || archetype === 'puddle' ? 0.70 : 0.0))) : 0.0,
                         whitecaps: Number.isFinite(fx.whitecaps) ? fx.whitecaps : (preset.whitecaps ?? 0.1),

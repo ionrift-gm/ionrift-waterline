@@ -137,6 +137,10 @@ describe('Shoreline Shader (SHORELINE_CHUNK)', () => {
 
     // Downstream contact wash pulse
     assert.match(SHORELINE_CHUNK, /float\s+riverEdgePulse\s*=\s*sin\(streamCoord\s*\*\s*0\.045\s*-\s*tWave\s*\*\s*2\.8\)/, 'Waterline contact wash must pulse downstream with current');
+    assert.match(SHORELINE_CHUNK, /float\s+shoreScale\s*=\s*mix\(clamp\(uScale\s*\/\s*100\.0,\s*0\.40,\s*3\.50\),\s*1\.0,\s*isRiver\);/, 'Shoreline breakers must scale with uScale on coasts while preserving river width');
+    assert.match(SHORELINE_CHUNK, /float\s+cellSize\s*=\s*mix\(45\.0\s*\*\s*shoreScale,\s*68\.0,\s*isRiver\);/, 'Emitter lattice cellSize must scale with shoreScale');
+    assert.match(SHORELINE_CHUNK, /float\s+coreWidth\s*=\s*mix\(3\.6\s*\*\s*shoreScale,\s*2\.4,\s*isRiver\);/, 'Crest coreWidth must scale with shoreScale');
+    assert.match(SHORELINE_CHUNK, /float\s+washWidth\s*=\s*mix\(7\.5\s*\*\s*shoreScale,\s*4\.0,\s*isRiver\);/, 'Wash width must scale with shoreScale');
   });
 });
 
@@ -209,6 +213,9 @@ describe('Ocean Chop Shader (OCEAN_CHOP_CHUNK)', () => {
     assert.match(OCEAN_CHOP_CHUNK, /float\s+chunkScale\s*=\s*max\(0\.42,\s*countScale\);/);
     assert.match(OCEAN_CHOP_CHUNK, /\/\s*\(58\.0\s*\*\s*chunkScale\)/);
     assert.match(OCEAN_CHOP_CHUNK, /\/\s*\(78\.0\s*\*\s*chunkScale\)/);
+    assert.match(OCEAN_CHOP_CHUNK, /float\s+cycleIdx\s*=\s*floor\(localTime\s*\/\s*patchLife\);/);
+    assert.match(OCEAN_CHOP_CHUNK, /float\s+tBirth\s*=\s*\(cycleIdx\s*-\s*rnd\.y\)\s*\*\s*\(patchLife\s*\/\s*0\.95\);/);
+    assert.match(OCEAN_CHOP_CHUNK, /float\s+earlyCloud\s*=\s*mix\(0\.78,\s*1\.0,\s*smoothstep\(0\.15,\s*0\.75,\s*voroMacro\)\)/);
   });
 });
 
@@ -447,6 +454,7 @@ describe('Waterline Studio Hero Sliders Contract', () => {
     assert.match(studioSrc, /id:\s*'waveEnergy',\s*label:\s*'Wave Energy'/);
     assert.match(studioSrc, /id:\s*'waveCount',\s*label:\s*'Wave Count'/);
     assert.match(studioSrc, /id:\s*'surfFoam',\s*label:\s*'Shoreline Foam'/);
+    assert.match(studioSrc, /case\s+'coast':[\s\S]*?id:\s*'waveScale',\s*label:\s*'Wave Scale'/, 'Coastline must expose Wave Scale hero slider');
 
     // Lake hero sliders
     assert.ok(studioSrc.includes("case 'lake':"), 'Missing lake slider case');
@@ -694,6 +702,8 @@ describe('Composite Shader Archetype Gating', () => {
     assert.match(COMPOSITE_CHUNK,
       /if\s*\(\s*isCoastSurf\s*>\s*0\.5\s*&&\s*waterReach\s*>\s*0\.0\s*&&\s*uSurfFoam\s*>\s*0\.001\)/,
       'Coastal surf wash must be gated behind isCoastSurf > 0.5');
+    assert.match(COMPOSITE_CHUNK, /float\s+underWash\s*=\s*mix\(subMesh2,\s*subMesh1,\s*layerSwap\)\s*\*\s*washGain;/, 'Coastal surf wash must decompose into underlapping and overlapping feathered sub-meshes');
+    assert.match(COMPOSITE_CHUNK, /float\s+overWash\s*=\s*mix\(subMesh1,\s*subMesh2,\s*layerSwap\)\s*\*\s*washGain;/, 'Coastal surf wash must evaluate overlapping top sub-mesh');
   });
 
   it('gates inland foam punch-through behind isCoastSurf check', () => {

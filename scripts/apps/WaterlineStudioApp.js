@@ -88,7 +88,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         swashSurge: 24.0,
         surfFoam: 0.70,
         choppySeas: 0.0,
-        riverWaves: 0.65,
+        riverWaves: 0.36,
         lakeWaves: 0.0,
         lakeRings: 0.0,
         whitecaps: 0.5,
@@ -1345,7 +1345,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             swashSurge: preset.swashSurge ?? 16.0,
             surfFoam: preset.surfFoam ?? 0.70,
             choppySeas: preset.choppySeas ?? 0.0,
-            riverWaves: preset.riverWaves ?? (this.activeArchetype === 'river' ? 0.65 : 0.0),
+            riverWaves: preset.riverWaves ?? (this.activeArchetype === 'river' ? 0.36 : 0.0),
             lakeWaves: (this.activeArchetype === 'lake' || this.activeArchetype === 'pond') ? (preset.lakeWaves ?? 0.25) : 0.0,
             lakeRings: (this.activeArchetype === 'lake' || this.activeArchetype === 'pond' || this.activeArchetype === 'puddle') ? (typeof preset.lakeRings === 'number' ? preset.lakeRings : (preset.lakeRings ? 0.70 : 0.0)) : 0.0,
             whitecaps: preset.whitecaps ?? 0.1,
@@ -1407,7 +1407,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 swashSurge: Number.isFinite(s.swashSurge) ? s.swashSurge : (p.swashSurge ?? 16.0),
                 surfFoam: Number.isFinite(s.surfFoam) ? s.surfFoam : (p.surfFoam ?? 0.70),
                 choppySeas: Number.isFinite(s.choppySeas) ? s.choppySeas : (p.choppySeas ?? 0.0),
-                riverWaves: Number.isFinite(s.riverWaves) ? s.riverWaves : (p.riverWaves ?? (loadedArchetype === 'river' ? 0.65 : 0.0)),
+                riverWaves: Number.isFinite(s.riverWaves) ? s.riverWaves : (p.riverWaves ?? (loadedArchetype === 'river' ? 0.36 : 0.0)),
                 lakeWaves: isSmallBody ? (Number.isFinite(s.lakeWaves) ? s.lakeWaves : (p.lakeWaves ?? 0.0)) : 0.0,
                 lakeRings: isSmallBody ? (Number.isFinite(s.lakeRings) ? Number(s.lakeRings) : (s.lakeRings ? 0.70 : 0.0)) : 0.0,
                 whitecaps: Number.isFinite(s.whitecaps) ? s.whitecaps : (p.whitecaps ?? 0.1),
@@ -1515,6 +1515,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             case 'ocean': {
                 const waveEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.choppySeas / 1.2) * 100)));
                 const waveCountVal = Math.round(fx.waveCount ?? 4);
+                const waveScaleVal = Math.round(fx.scale ?? 135);
                 const surgeVal = Math.round(fx.swashSurge);
                 const surfFoamVal = Math.round(Math.min(100, Math.max(0, (fx.surfFoam ?? 0.70) * 100)));
                 const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
@@ -1537,6 +1538,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             case 'coast': {
                 const waveEnergyVal = Math.round(Math.min(100, Math.max(0, ((fx.shoreWaves - 0.05) / 0.90) * 100)));
                 const waveCountVal = Math.round(fx.waveCount ?? 4);
+                const waveScaleVal = Math.round(fx.scale ?? 135);
                 const surgeVal = Math.round(fx.swashSurge);
                 const surfFoamVal = Math.round(Math.min(100, Math.max(0, (fx.surfFoam ?? 0.85) * 100)));
                 const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
@@ -1548,6 +1550,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 return [
                     { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Turbulence, swells, and foam density of incoming breakers.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
                     { id: 'waveCount', label: 'Wave Count', tooltip: 'Number of incoming wave crests rolling and breaking toward the shore.', min: 1, max: 8, step: 1, value: waveCountVal, displayValue: `${waveCountVal}` },
+                    { id: 'waveScale', label: 'Wave Scale', tooltip: 'Physical size, breadth, and offshore reach of incoming coastal breakers.', min: 40, max: 350, step: 5, value: waveScaleVal, displayValue: `${waveScaleVal}px` },
                     { id: 'swashSurge', label: 'Surge Reach', tooltip: 'How far wave wash surges onto dry sand/rock.', min: 0, max: 60, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
                     { id: 'surfFoam', label: 'Shoreline Foam', tooltip: 'Density of aerated cellular froth, surf wash, and shoreline bubbles.', min: 0, max: 100, step: 1, value: surfFoamVal, displayValue: `${surfFoamVal}%` },
                     { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
@@ -1577,7 +1580,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 ];
             }
             case 'river': {
-                const waveEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.riverWaves ?? 0.65) * 100)));
+                const waveEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.riverWaves ?? 0.36) * 100)));
                 const surgeVal = Math.round(fx.swashSurge ?? 16.0);
                 const shoreFoamVal = Math.round(Math.min(100, Math.max(0, ((fx.whitecaps ?? 0.14) / 0.65) * 100)));
                 const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
@@ -2250,7 +2253,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             waveSegment: preset.waveSegment ?? 0.85,
             waveRegularity: preset.waveRegularity ?? 0.60,
             choppySeas: preset.choppySeas ?? 0.0,
-            riverWaves: preset.riverWaves ?? (est.archetype === 'river' ? 0.65 : 0.0),
+            riverWaves: preset.riverWaves ?? (est.archetype === 'river' ? 0.36 : 0.0),
             lakeWaves: (est.archetype === 'lake' || est.archetype === 'pond') ? (preset.lakeWaves ?? 0.25) : 0.0,
             lakeRings: (est.archetype === 'lake' || est.archetype === 'pond' || est.archetype === 'puddle') ? (typeof preset.lakeRings === 'number' ? preset.lakeRings : (preset.lakeRings ? 0.70 : 0.0)) : 0.0,
             whitecaps: preset.whitecaps ?? 0.1,

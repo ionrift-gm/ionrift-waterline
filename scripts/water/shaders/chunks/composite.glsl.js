@@ -113,10 +113,11 @@ export const COMPOSITE_CHUNK = `
         // Dynamic fluid undulation and slosh
         float countMul = clamp(uWaveCount, 1.0, 8.0);
         float sloshTempo = (0.75 + 0.10 * countMul) * uSpeed;
-        float sloshPhase = dot(vWorldPos, flow) * 0.022 - uTime * sloshTempo;
+        float coastScale = mix(1.0, clamp(uScale / 100.0, 0.40, 3.50), uCoastSurf);
+        float sloshPhase = dot(vWorldPos, flow) * (0.022 / coastScale) - uTime * sloshTempo;
         float slosh1 = sin(sloshPhase + er1 * 2.8);
-        float slosh2 = cos(sloshPhase * 1.6 + uTime * (sloshTempo * 0.7) + dot(vWorldPos, flowPerp) * 0.028 + er2 * 1.8);
-        float microSlosh = noise21(vWorldPos * 0.075 + vec2(tAnim * 0.28, -tAnim * 0.22)) - 0.5;
+        float slosh2 = cos(sloshPhase * 1.6 + uTime * (sloshTempo * 0.7) + dot(vWorldPos, flowPerp) * (0.028 / coastScale) + er2 * 1.8);
+        float microSlosh = noise21(vWorldPos * (0.075 / coastScale) + vec2(tAnim * 0.28, -tAnim * 0.22)) - 0.5;
         float bankSlosh = (slosh1 * 0.58 + slosh2 * 0.27 + microSlosh * 0.35) * (uSwashSurge * 0.35) * mapEdgeMask;
 
         // ─── Archetype Strategy Dispatch ───
@@ -144,6 +145,33 @@ export const COMPOSITE_CHUNK = `
         // River dispatch
         applyRiverArchetype(vWorldPos, flow, max(0.0, waterReach), tWave, tAnim, ar);
 
+        // ─── Pre-Refraction Gaussian Fillet & Shore Waves ───
+        float edgeDist = max(0.0, signedDist);
+        vec4 sRU = texture2D(uShoreSdf, clamp(sdfUv + vec2(sdfStep.x, sdfStep.y), 0.0, 1.0));
+        vec4 sLU = texture2D(uShoreSdf, clamp(sdfUv + vec2(-sdfStep.x, sdfStep.y), 0.0, 1.0));
+        vec4 sRD = texture2D(uShoreSdf, clamp(sdfUv + vec2(sdfStep.x, -sdfStep.y), 0.0, 1.0));
+        vec4 sLD = texture2D(uShoreSdf, clamp(sdfUv + vec2(-sdfStep.x, -sdfStep.y), 0.0, 1.0));
+        float dRU = (sRU.b - 0.5) * (2.0 * uSdfMaxDist);
+        float dLU = (sLU.b - 0.5) * (2.0 * uSdfMaxDist);
+        float dRD = (sRD.b - 0.5) * (2.0 * uSdfMaxDist);
+        float dLD = (sLD.b - 0.5) * (2.0 * uSdfMaxDist);
+        float dCross = (dR + dL + dU + dD) * 0.25;
+        float dDiag = (dRU + dLU + dRD + dLD) * 0.25;
+        float filletedDist = max(0.0, signedDist * 0.25 + dCross * 0.5 + dDiag * 0.25);
+        float lapH = dR - 2.0 * signedDist + dL;
+        float lapV = dU - 2.0 * signedDist + dD;
+        float cornerness = clamp((abs(lapH) + abs(lapV)) / 10.0, 0.0, 1.0);
+        float waveDist = mix(max(0.0, (signedDist + dR + dL + dU + dD) * 0.2), filletedDist, cornerness * 0.85);
+
+        float shoreEffect = 0.0;
+        if (hasSdf > 0.5 && shoreIsNatural > 0.05 && uShoreWaves > 0.001) {
+            float shorePresence = mix(uShoreWaves, clamp(uShoreWaves * 1.45, 0.55, 1.0), isCoastSurf);
+            shoreEffect = computeShoreWaves(waveDist, cornerness, vWorldPos, flow, shoreNormal, tWave, tAnim) * shorePresence * shoreIsNatural * mapEdgeMask;
+        }
+        float tokenWaveEffect = computeTokenWaves(vWorldPos, flow, tAnim);
+        float totalWave = max(max(shoreEffect, tokenWaveEffect), ar.foam);
+        float lensShield = 1.0 - clamp(max(totalWave * 1.45, ar.aeratedBase * 0.90 + ar.undercurrentFoam * 0.55), 0.0, 0.94);
+
         // ─── Refraction Pipeline ───
         vec2 distUV = causticUV * 2.0;
         float nx = noise21(distUV - flow * (tAnim * 0.3) + flowPerp * (tAnim * 0.1)) - 0.5;
@@ -157,6 +185,7 @@ export const COMPOSITE_CHUNK = `
         vec2 frothScatter = (vec2(noise21(vWorldPos / 48.0 + tAnim * 0.08), noise21(vWorldPos / 48.0 - tAnim * 0.07 + 23.1)) - 0.5)
             * (uDistortion * 0.30 * (ar.aeratedBase + ar.undercurrentFoam * 0.5) * uChoppySeas);
         offset += frothScatter;
+        offset *= lensShield;
 
         vec2 wakeOff = sumWakeDistortion(vWorldPos, tAnim);
 
@@ -234,9 +263,10 @@ export const COMPOSITE_CHUNK = `
         vec3 sunDir = normalize(vec3(flow * 0.35 + vec2(-0.25, 0.45), 0.88));
         float diffuse = max(0.0, dot(ar.normal, sunDir));
         float waveActivity = max(uChoppySeas, max(uRiverWaves, uLakeWaves));
-        float slopeShading = mix(1.0, mix(0.90, 1.12, diffuse), waveActivity * 0.75);
+        float surfaceFoamMask = 1.0 - clamp((totalWave * 1.35 + ar.aeratedBase * 0.85 + ar.undercurrentFoam * 0.6) * 1.2, 0.0, 0.95);
+        float slopeShading = mix(1.0, mix(0.92, 1.08, diffuse), waveActivity * 0.55 * surfaceFoamMask);
 
-        float troughFactor = mix(1.0, mix(0.72, 1.16, ar.troughShadow), uChoppySeas * 0.7);
+        float troughFactor = mix(1.0, mix(0.84, 1.08, ar.troughShadow), uChoppySeas * 0.45 * surfaceFoamMask);
         vec3 waterTint = uWaterColor * (depth * troughFactor) * slopeShading;
         waterTint += uHighlightColor * causticBright * 0.4;
 
@@ -247,7 +277,7 @@ export const COMPOSITE_CHUNK = `
 
         // Translucent crest body (struct-parameterized: zero for non-ocean)
         vec3 aquaCrest = mix(uWaterColor * 1.5 + vec3(0.04, 0.16, 0.20), vec3(0.05, 0.48, 0.58), 0.65);
-        waterTint = mix(waterTint, aquaCrest, ar.crestBody * 0.55 * uChoppySeas);
+        waterTint = mix(waterTint, aquaCrest, ar.crestBody * 0.35 * uChoppySeas * surfaceFoamMask);
 
         // Aerated subsurface foam base (struct-parameterized)
         vec3 aeratedSeafoam = vec3(0.20, 0.72, 0.75);
@@ -264,70 +294,43 @@ export const COMPOSITE_CHUNK = `
         }
 
         // Dynamic water opacity under foam (struct-parameterized: uChoppySeas gates non-ocean to uOpacity)
-        float dynamicOpacity = mix(uOpacity, max(uOpacity, 0.65), clamp((ar.aeratedBase * 0.45 + ar.undercurrentFoam * 0.40 + ar.foam * 0.50) * uChoppySeas, 0.0, 0.65));
+        float dynamicOpacity = mix(uOpacity, max(uOpacity, 0.90), clamp(totalWave * 1.25 + (ar.aeratedBase * 0.55 + ar.undercurrentFoam * 0.45) * uChoppySeas, 0.0, 0.90));
         vec3 color = mix(bgSample.rgb, waterTint, dynamicOpacity);
-
-        // ─── Gaussian Fillet & Shore Waves ───
-        float edgeDist = max(0.0, signedDist);
-
-        // Diagonal stencil samples for 9-point Gaussian fillet of sharp corners
-        vec4 sRU = texture2D(uShoreSdf, clamp(sdfUv + vec2(sdfStep.x, sdfStep.y), 0.0, 1.0));
-        vec4 sLU = texture2D(uShoreSdf, clamp(sdfUv + vec2(-sdfStep.x, sdfStep.y), 0.0, 1.0));
-        vec4 sRD = texture2D(uShoreSdf, clamp(sdfUv + vec2(sdfStep.x, -sdfStep.y), 0.0, 1.0));
-        vec4 sLD = texture2D(uShoreSdf, clamp(sdfUv + vec2(-sdfStep.x, -sdfStep.y), 0.0, 1.0));
-        float dRU = (sRU.b - 0.5) * (2.0 * uSdfMaxDist);
-        float dLU = (sLU.b - 0.5) * (2.0 * uSdfMaxDist);
-        float dRD = (sRD.b - 0.5) * (2.0 * uSdfMaxDist);
-        float dLD = (sLD.b - 0.5) * (2.0 * uSdfMaxDist);
-
-        // 9-point Gaussian fillet: rounds off sharp polygon vertices into smooth arcs
-        float dCross = (dR + dL + dU + dD) * 0.25;
-        float dDiag = (dRU + dLU + dRD + dLD) * 0.25;
-        float filletedDist = max(0.0, signedDist * 0.25 + dCross * 0.5 + dDiag * 0.25);
-
-        // Curvature and corner detection via discrete Laplacian
-        float lapH = dR - 2.0 * signedDist + dL;
-        float lapV = dU - 2.0 * signedDist + dD;
-        float cornerness = clamp((abs(lapH) + abs(lapV)) / 10.0, 0.0, 1.0);
-
-        // Wave distance transitions to filleted arc at corners
-        float waveDist = mix(max(0.0, (signedDist + dR + dL + dU + dD) * 0.2), filletedDist, cornerness * 0.85);
-
-        // Shoreline waves with corner softening and map-edge suppression (only on natural shores)
-        float shoreEffect = 0.0;
-        if (hasSdf > 0.5 && shoreIsNatural > 0.05 && uShoreWaves > 0.001) {
-            shoreEffect = computeShoreWaves(waveDist, cornerness, vWorldPos, flow, shoreNormal, tWave, tAnim) * uShoreWaves * shoreIsNatural * mapEdgeMask;
-        }
-
-        // Token waves near wet tokens
-        float tokenWaveEffect = computeTokenWaves(vWorldPos, flow, tAnim);
-        float totalWave = max(max(shoreEffect, tokenWaveEffect), ar.foam);
 
         // ─── Foam Compositing ───
         vec3 foamTint = vec3(0.98, 0.99, 1.0);
         float foamOpacity = 0.0;
-        if (totalWave > 0.001) {
-            vec3 seaInfluencedTint = mix(clamp(color * 1.45 + vec3(0.08, 0.16, 0.20), 0.0, 1.0), vec3(0.84, 0.92, 0.95), 0.55);
+        if (totalWave > 0.001 || ar.undercurrentFoam > 0.001) {
+            vec3 bgCalm = texture2D(uBackground, clamp(vBgUv + (dispPx * 0.08) / uSceneDims.zw, 0.0, 1.0)).rgb;
+            vec3 cleanSeaBase = mix(bgCalm, uWaterColor * depth, max(uOpacity, 0.85));
+            vec3 seaInfluencedTint = mix(clamp(cleanSeaBase * 1.45 + vec3(0.14, 0.24, 0.28), 0.0, 1.0), vec3(0.90, 0.96, 0.98), 0.72);
             vec3 pureWhiteTint = vec3(0.98, 0.99, 1.0);
 
             // Multi-scale fluid texturing noise
-            float tintSwirl = noise21(vWorldPos / 55.0 - flow * (t * 5.0));
+            float tintSwirl = noise21(vWorldPos / 55.0 - flow * (t * 0.4));
             float tintMeso = noise21(vWorldPos / 22.0 + vec2(t * 0.02, -t * 0.015));
             float tintNoise = tintSwirl * 0.60 + tintMeso * 0.40;
 
             // Whiteness modulation
             float whiteness = smoothstep(0.28, 0.70, tintNoise);
             whiteness = mix(whiteness, 1.0, clamp(totalWave * 0.85, 0.0, 1.0));
-            whiteness = clamp(whiteness * 0.75 + 0.25, 0.0, 1.0);
+            whiteness = clamp(whiteness * 0.45 + 0.55, 0.0, 1.0);
 
             foamTint = mix(seaInfluencedTint, pureWhiteTint, whiteness);
+            color = mix(color, cleanSeaBase, smoothstep(0.16, 0.76, max(totalWave, ar.undercurrentFoam * 0.75)) * 0.85);
+
+            // Secondary under-lapping wake sub-mesh
+            float underWaveAlpha = clamp(ar.undercurrentFoam * 0.68, 0.0, 0.74) * (1.0 - clamp(totalWave * 0.62, 0.0, 0.78));
+            vec3 underWaveTint = mix(cleanSeaBase, seaInfluencedTint, 0.66);
+            color = mix(color, underWaveTint, underWaveAlpha);
+
             foamOpacity = clamp(totalWave * 0.95, 0.0, 0.96);
             color = mix(color, foamTint, foamOpacity);
         }
 
         // Sun glints from archetype strategy
         if (ar.glint > 0.001) {
-            color += vec3(0.96, 0.98, 1.0) * ar.glint * 0.70;
+            color += vec3(0.96, 0.98, 1.0) * ar.glint * 0.70 * (1.0 - foamOpacity * 0.85);
         }
 
         // ─── Meniscus & Edge Output ───
@@ -352,17 +355,22 @@ export const COMPOSITE_CHUNK = `
         // Coastal white surf wash and leading edge froth (coast/ocean only)
         if (isCoastSurf > 0.5 && waterReach > 0.0 && uSurfFoam > 0.001) {
             float surgeTempo = (0.75 + 0.10 * countMul) * uSpeed;
-            float surgePhase = dot(vWorldPos, flow) * 0.022 - uTime * surgeTempo + er1 * 2.8;
+            float surgePhase = dot(vWorldPos, flow) * (0.022 / coastScale) - uTime * surgeTempo + er1 * 2.8;
 
             // Dynamic fluid surge
             float surgeCycle = sin(surgePhase) * 0.75 + cos(surgePhase * 1.6 + er2 * 1.8) * 0.25;
             float surgeMotion = (surgeCycle > 0.0) ? pow(surgeCycle, 1.25) : -pow(-surgeCycle, 0.85);
-            vec2 surgeDrift = -shoreNormal * (surgeMotion * (3.5 + countMul * 0.35));
+            vec2 surgeDrift = -shoreNormal * (surgeMotion * (3.5 + countMul * 0.35) * coastScale);
+            float surgePhase2 = surgePhase + 2.35 + er2 * 1.4;
+            float surgeCycle2 = sin(surgePhase2) * 0.72 + cos(surgePhase2 * 1.5 - er1 * 1.6) * 0.28;
+            float surgeMotion2 = (surgeCycle2 > 0.0) ? pow(surgeCycle2, 1.25) : -pow(-surgeCycle2, 0.85);
+            vec2 surgeDrift2 = -shoreNormal * (surgeMotion2 * (3.2 + countMul * 0.30) * coastScale);
             vec2 currentDrift = -flow * (uTime * (surgeTempo * 5.0));
             vec2 swashCoord = vWorldPos + currentDrift + surgeDrift;
 
-            const float SWASH_FREQ = 0.075;
-            vec2 swashUv = swashCoord * SWASH_FREQ;
+            const float SWASH_FREQ = 0.088;
+            float shoreFoamScale = pow(coastScale, 0.35);
+            vec2 swashUv = (swashCoord * SWASH_FREQ) / shoreFoamScale;
 
             // Gentle fluid eddy swirl
             vec2 swashSwirl = vec2(
@@ -378,44 +386,102 @@ export const COMPOSITE_CHUNK = `
 
             vec2 warpedSwashUv = swashUv + swashSwirl + swashWarp;
 
-            // Multi-scale Voronoi bubble field with dual-sample micro-diffusion
+            vec2 swashCoord2 = vWorldPos + currentDrift * 0.78 + surgeDrift2 + vec2(37.0, -23.0);
+            vec2 swashUv2 = (swashCoord2 * (SWASH_FREQ * 1.18)) / shoreFoamScale;
+            vec2 warpedSwashUv2 = swashUv2 - swashSwirl * 0.85 + swashWarp * 1.15 + vec2(14.3, -9.7);
+
+            // Dual independent Voronoi bubble lattices for overlapping/underlapping sub-meshes
             vec2 voroField1 = voronoiBubbleField(warpedSwashUv, tAnim * 0.95);
-            vec2 voroField2 = voronoiBubbleField(warpedSwashUv + vec2(0.045, -0.045), tAnim * 0.95);
-            float voroMeso = voroField1.y * 0.62 + voroField2.y * 0.38;
+            vec2 voroField2 = voronoiBubbleField(warpedSwashUv2, tAnim * 0.82 + 19.4);
+
+            float voroMeso1 = voroField1.y;
+            float voroMeso2 = voroField2.y;
 
             // Organic edge noise applied to field distance
             float edgeNoise = (noise21((vWorldPos + surgeDrift) / 9.0 + vec2(tAnim * 0.12, -tAnim * 0.10)) - 0.5) * 0.07;
-            float softMeso = max(0.0, voroMeso + edgeNoise);
+            float softMeso1 = max(0.0, voroMeso1 + edgeNoise);
+            float softMeso2 = max(0.0, voroMeso2 - edgeNoise * 0.85);
 
-            // Bubbly cellular lace
-            float swashBubbles = pow(1.0 - smoothstep(0.02, 0.36, softMeso), 1.30);
+            // Sub-mesh spatial segmentation: break contiguous ribbon into overlapping scalloped lobes
+            vec2 pShore = vWorldPos / coastScale;
+            vec2 lobeWarp1 = vec2(
+                noise21(pShore / 58.0 + vec2(tAnim * 0.05, -tAnim * 0.04)) - 0.5,
+                noise21(pShore / 58.0 - vec2(tAnim * 0.04, tAnim * 0.06) + 31.7) - 0.5
+            ) * 38.0;
+            vec2 lobeWarp2 = vec2(
+                noise21(pShore / 52.0 - vec2(tAnim * 0.06, tAnim * 0.04) + 73.9) - 0.5,
+                noise21(pShore / 52.0 + vec2(tAnim * 0.05, -tAnim * 0.05) + 109.3) - 0.5
+            ) * 36.0;
 
-            // Micro-bubble aeration texture
-            float microFroth = noise21(vWorldPos / 8.0 + tAnim * 0.25);
-            swashBubbles *= (0.72 + 0.28 * microFroth);
+            vec2 lp1 = pShore + lobeWarp1;
+            float n1Large = noise21(lp1 / 78.0 + vec2(tAnim * 0.03, -tAnim * 0.025));
+            float n1Med   = noise21(lp1 / 36.0 - vec2(tAnim * 0.05, tAnim * 0.04) + 19.3);
+            float n1Wave  = sin(lp1.x * 0.052 - lp1.y * 0.044 + n1Large * 3.8 - tAnim * 0.22) * 0.5 + 0.5;
+            float rawLobe1 = n1Large * 0.42 + n1Med * 0.33 + n1Wave * 0.25;
+            float lobeCutoff1 = mix(0.41, 0.34, reg * 0.5);
+            float lobeEnv1 = smoothstep(lobeCutoff1, lobeCutoff1 + 0.32, rawLobe1);
 
-            // Along-shore foam clustering and breaks
-            float cluster1 = noise21(vWorldPos / 140.0 + vec2(uTime * (surgeTempo * 0.15), -uTime * (surgeTempo * 0.10)));
-            float cluster2 = noise21(vWorldPos / 60.0 - vec2(uTime * (surgeTempo * 0.20), uTime * (surgeTempo * 0.15)) + 43.7);
-            float surfCluster = cluster1 * 0.65 + cluster2 * 0.35;
-            float foamBreakMask = smoothstep(0.28, 0.66, surfCluster);
-            float patchGate = mix(mix(0.15, 1.0, foamBreakMask), 1.0, reg * 0.40);
+            vec2 lp2 = pShore + lobeWarp2 + vec2(54.0, -39.0);
+            float n2Large = noise21(lp2 / 68.0 - vec2(tAnim * 0.035, tAnim * 0.03) + 67.1);
+            float n2Med   = noise21(lp2 / 32.0 + vec2(tAnim * 0.055, -tAnim * 0.045) + 93.4);
+            float n2Wave  = sin(lp2.x * 0.046 + lp2.y * 0.054 + n2Large * 4.1 + tAnim * 0.19 + 2.4) * 0.5 + 0.5;
+            float rawLobe2 = n2Large * 0.42 + n2Med * 0.33 + n2Wave * 0.25;
+            float lobeCutoff2 = mix(0.43, 0.36, reg * 0.5);
+            float lobeEnv2 = smoothstep(lobeCutoff2, lobeCutoff2 + 0.32, rawLobe2);
 
-            // Intertidal swash zone across the beach reach
-            float swashZone = smoothstep(0.0, 2.0, waterReach) * (1.0 - smoothstep(3.5, 36.0, waterReach));
-            float bubbleWash = swashZone * swashBubbles * clamp(uShoreWaves * 1.35, 0.45, 1.10) * clamp(uSurfFoam * 1.25, 0.0, 1.30);
+            // Variable cross-shore reach & extremity feathering per sub-mesh
+            float reachNoise1 = noise21(lp1 / 45.0 + vec2(17.3, -29.8));
+            float lobeShape1 = pow(lobeEnv1, 0.65);
+            float minReach1 = mix(3.5, 0.0, lobeShape1) * coastScale;
+            float maxReach1 = minReach1 + mix(4.0, mix(16.0, 50.0, reachNoise1) * mix(0.80, 1.20, surgeMotion * 0.5 + 0.5), lobeShape1) * coastScale;
+            float innerEdgeWarp1 = (noise21(lp1 / 16.0 + tAnim * 0.08) - 0.5) * 9.0 * coastScale;
+            float effReach1 = max(0.0, waterReach + innerEdgeWarp1);
+            float radialFeather1 = smoothstep(minReach1, minReach1 + 3.0 * coastScale, waterReach)
+                * (1.0 - smoothstep(maxReach1 * 0.22, maxReach1, effReach1));
+            float subEnv1 = radialFeather1 * lobeEnv1;
 
-            // Soft leading edge froth crest
-            float leadEdge = smoothstep(0.0, 2.2, waterReach) * smoothstep(6.0, 1.8, waterReach);
-            float edgeRuffle = 0.85 + 0.30 * noise21((vWorldPos + surgeDrift) / 14.0 - tAnim * 0.25);
-            float leadFroth = leadEdge * mix(0.25, 1.0, foamBreakMask) * edgeRuffle * 0.85 * clamp(uSurfFoam * 1.20, 0.0, 1.25);
+            float reachNoise2 = noise21(lp2 / 42.0 + vec2(-41.6, 63.2));
+            float lobeShape2 = pow(lobeEnv2, 0.65);
+            float detach2 = smoothstep(0.35, 0.85, 1.0 - reachNoise2) * 7.5;
+            float minReach2 = (detach2 + mix(4.0, 0.0, lobeShape2)) * coastScale;
+            float maxReach2 = minReach2 + mix(4.0, mix(14.0, 44.0, reachNoise2) * mix(0.80, 1.20, surgeMotion2 * 0.5 + 0.5), lobeShape2) * coastScale;
+            float innerEdgeWarp2 = (noise21(lp2 / 14.0 - tAnim * 0.09 + 51.4) - 0.5) * 8.5 * coastScale;
+            float effReach2 = max(0.0, waterReach + innerEdgeWarp2);
+            float radialFeather2 = smoothstep(minReach2, minReach2 + 4.0 * coastScale, waterReach)
+                * (1.0 - smoothstep(maxReach2 * 0.22, maxReach2, effReach2));
+            float subEnv2 = radialFeather2 * lobeEnv2;
 
-            // Combined coastal surf wash gated by along-shore breaks
-            float coastalWhiteWash = max(bubbleWash, leadFroth) * patchGate * mapEdgeMask;
+            // Feathered Voronoi wall thickness & internal fenestration holes at extremities
+            float microFroth = noise21(vWorldPos / 8.0 + (tAnim * 0.25));
+            float aeration = 0.72 + 0.28 * microFroth;
+            float hole1 = smoothstep(0.55, 0.82, noise21(pShore / 24.0 + vec2(tAnim * 0.05, -tAnim * 0.04))) * (1.0 - subEnv1 * 0.55);
+            float hole2 = smoothstep(0.53, 0.80, noise21(pShore / 21.0 - vec2(tAnim * 0.04, tAnim * 0.05) + 61.3)) * (1.0 - subEnv2 * 0.55);
 
-            vec3 whiteSwashTint = vec3(0.97, 0.99, 1.0);
-            float maxWashOpacity = mix(0.68, 0.82, patchGate) * clamp(uSurfFoam * 1.25, 0.0, 1.0);
-            color = mix(color, whiteSwashTint, clamp(coastalWhiteWash, 0.0, 1.0) * maxWashOpacity);
+            float wallWidth1 = mix(0.08, 0.37, smoothstep(0.0, 0.72, subEnv1));
+            float wallWidth2 = mix(0.07, 0.34, smoothstep(0.0, 0.72, subEnv2));
+            float subMesh1 = pow(1.0 - smoothstep(0.016, wallWidth1, softMeso1), 1.35)
+                * smoothstep(0.0, 0.32, subEnv1) * mix(0.30, 1.0, subEnv1) * (1.0 - hole1 * 0.65) * aeration;
+            float subMesh2 = pow(1.0 - smoothstep(0.016, wallWidth2, softMeso2), 1.40)
+                * smoothstep(0.0, 0.32, subEnv2) * mix(0.28, 1.0, subEnv2) * (1.0 - hole2 * 0.65) * aeration;
+
+            float washGain = clamp(uShoreWaves * 1.35, 0.45, 1.10) * clamp(uSurfFoam * 1.25, 0.0, 1.30) * mapEdgeMask;
+            float layerSwap = smoothstep(0.35, 0.65, noise21(pShore / 90.0 + 37.2));
+            float underWash = mix(subMesh2, subMesh1, layerSwap) * washGain;
+            float overWash  = mix(subMesh1, subMesh2, layerSwap) * washGain;
+
+            // Soft leading edge froth crest modulated by sub-mesh lobes
+            float lobePresence = clamp(lobeEnv1 + lobeEnv2 * 0.80, 0.0, 1.0);
+            float leadWidth = mix(2.2, 6.2, lobePresence) * coastScale;
+            float leadEdge = smoothstep(0.0, 2.0, waterReach) * smoothstep(leadWidth, 1.6, waterReach);
+            float edgeRuffle = 0.85 + 0.30 * noise21((vWorldPos + surgeDrift) / 14.0 - (tAnim * 0.25));
+            float leadFroth = leadEdge * mix(0.12, 1.0, lobePresence) * edgeRuffle * 0.82 * clamp(uSurfFoam * 1.20, 0.0, 1.25) * mapEdgeMask;
+
+            // Composite underlapping sub-mesh (slightly submerged aqua-white) then overlapping sub-mesh
+            vec3 underSwashTint = mix(uWaterColor * 1.35 + vec3(0.14, 0.24, 0.28), vec3(0.88, 0.95, 0.98), 0.72);
+            vec3 overSwashTint = vec3(0.97, 0.99, 1.0);
+            float foamCap = clamp(uSurfFoam * 1.25, 0.0, 1.0);
+            color = mix(color, underSwashTint, clamp(underWash, 0.0, 1.0) * 0.58 * foamCap);
+            color = mix(color, overSwashTint, clamp(max(overWash, leadFroth), 0.0, 1.0) * 0.82 * foamCap);
         }
 
         // Foam punch-through for inland bodies

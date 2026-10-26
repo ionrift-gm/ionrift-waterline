@@ -14,13 +14,13 @@ const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) c
 export class ShoreSdfGenerator {
 
     /** Default maximum distance represented by the SDF in world pixels */
-    static DEFAULT_MAX_DIST = 128.0;
+    static DEFAULT_MAX_DIST = 220.0;
 
     /** Margin in world pixels added around the polygon bounding box */
-    static BOUNDS_MARGIN = 128.0;
+    static BOUNDS_MARGIN = 220.0;
 
     /** Maximum dimension of the internal distance grid */
-    static MAX_GRID_DIM = 256;
+    static MAX_GRID_DIM = 384;
 
     /**
      * Compute an SDF texture for a polygon.
