@@ -91,7 +91,7 @@ export class WaterSamplingController {
         this.#keyHandler = (ev) => this.#onKeyDown(ev);
         document.addEventListener('keydown', this.#keyHandler);
 
-        this.#callbacks.onStatus?.('Click on water in the scene to sample. Shift+Click to add, Ctrl+Click to subtract.');
+        this.#callbacks.onStatus?.(game.i18n.localize('IonriftWaterline.sampling.statusStart'));
     }
 
     /**
@@ -155,7 +155,7 @@ export class WaterSamplingController {
 
         const region = canvas.scene?.regions?.get(regionId);
         if (!region) {
-            ui.notifications.warn(`Waterline | Region "${regionId}" not found on scene.`);
+            ui.notifications.warn(game.i18n.format('IonriftWaterline.sampling.warnRegionNotFound', { id: regionId }));
             return false;
         }
 
@@ -168,7 +168,7 @@ export class WaterSamplingController {
 
         const maskData = await WaterDetector.maskFromRegion(region, 4);
         if (!maskData) {
-            ui.notifications.warn(`Waterline | Could not extract shape from "${region.name}".`);
+            ui.notifications.warn(game.i18n.format('IonriftWaterline.sampling.warnExtractShapeFailed', { name: region.name }));
             return false;
         }
 
@@ -210,7 +210,7 @@ export class WaterSamplingController {
         }
 
         if (!candidate) {
-            ui.notifications.warn(`Waterline | Failed to trace boundary for "${region.name}".`);
+            ui.notifications.warn(game.i18n.format('IonriftWaterline.sampling.warnTraceBoundaryFailed', { name: region.name }));
             return false;
         }
 
@@ -249,7 +249,7 @@ export class WaterSamplingController {
 
         this.#showPolyPreview(this.#currentCandidate);
         this.#callbacks.onCandidate?.(this.#currentCandidate);
-        this.#callbacks.onStatus?.(`Editing "${region.name}": Shift+Click map to add water, Ctrl+Click to subtract.`);
+        this.#callbacks.onStatus?.(game.i18n.format('IonriftWaterline.sampling.statusEditing', { name: region.name }));
         return true;
     }
 
@@ -302,7 +302,7 @@ export class WaterSamplingController {
                     updateData.name = name.trim();
                 }
                 await region.update(updateData);
-                ui.notifications.info(`Waterline | Updated boundary for "${region.name}".`);
+                ui.notifications.info(game.i18n.format('IonriftWaterline.sampling.notifyUpdatedBoundary', { name: region.name }));
                 this.discardCandidate();
                 return region;
             }
@@ -367,7 +367,7 @@ export class WaterSamplingController {
      */
     async undo() {
         if (!this.#undoStack.length || !this.#currentMaskData) {
-            ui.notifications.info('Waterline | Nothing to undo.');
+            ui.notifications.info(game.i18n.localize('IonriftWaterline.sampling.notifyNothingToUndo'));
             return;
         }
 
@@ -402,7 +402,7 @@ export class WaterSamplingController {
 
         this.#showPolyPreview(this.#currentCandidate);
         this.#callbacks.onCandidate?.(this.#currentCandidate);
-        ui.notifications.info(`Waterline | Undo (${this.#undoStack.length} remaining).`);
+        ui.notifications.info(game.i18n.format('IonriftWaterline.sampling.notifyUndoRemaining', { count: this.#undoStack.length }));
     }
 
     /**
@@ -429,10 +429,10 @@ export class WaterSamplingController {
             }
             this.#showPolyPreview(this.#currentCandidate);
             this.#callbacks.onCandidate?.(this.#currentCandidate);
-            ui.notifications.info('Waterline | Pulled back boundary (1 step).');
+            ui.notifications.info(game.i18n.localize('IonriftWaterline.sampling.notifyPulledBack'));
         } else {
             this.undo();
-            ui.notifications.warn('Waterline | Cannot pull back further (water body would disappear).');
+            ui.notifications.warn(game.i18n.localize('IonriftWaterline.sampling.warnPullBackLimit'));
         }
     }
 
@@ -460,7 +460,7 @@ export class WaterSamplingController {
             }
             this.#showPolyPreview(this.#currentCandidate);
             this.#callbacks.onCandidate?.(this.#currentCandidate);
-            ui.notifications.info('Waterline | Expanded boundary (1 step).');
+            ui.notifications.info(game.i18n.localize('IonriftWaterline.sampling.notifyExpanded'));
         }
     }
 
@@ -486,7 +486,7 @@ export class WaterSamplingController {
 
         this.#showPolyPreview(this.#currentCandidate);
         this.#callbacks.onCandidate?.(this.#currentCandidate);
-        ui.notifications.info(`Waterline | Smoothed boundary curves (${this.#currentCandidate.vertexCount} pts).`);
+        ui.notifications.info(game.i18n.format('IonriftWaterline.sampling.notifySmoothed', { count: this.#currentCandidate.vertexCount }));
     }
 
     /**
@@ -588,7 +588,7 @@ export class WaterSamplingController {
                 this.#currentMaskData, sceneX, sceneY, mode, this.tolerance, this.smoothing, this.#seedPoint
             );
             if (!refined) {
-                ui.notifications.info(`Waterline | No change from ${mode} operation.`);
+                ui.notifications.info(game.i18n.format('IonriftWaterline.sampling.notifyNoChangeFromRefine', { mode }));
                 return;
             }
 

@@ -37,16 +37,16 @@ export class WaterDetector {
 
         const scene = canvas.scene;
         if (!scene) {
-            ui.notifications.warn('Waterline | No active scene.');
+            ui.notifications.warn(game.i18n.localize('IonriftWaterline.detector.warnNoActiveScene'));
             return;
         }
 
-        ui.notifications.info('Waterline | Analyzing scene for water...');
+        ui.notifications.info(game.i18n.localize('IonriftWaterline.detector.notifyAnalyzing'));
 
         // Get the scene background texture
         const bgPath = WaterManager.resolveSceneBackgroundSrc(scene);
         if (!bgPath) {
-            ui.notifications.warn('Waterline | Scene has no background image.');
+            ui.notifications.warn(game.i18n.localize('IonriftWaterline.detector.warnNoBackground'));
             return;
         }
 
@@ -95,7 +95,7 @@ export class WaterDetector {
         // Filter to components above minimum area
         const validComponents = components.filter(c => c.length >= minArea);
         if (!validComponents.length) {
-            ui.notifications.warn('Waterline | No water regions detected. Try adjusting thresholds.');
+            ui.notifications.warn(game.i18n.localize('IonriftWaterline.detector.warnNoneDetected'));
             return [];
         }
 
@@ -237,7 +237,7 @@ export class WaterDetector {
                 const isSmallBody = (archetype === 'lake' || archetype === 'pond' || archetype === 'puddle');
                 await created[0].createEmbeddedDocuments('RegionBehavior', [{
                     type: `${MODULE_ID}.waterFX`,
-                    name: 'Water FX',
+                    name: game.i18n.localize('IonriftWaterline.behavior.defaultName'),
                     flags: {
                         [MODULE_ID]: { configured: true }
                     },
@@ -290,9 +290,9 @@ export class WaterDetector {
         }
 
         if (count) {
-            ui.notifications.info(`Waterline | Created ${count} water region(s).`);
+            ui.notifications.info(game.i18n.format('IonriftWaterline.detector.notifyCreatedCount', { count }));
         } else {
-            ui.notifications.warn('Waterline | Could not generate valid polygons from detected water.');
+            ui.notifications.warn(game.i18n.localize('IonriftWaterline.detector.warnInvalidPolygons'));
         }
     }
 

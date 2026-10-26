@@ -196,21 +196,21 @@ export class WaterShapeEstimator {
             archetype = 'ocean';
             preset = 'ocean_swell';
             flowAngle = 45;
-            explanation = 'Open sea covering map boundaries';
+            explanation = game.i18n.localize('IonriftWaterline.estimator.explainOcean');
         }
         // B. Coastline: 1 to 3 hard edges against map frame with inland undulating shore
         else if (touches.count >= 1 && touches.count <= 3 && inlandPoints.length >= 3 && !isOppositeCrossing && (coverage > 0.08 || polyArea > 40000)) {
             archetype = 'coast';
             preset = 'coast';
             flowAngle = shoreHeadingDeg;
-            explanation = `Coastal shoreline facing inland (${shoreHeadingDeg}°)`;
+            explanation = game.i18n.format('IonriftWaterline.estimator.explainCoast', { angle: shoreHeadingDeg });
         }
         // C. River: high elongation (>= 2.3 inland, >= 2.0 border-touching), or channel crossing opposite borders
         else if (((touches.count > 0 ? elongation >= 2.0 : elongation >= 2.3) || isOppositeCrossing) && touches.count < 4) {
             archetype = 'river';
             preset = 'river';
             flowAngle = riverFlowDeg;
-            explanation = `Elongated channel aligned along ${riverFlowDeg}°`;
+            explanation = game.i18n.format('IonriftWaterline.estimator.explainRiver', { angle: riverFlowDeg });
         }
         // D. Inland basins: compact / circular lakes, ponds, or puddles
         else {
@@ -221,17 +221,17 @@ export class WaterShapeEstimator {
                 archetype = 'puddle';
                 preset = 'puddle_rain';
                 flowAngle = 0;
-                explanation = 'Small standing water';
+                explanation = game.i18n.localize('IonriftWaterline.estimator.explainPuddle');
             } else if ((gridCells <= 60 || polyArea < 500000) && coverage < 0.15) {
                 archetype = 'pond';
                 preset = 'pond_woodland';
                 flowAngle = 30;
-                explanation = 'Inland pool / pond';
+                explanation = game.i18n.localize('IonriftWaterline.estimator.explainPond');
             } else {
                 archetype = 'lake';
                 preset = 'lake';
                 flowAngle = 0;
-                explanation = 'Inland lake basin';
+                explanation = game.i18n.localize('IonriftWaterline.estimator.explainLake');
             }
         }
 
@@ -342,7 +342,7 @@ export class WaterShapeEstimator {
             area: 0,
             touches: { left: false, right: false, top: false, bottom: false, count: 0 },
             borderSignature: MapBorderDetector.detect(null),
-            explanation: 'Default fallback'
+            explanation: game.i18n.localize('IonriftWaterline.estimator.explainFallback')
         };
     }
 }

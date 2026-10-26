@@ -56,8 +56,8 @@ Hooks.once('init', async () => {
 
     // ── Body: module-specific config ─────────────────────────────────────────
     game.settings.register(MODULE_ID, 'enableTokenWake', {
-        name: 'IonriftWaterline.SettingsEnableTokenWake',
-        hint: 'IonriftWaterline.SettingsEnableTokenWakeHint',
+        name: game.i18n.localize('IonriftWaterline.SettingsEnableTokenWake'),
+        hint: game.i18n.localize('IonriftWaterline.SettingsEnableTokenWakeHint'),
         scope: 'client',
         config: false,
         type: Boolean,
@@ -65,9 +65,9 @@ Hooks.once('init', async () => {
     });
 
     game.settings.registerMenu(MODULE_ID, 'rippleTuning', {
-        name: 'IonriftWaterline.SettingsRippleTuning',
-        label: 'IonriftWaterline.SettingsRippleTuningLabel',
-        hint: 'IonriftWaterline.SettingsRippleTuningHint',
+        name: game.i18n.localize('IonriftWaterline.SettingsRippleTuning'),
+        label: game.i18n.localize('IonriftWaterline.SettingsRippleTuningLabel'),
+        hint: game.i18n.localize('IonriftWaterline.SettingsRippleTuningHint'),
         icon: 'fas fa-water',
         type: class extends FormApplication {
             render() { WaterlineStudioApp.show(); return this; }
@@ -85,8 +85,8 @@ Hooks.once('init', async () => {
 
     // debug must be registered after registerFooter so injectLayout places it in the footer zone
     game.settings.register(MODULE_ID, 'debug', {
-        name: 'IonriftWaterline.SettingsDebug',
-        hint: 'IonriftWaterline.SettingsDebugHint',
+        name: game.i18n.localize('IonriftWaterline.SettingsDebug'),
+        hint: game.i18n.localize('IonriftWaterline.SettingsDebugHint'),
         scope: 'client',
         config: false,
         type: Boolean,
@@ -117,7 +117,7 @@ Hooks.on('getSceneControlButtons', (controls) => {
         if (controls.regions?.tools) {
             controls.regions.tools['waterline-studio'] = {
                 name: 'waterline-studio',
-                title: 'Waterline',
+                title: game.i18n.localize('IonriftWaterline.SettingsWaterlineStudio'),
                 icon: 'fas fa-water',
                 order: 20,
                 button: true,
@@ -130,7 +130,7 @@ Hooks.on('getSceneControlButtons', (controls) => {
         const regionsControl = controls.find(c => c.name === 'regions');
         if (regionsControl?.tools) {
             regionsControl.tools.push(
-                { name: 'waterline-studio', title: 'Waterline',
+                { name: 'waterline-studio', title: game.i18n.localize('IonriftWaterline.SettingsWaterlineStudio'),
                   icon: 'fas fa-water', onClick: () => WaterlineStudioApp.show({ tab: 'water' }), button: true }
             );
         }
@@ -232,11 +232,11 @@ Hooks.on('renderTokenConfig', (app, html) => {
 
     const fieldHtml = `
         <div class="form-group">
-            <label>No water ripples</label>
+            <label>${game.i18n.localize('IonriftWaterline.tokenConfig.noRippleLabel')}</label>
             <div class="form-fields">
                 <input type="checkbox" name="flags.${MODULE_ID}.noRipple" ${checked ? 'checked' : ''} />
             </div>
-            <p class="hint">Suppress water ripple effects for this token (e.g. boats, flying creatures, constructs).</p>
+            <p class="hint">${game.i18n.localize('IonriftWaterline.tokenConfig.noRippleHint')}</p>
         </div>`;
 
     // .tab[data-tab="identity"] targets the content panel; nav links share data-tab but lack .tab class
