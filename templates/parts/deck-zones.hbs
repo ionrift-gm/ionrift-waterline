@@ -2,22 +2,22 @@
     <div class="wc-deck-header">
         <div class="wc-deck-title">
             <i class="fas fa-layer-group"></i>
-            <span>Scene Waterbodies</span>
+            <span>{{localize 'IonriftWaterline.deck.heading'}}</span>
             <span class="wc-zone-count-badge">{{zones.length}}</span>
         </div>
         <div class="wc-deck-actions">
-            <button type="button" class="cartograph-btn-mini {{#if regionPickActive}}pick-active{{/if}}" data-action="toggleRegionPick" title="{{#if regionPickActive}}Stop region selection{{else}}Create waterbody from a drawn scene region{{/if}}">
+            <button type="button" class="cartograph-btn-mini {{#if regionPickActive}}pick-active{{/if}}" data-action="toggleRegionPick" title="{{#if regionPickActive}}{{localize 'IonriftWaterline.deck.stopRegionPickTitle'}}{{else}}{{localize 'IonriftWaterline.deck.startRegionPickTitle'}}{{/if}}">
                 {{#if regionPickActive}}
-                <i class="fas fa-stop-circle"></i> Stop
+                <i class="fas fa-stop-circle"></i> {{localize 'IonriftWaterline.deck.stopBtn'}}
                 {{else}}
-                <i class="fas fa-draw-polygon"></i> From Region
+                <i class="fas fa-draw-polygon"></i> {{localize 'IonriftWaterline.deck.fromRegionBtn'}}
                 {{/if}}
             </button>
-            <button type="button" class="cartograph-btn-mini {{#if pickActive}}pick-active{{/if}}" data-action="togglePick" title="{{#if pickActive}}Stop sampling{{else}}Sample water color from map (Shift to add, Ctrl to subtract){{/if}}">
+            <button type="button" class="cartograph-btn-mini {{#if pickActive}}pick-active{{/if}}" data-action="togglePick" title="{{#if pickActive}}{{localize 'IonriftWaterline.deck.stopSamplingTitle'}}{{else}}{{localize 'IonriftWaterline.deck.startSamplingTitle'}}{{/if}}">
                 {{#if pickActive}}
-                <i class="fas fa-stop-circle"></i> Stop
+                <i class="fas fa-stop-circle"></i> {{localize 'IonriftWaterline.deck.stopBtn'}}
                 {{else}}
-                <i class="fas fa-crosshairs"></i> New Waterbody
+                <i class="fas fa-crosshairs"></i> {{localize 'IonriftWaterline.deck.newWaterbodyBtn'}}
                 {{/if}}
             </button>
         </div>
@@ -27,17 +27,17 @@
     {{#if regionPickActive}}
     <div class="wc-pick-controls ionrift-subcard">
         <div class="wc-refine-hint">
-            <i class="fas fa-mouse-pointer"></i> Click a drawn region on the canvas to convert it into a waterbody{{#if unattachedRegions.length}}, or choose one below{{/if}}.
+            <i class="fas fa-mouse-pointer"></i> {{#if unattachedRegions.length}}{{localize 'IonriftWaterline.deck.regionPickHintWithUnattached'}}{{else}}{{localize 'IonriftWaterline.deck.regionPickHint'}}{{/if}}
         </div>
         {{#if unattachedRegions.length}}
         <div class="wc-unattached-row">
             <select class="ionrift-select wc-unattached-select" name="unattachedRegionSelect">
                 {{#each unattachedRegions as |ur|}}
-                <option value="{{ur.id}}" {{#if ur.isSelected}}selected{{/if}}>{{ur.name}} ({{#if ur.estimation}}{{ur.estimation.archetypeLabel}} &bull; {{/if}}{{ur.verts}} pts)</option>
+                <option value="{{ur.id}}" {{#if ur.isSelected}}selected{{/if}}>{{ur.name}} ({{#if ur.estimation}}{{ur.estimation.archetypeLabel}} &bull; {{/if}}{{localize 'IonriftWaterline.deck.pointsCount' count=ur.verts}})</option>
                 {{/each}}
             </select>
-            <button type="button" class="cartograph-btn-mini" data-action="adoptSceneRegion" title="Convert selected region into a Waterline waterbody">
-                <i class="fas fa-plus"></i> Add
+            <button type="button" class="cartograph-btn-mini" data-action="adoptSceneRegion" title="{{localize 'IonriftWaterline.deck.adoptRegionTitle'}}">
+                <i class="fas fa-plus"></i> {{localize 'IonriftWaterline.deck.adoptRegionBtn'}}
             </button>
         </div>
         {{/if}}
@@ -48,17 +48,17 @@
     {{#if pickActive}}
     <div class="wc-pick-controls ionrift-subcard">
         <div class="form-group-compact">
-            <label title="How close to match the color sample">Tolerance</label>
+            <label title="{{localize 'IonriftWaterline.deck.toleranceTitle'}}">{{localize 'IonriftWaterline.deck.toleranceLabel'}}</label>
             <input type="range" name="pickTolerance" min="1" max="120" value="{{pickTolerance}}" step="1" />
             <span class="range-val">{{pickTolerance}}</span>
         </div>
         <div class="form-group-compact">
-            <label title="Edge smoothing: lower = more detailed">Smoothing</label>
+            <label title="{{{localize 'IonriftWaterline.deck.smoothingTitle'}}}">{{localize 'IonriftWaterline.deck.smoothingLabel'}}</label>
             <input type="range" name="pickSmoothing" min="0.5" max="15" value="{{pickSmoothing}}" step="0.5" />
             <span class="range-val">{{pickSmoothing}}</span>
         </div>
         <div class="wc-refine-hint">
-            <i class="fas fa-mouse-pointer"></i> Click map to color sample. <kbd>Shift</kbd>+Click to add, <kbd>Ctrl</kbd>+Click to subtract.
+            <i class="fas fa-mouse-pointer"></i> {{{localize 'IonriftWaterline.deck.pickModeHint'}}}
         </div>
     </div>
     {{/if}}
@@ -69,13 +69,13 @@
         <div class="wc-candidate-header">
             <i class="fas {{#if editingRegionName}}fa-pen-nib{{else}}fa-magic{{/if}}"></i>
             {{#if editingRegionName}}
-            <span>Refining: <strong>{{editingRegionName}}</strong> ({{candidate.vertexCount}} pts)</span>
+            <span>{{{localize 'IonriftWaterline.deck.refiningCandidate' name=editingRegionName count=candidate.vertexCount}}}</span>
             {{else}}
-            <span>Sampled: {{candidate.vertexCount}} pts</span>
+            <span>{{localize 'IonriftWaterline.deck.sampledCandidate' count=candidate.vertexCount}}</span>
             {{/if}}
             {{#if candidate.estimation}}
             <span class="wc-candidate-tag" title="{{candidate.estimation.explanation}}">
-                <span class="wc-tag-prefix">Detected:</span>
+                <span class="wc-tag-prefix">{{localize 'IonriftWaterline.deck.detectedPrefix'}}</span>
                 <i class="{{candidate.estimation.icon}}" style="color: {{candidate.estimation.accentColor}};"></i>
                 {{candidate.estimation.archetypeLabel}}
             </span>
@@ -84,31 +84,31 @@
         {{#if (gt candidate.vertexCount 60)}}
         <p class="wc-vert-warning">
             <i class="fas fa-exclamation-triangle"></i>
-            Complex boundary. Increase Smoothing to optimize.
+            {{localize 'IonriftWaterline.deck.complexBoundaryWarning'}}
         </p>
         {{/if}}
         <div class="wc-candidate-toolbar">
-            <span class="wc-toolbar-label"><i class="fas fa-sliders-h"></i> Boundary:</span>
+            <span class="wc-toolbar-label"><i class="fas fa-sliders-h"></i> {{localize 'IonriftWaterline.deck.toolbarBoundary'}}</span>
             <div class="wc-toolbar-buttons">
-                <button type="button" class="cartograph-btn wc-btn-tool" data-action="pullBackCandidate" title="Erode 1 step">
-                    <i class="fas fa-compress-alt"></i> Pull Back
+                <button type="button" class="cartograph-btn wc-btn-tool" data-action="pullBackCandidate" title="{{localize 'IonriftWaterline.deck.pullBackTitle'}}">
+                    <i class="fas fa-compress-alt"></i> {{localize 'IonriftWaterline.deck.pullBackBtn'}}
                 </button>
-                <button type="button" class="cartograph-btn wc-btn-tool" data-action="expandCandidate" title="Expand 1 step">
-                    <i class="fas fa-expand-alt"></i> Expand
+                <button type="button" class="cartograph-btn wc-btn-tool" data-action="expandCandidate" title="{{localize 'IonriftWaterline.deck.expandTitle'}}">
+                    <i class="fas fa-expand-alt"></i> {{localize 'IonriftWaterline.deck.expandBtn'}}
                 </button>
-                <button type="button" class="cartograph-btn wc-btn-tool" data-action="smoothCandidate" title="Smooth jagged corners">
-                    <i class="fas fa-bezier-curve"></i> Smooth
+                <button type="button" class="cartograph-btn wc-btn-tool" data-action="smoothCandidate" title="{{localize 'IonriftWaterline.deck.smoothTitle'}}">
+                    <i class="fas fa-bezier-curve"></i> {{localize 'IonriftWaterline.deck.smoothBtn'}}
                 </button>
             </div>
         </div>
         <div class="wc-candidate-actions">
             <button type="button" class="cartograph-btn cartograph-btn-accept" data-action="acceptCandidate">
-                <i class="fas fa-check"></i> {{#if editingRegionName}}Update Waterbody{{else}}Accept{{/if}}
+                <i class="fas fa-check"></i> {{#if editingRegionName}}{{localize 'IonriftWaterline.deck.updateWaterbody'}}{{else}}{{localize 'IonriftWaterline.deck.acceptCandidate'}}{{/if}}
             </button>
             <button type="button" class="cartograph-btn cartograph-btn-discard" data-action="discardCandidate">
-                <i class="fas fa-times"></i> {{#if editingRegionName}}Cancel{{else}}Discard{{/if}}
+                <i class="fas fa-times"></i> {{#if editingRegionName}}{{localize 'IonriftWaterline.deck.cancelEditing'}}{{else}}{{localize 'IonriftWaterline.deck.discardCandidate'}}{{/if}}
             </button>
-            <button type="button" class="cartograph-btn cartograph-btn-undo" data-action="undoCandidate" title="Undo (Ctrl+Z)">
+            <button type="button" class="cartograph-btn cartograph-btn-undo" data-action="undoCandidate" title="{{localize 'IonriftWaterline.deck.undoTitle'}}">
                 <i class="fas fa-undo"></i>
             </button>
         </div>
@@ -124,17 +124,17 @@
                 <i class="{{z.archetypeIcon}}"></i>
             </div>
             <div class="wc-card-details">
-                <span class="wc-zone-name" data-region-id="{{z.id}}" title="Rename">{{z.name}}</span>
-                <span class="wc-zone-meta">{{z.archetypeLabel}} &bull; {{z.verts}} pts</span>
+                <span class="wc-zone-name" data-region-id="{{z.id}}" title="{{localize 'IonriftWaterline.deck.renameTitle'}}">{{z.name}}</span>
+                <span class="wc-zone-meta">{{z.archetypeLabel}} &bull; {{localize 'IonriftWaterline.deck.pointsCount' count=z.verts}}</span>
             </div>
             <div class="wc-card-actions">
-                <button type="button" class="wc-card-btn wc-card-btn-edit {{#if (eq ../editingRegionId z.id)}}active{{/if}}" data-action="editZoneBoundary" data-region-id="{{z.id}}" title="{{#if (eq ../editingRegionId z.id)}}Cancel boundary editing{{else}}Refine boundary (Add/subtract water with sampler){{/if}}">
+                <button type="button" class="wc-card-btn wc-card-btn-edit {{#if (eq ../editingRegionId z.id)}}active{{/if}}" data-action="editZoneBoundary" data-region-id="{{z.id}}" title="{{#if (eq ../editingRegionId z.id)}}{{localize 'IonriftWaterline.deck.cancelBoundaryEditing'}}{{else}}{{localize 'IonriftWaterline.deck.refineBoundary'}}{{/if}}">
                     <i class="fas fa-pen-nib"></i>
                 </button>
-                <button type="button" class="wc-card-btn" data-action="focusZone" data-region-id="{{z.id}}" title="Focus on Canvas">
+                <button type="button" class="wc-card-btn" data-action="focusZone" data-region-id="{{z.id}}" title="{{localize 'IonriftWaterline.deck.focusCanvasTitle'}}">
                     <i class="fas fa-crosshairs"></i>
                 </button>
-                <button type="button" class="wc-card-btn wc-card-btn-delete" data-action="deleteZone" data-region-id="{{z.id}}" title="Delete Waterbody">
+                <button type="button" class="wc-card-btn wc-card-btn-delete" data-action="deleteZone" data-region-id="{{z.id}}" title="{{localize 'IonriftWaterline.deck.deleteWaterbodyTitle'}}">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -142,7 +142,7 @@
         {{/each}}
     </div>
     {{else}}
-    <p class="wc-empty-hint">No waterbodies on this scene.</p>
+    <p class="wc-empty-hint">{{localize 'IonriftWaterline.deck.emptyHint'}}</p>
     {{/if}}
 
     <!-- Unattached Scene Regions (Ready to adopt as waterbodies) -->
@@ -151,16 +151,16 @@
     <div class="wc-unattached-bar ionrift-subcard">
         <div class="wc-unattached-header">
             <i class="fas fa-draw-polygon" style="color: #38bdf8;"></i>
-            <span class="wc-unattached-label">New Scene Region:</span>
+            <span class="wc-unattached-label">{{localize 'IonriftWaterline.deck.newSceneRegion'}}</span>
         </div>
         <div class="wc-unattached-row">
             <select class="ionrift-select wc-unattached-select" name="unattachedRegionSelect">
                 {{#each unattachedRegions as |ur|}}
-                <option value="{{ur.id}}" {{#if ur.isSelected}}selected{{/if}}>{{ur.name}} ({{#if ur.estimation}}{{ur.estimation.archetypeLabel}} &bull; {{/if}}{{ur.verts}} pts)</option>
+                <option value="{{ur.id}}" {{#if ur.isSelected}}selected{{/if}}>{{ur.name}} ({{#if ur.estimation}}{{ur.estimation.archetypeLabel}} &bull; {{/if}}{{localize 'IonriftWaterline.deck.pointsCount' count=ur.verts}})</option>
                 {{/each}}
             </select>
-            <button type="button" class="cartograph-btn-mini" data-action="adoptSceneRegion" title="Convert selected region into a Waterline waterbody">
-                <i class="fas fa-plus"></i> Add
+            <button type="button" class="cartograph-btn-mini" data-action="adoptSceneRegion" title="{{localize 'IonriftWaterline.deck.adoptRegionTitle'}}">
+                <i class="fas fa-plus"></i> {{localize 'IonriftWaterline.deck.adoptRegionBtn'}}
             </button>
         </div>
     </div>

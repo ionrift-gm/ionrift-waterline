@@ -1,12 +1,12 @@
 <div class="waterline-studio-root">
 
     <!-- Primary Navigation Tabs -->
-    <nav class="waterline-tabs" aria-label="Waterline Tabs">
+    <nav class="waterline-tabs" aria-label="{{localize 'IonriftWaterline.studio.tabsAria'}}">
         <button type="button" class="waterline-tab-btn {{#if (eq activeTab 'water')}}active{{/if}}" data-tab="water">
-            <i class="fas fa-water"></i> <span>Water Regions & FX</span>
+            <i class="fas fa-water"></i> <span>{{{localize 'IonriftWaterline.studio.tabWater'}}}</span>
         </button>
         <button type="button" class="waterline-tab-btn {{#if (eq activeTab 'wake')}}active{{/if}}" data-tab="wake">
-            <i class="fas fa-wave-square"></i> <span>Ripples</span>
+            <i class="fas fa-wave-square"></i> <span>{{localize 'IonriftWaterline.studio.tabRipples'}}</span>
         </button>
     </nav>
 
@@ -25,13 +25,13 @@
             <div class="wc-archetype-bar ionrift-card">
                 <div class="wc-active-target-header">
                     <i class="{{activeArchetypeMeta.icon}}" style="color: {{activeArchetypeMeta.accentColor}};"></i>
-                    <span class="wc-active-target-label">{{#if isConfiguringCandidate}}New Waterbody:{{else}}Selected:{{/if}}</span>
+                    <span class="wc-active-target-label">{{#if isConfiguringCandidate}}{{localize 'IonriftWaterline.studio.targetNew'}}{{else}}{{localize 'IonriftWaterline.studio.targetSelected'}}{{/if}}</span>
                     <strong class="wc-active-target-name">{{activeTargetName}}</strong>
                 </div>
                 <div class="wc-archetype-preset-row">
                     <div class="wc-bar-col wc-archetype-col">
-                        <label title="Fundamental waterbody type">
-                            <i class="fas fa-shapes"></i> Archetype
+                        <label title="{{localize 'IonriftWaterline.studio.archetypeLabelTitle'}}">
+                            <i class="fas fa-shapes"></i> {{localize 'IonriftWaterline.studio.archetypeLabel'}}
                         </label>
                         <select name="waterArchetype" class="ionrift-select">
                             {{#each archetypes as |arch key|}}
@@ -40,29 +40,29 @@
                         </select>
                     </div>
                     <div class="wc-bar-col wc-preset-col">
-                        <label title="Profiles for this archetype">
-                            <i class="fas fa-bookmark"></i> Preset
+                        <label title="{{localize 'IonriftWaterline.studio.presetLabelTitle'}}">
+                            <i class="fas fa-bookmark"></i> {{localize 'IonriftWaterline.studio.presetLabel'}}
                         </label>
                         <div class="wc-preset-select-wrap">
                             <select name="waterPreset" class="ionrift-select">
-                                <optgroup label="{{activeArchetypeMeta.label}} Presets">
+                                <optgroup label="{{localize 'IonriftWaterline.studio.archetypePresetsGroup' label=activeArchetypeMeta.label}}">
                                     {{#each currentArchetypePresets as |p k|}}
                                     <option value="{{k}}" {{#if (eq ../activePreset k)}}selected{{/if}}>{{p.label}}</option>
                                     {{/each}}
                                 </optgroup>
                                 {{#if customPresetsList.length}}
-                                <optgroup label="Custom Presets">
+                                <optgroup label="{{localize 'IonriftWaterline.studio.customPresetsGroup'}}">
                                     {{#each customPresetsList as |p|}}
                                     <option value="{{p.key}}" {{#if (eq ../activePreset p.key)}}selected{{/if}}>{{p.name}}</option>
                                     {{/each}}
                                 </optgroup>
                                 {{/if}}
                             </select>
-                            <button type="button" class="wc-preset-btn wc-preset-save" data-action="promptSavePreset" title="Save current settings as a new custom preset">
+                            <button type="button" class="wc-preset-btn wc-preset-save" data-action="promptSavePreset" title="{{localize 'IonriftWaterline.studio.savePresetTitle'}}">
                                 <i class="fas fa-save"></i>
                             </button>
                             {{#if isCustomPresetSelected}}
-                            <button type="button" class="wc-preset-btn wc-preset-delete" data-action="deleteWaterPreset" title="Delete this custom preset">
+                            <button type="button" class="wc-preset-btn wc-preset-delete" data-action="deleteWaterPreset" title="{{localize 'IonriftWaterline.studio.deletePresetTitle'}}">
                                 <i class="fas fa-trash"></i>
                             </button>
                             {{/if}}
@@ -72,11 +72,11 @@
 
                 <!-- Save Preset Inline Prompt -->
                 <div class="wc-preset-save-prompt {{#unless showPresetPrompt}}hidden{{/unless}}">
-                    <input type="text" name="newPresetName" class="wc-preset-name" placeholder="New preset name..." maxlength="30" />
-                    <button type="button" class="cartograph-btn wc-preset-confirm" data-action="confirmSavePreset" title="Confirm Save">
+                    <input type="text" name="newPresetName" class="wc-preset-name" placeholder="{{localize 'IonriftWaterline.studio.presetNamePlaceholder'}}" maxlength="30" />
+                    <button type="button" class="cartograph-btn wc-preset-confirm" data-action="confirmSavePreset" title="{{localize 'IonriftWaterline.studio.confirmSavePresetTitle'}}">
                         <i class="fas fa-check"></i>
                     </button>
-                    <button type="button" class="cartograph-btn wc-preset-cancel" data-action="cancelSavePreset" title="Cancel">
+                    <button type="button" class="cartograph-btn wc-preset-cancel" data-action="cancelSavePreset" title="{{localize 'IonriftWaterline.studio.cancelSavePresetTitle'}}">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -90,32 +90,32 @@
                 <div class="wc-color-card-header">
                     <div class="wc-color-card-title">
                         <i class="fas fa-palette"></i>
-                        <span>Water color</span>
+                        <span>{{localize 'IonriftWaterline.studio.colorHeading'}}</span>
                     </div>
-                    <label class="wc-color-auto-toggle" title="Automatically sample color from region">
+                    <label class="wc-color-auto-toggle" title="{{localize 'IonriftWaterline.studio.autoColorTitle'}}">
                         <input type="checkbox" name="autoColor" {{#if fx.autoColor}}checked{{/if}} />
-                        <span>Auto-Sample Map</span>
+                        <span>{{localize 'IonriftWaterline.studio.autoSampleMap'}}</span>
                     </label>
                 </div>
                 <div class="wc-color-controls-row">
-                    <div class="wc-color-picker-wrap" title="Water tint color picker" style="background-color: {{fx.colorOverride}};">
+                    <div class="wc-color-picker-wrap" title="{{localize 'IonriftWaterline.studio.colorPickerTitle'}}" style="background-color: {{fx.colorOverride}};">
                         <input type="color" name="colorOverride" value="{{fx.colorOverride}}" class="wc-color-swatch-input" />
                     </div>
                     {{#if hasEyeDropper}}
-                    <button type="button" class="cartograph-btn-mini wc-eyedropper-btn" data-action="sampleScreenColor" title="Sample color from map">
+                    <button type="button" class="cartograph-btn-mini wc-eyedropper-btn" data-action="sampleScreenColor" title="{{localize 'IonriftWaterline.studio.sampleColorMapTitle'}}">
                         <i class="fas fa-eye-dropper"></i>
-                        <span>Sample Map</span>
+                        <span>{{localize 'IonriftWaterline.studio.sampleMapBtn'}}</span>
                     </button>
                     {{/if}}
-                    <div class="wc-color-hex-field-wrap" title="Hexadecimal color code">
+                    <div class="wc-color-hex-field-wrap" title="{{localize 'IonriftWaterline.studio.hexFieldTitle'}}">
                         <span class="wc-color-hex-prefix">#</span>
                         <input type="text" name="colorOverrideHex" class="wc-color-hex-input ws-color-hex-input" value="{{colorOverrideHex}}" placeholder="0D2E4D" maxlength="6" spellcheck="false" />
                     </div>
                     <div class="wc-color-status-pill {{#if fx.autoColor}}status-auto{{else}}status-override{{/if}}">
                         {{#if fx.autoColor}}
-                        <i class="fas fa-eye"></i> <span>Auto Tint</span>
+                        <i class="fas fa-eye"></i> <span>{{localize 'IonriftWaterline.studio.autoTintPill'}}</span>
                         {{else}}
-                        <i class="fas fa-palette"></i> <span>Custom Tint</span>
+                        <i class="fas fa-palette"></i> <span>{{localize 'IonriftWaterline.studio.customTintPill'}}</span>
                         {{/if}}
                     </div>
                 </div>
@@ -126,14 +126,14 @@
             {{#if hasActiveZone}}
             <div class="wc-footer-actions">
                 <div class="wc-footer-batch-row ws-batch-sync-toggle">
-                    <label class="wc-batch-label" title="When checked, saves these settings to all waterbodies sharing this archetype on the scene">
+                    <label class="wc-batch-label" title="{{localize 'IonriftWaterline.studio.batchApplyTitle'}}">
                         <input type="checkbox" name="applyToAllSameArchetype" class="ws-batch-archetype-checkbox" {{#if applyToAllSameArchetype}}checked{{/if}} />
-                        <span>Apply to all <strong>{{activeArchetypeMeta.label}}</strong> bodies</span>
+                        <span>{{{localize 'IonriftWaterline.studio.batchApplyLabel' label=activeArchetypeMeta.label}}}</span>
                     </label>
                 </div>
                 <div class="wc-footer-buttons">
                     <button type="button" class="cartograph-btn cartograph-btn-save-fx" data-action="saveWaterFX">
-                        <i class="fas fa-save"></i> Save to Waterbody
+                        <i class="fas fa-save"></i> {{localize 'IonriftWaterline.studio.saveToWaterbody'}}
                     </button>
                 </div>
             </div>

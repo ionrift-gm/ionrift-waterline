@@ -105,7 +105,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         id: 'ionrift-waterline-studio',
         tag: 'div',
         window: {
-            title: 'Waterline',
+            get title() { return game.i18n.localize('IonriftWaterline.SettingsWaterlineStudio'); },
             icon: 'fas fa-water',
             resizable: true
         },
@@ -385,7 +385,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 zones.push({
                     region,
                     id: region.id,
-                    name: region.name || 'Water Zone',
+                    name: region.name || game.i18n.localize('IonriftWaterline.studio.fallbackWaterZone'),
                     verts,
                     archetype: archKey,
                     archetypeLabel: archMeta.label,
@@ -398,7 +398,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 unattachedRegions.push({
                     region,
                     id: region.id,
-                    name: region.name || 'Scene Region',
+                    name: region.name || game.i18n.localize('IonriftWaterline.studio.fallbackSceneRegion'),
                     verts,
                     estimation: est,
                     isSelected: false
@@ -467,8 +467,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         const isConfiguringCandidate = Boolean(isCreatingNew && this.sampler?.candidate);
         const showFXControls = Boolean(activeZone || isConfiguringCandidate);
         const activeTargetName = isConfiguringCandidate
-            ? `New ${activeArchMeta.label} (Preview)`
-            : (activeZone?.name || 'Waterbody');
+            ? game.i18n.format('IonriftWaterline.studio.previewCandidate', { label: activeArchMeta.label })
+            : (activeZone?.name || game.i18n.localize('IonriftWaterline.studio.fallbackWaterbody'));
 
         return {
             activeTab: this.activeTab,
@@ -497,7 +497,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             pickSmoothing: this.sampler.smoothing,
             candidate: this.sampler.candidate,
             editingRegionId: this.sampler.editingRegionId,
-            editingRegionName: this.sampler.editingRegionId ? (canvas.scene?.regions?.get(this.sampler.editingRegionId)?.name || 'Waterbody') : null,
+            editingRegionName: this.sampler.editingRegionId ? (canvas.scene?.regions?.get(this.sampler.editingRegionId)?.name || game.i18n.localize('IonriftWaterline.studio.fallbackWaterbody')) : null,
             hasEyeDropper: typeof window !== 'undefined' && ('EyeDropper' in window || Boolean(globalThis.canvas?.ready)),
             colorOverrideHex: (this.fx.colorOverride || '#0d2e4d').replace('#', '').toUpperCase(),
             fx: {
@@ -602,7 +602,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                             this.render();
                         },
                         onClear: () => this.render(),
-                        onStatus: (msg) => ui.notifications.info(`Waterline | ${msg}`)
+                        onStatus: (msg) => ui.notifications.info(game.i18n.format('IonriftWaterline.studio.notifyStatus', { message: msg }))
                     }
                 );
                 this.render();
@@ -751,10 +751,10 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 const isAdoptedOrShared = Boolean(otherBehaviors.length > 0 || region.flags?.[MODULE_ID]?.adoptedRegion);
 
                 Dialog.confirm({
-                    title: isAdoptedOrShared ? 'Remove Water FX' : 'Delete Waterbody',
+                    title: isAdoptedOrShared ? game.i18n.localize('IonriftWaterline.studio.dialogRemoveFxTitle') : game.i18n.localize('IonriftWaterline.studio.dialogDeleteWaterbodyTitle'),
                     content: isAdoptedOrShared
-                        ? `<p>Remove Waterline FX from <strong>${region.name}</strong>? The scene region and its other behaviors will be kept.</p>`
-                        : `<p>Delete waterbody <strong>${region.name}</strong> from the scene?</p>`,
+                        ? game.i18n.format('IonriftWaterline.studio.dialogRemoveFxContent', { name: region.name })
+                        : game.i18n.format('IonriftWaterline.studio.dialogDeleteWaterbodyContent', { name: region.name }),
                     yes: async () => {
                         if (this.sampler?.editingRegionId === regionId) {
                             this.sampler.discardCandidate();
@@ -998,8 +998,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             if (statusPill) {
                 statusPill.className = `wc-color-status-pill ${isAuto ? 'status-auto' : 'status-override'}`;
                 statusPill.innerHTML = isAuto
-                    ? '<i class="fas fa-eye"></i> <span>Sampling Map</span>'
-                    : '<i class="fas fa-brush"></i> <span>Custom Tint</span>';
+                    ? `<i class="fas fa-eye"></i> <span>${game.i18n.localize('IonriftWaterline.studio.samplingMap')}</span>`
+                    : `<i class="fas fa-brush"></i> <span>${game.i18n.localize('IonriftWaterline.studio.customTint')}</span>`;
             }
         };
 
@@ -1059,7 +1059,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                     if (autoColorCheckbox) autoColorCheckbox.checked = false;
                     if (statusPill) {
                         statusPill.className = 'wc-color-status-pill status-override';
-                        statusPill.innerHTML = '<i class="fas fa-brush"></i> <span>Custom Tint</span>';
+                        statusPill.innerHTML = `<i class="fas fa-brush"></i> <span>${game.i18n.localize('IonriftWaterline.studio.customTint')}</span>`;
                     }
                     this.#liveUpdateFX();
                 }
@@ -1146,7 +1146,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 this.activeWakePreset = name;
                 this.showWakePresetPrompt = false;
                 this.render();
-                ui.notifications.info(`Waterline | Saved ripple preset "${name}".`);
+                ui.notifications.info(game.i18n.format('IonriftWaterline.studio.notifyRipplePresetSaved', { name }));
             }
         });
         root.querySelector('[data-action="deleteWakePreset"]')?.addEventListener('click', () => {
@@ -1181,7 +1181,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             WakeTuning.resetDefaults();
             this.activeWakePreset = null;
             this.render();
-            ui.notifications.info('Waterline | Reset ripple settings to default physics.');
+            ui.notifications.info(game.i18n.localize('IonriftWaterline.studio.notifyRippleDefaultsReset'));
         });
 
     }
@@ -1203,7 +1203,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         }
 
         if (!canvas?.ready) {
-            ui.notifications?.warn('Canvas is not ready for color sampling.');
+            ui.notifications?.warn(game.i18n.localize('IonriftWaterline.studio.warnCanvasNotReady'));
             return;
         }
 
@@ -1214,7 +1214,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         this.#isSamplingColor = true;
         btn.classList.add('active');
-        btn.setAttribute('title', 'Sampling map... Click on water or press Escape to cancel');
+        btn.setAttribute('title', game.i18n.localize('IonriftWaterline.studio.samplerBtnSampling'));
 
         const prevCursor = canvas.stage.cursor;
         canvas.stage.cursor = 'crosshair';
@@ -1223,7 +1223,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             this.#isSamplingColor = false;
             this.#cancelColorSampler = null;
             btn.classList.remove('active');
-            btn.setAttribute('title', 'Sample color directly from canvas or map');
+            btn.setAttribute('title', game.i18n.localize('IonriftWaterline.studio.samplerBtnIdle'));
             if (canvas?.stage) {
                 canvas.stage.off('pointerdown', onCanvasClick);
                 canvas.stage.cursor = prevCursor || 'default';
@@ -1540,14 +1540,14 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 const angleVal = Math.round(fx.flowAngle) % 360;
                 return [
-                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Swell height, turbulence, and whitecap churn.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
-                    { id: 'waveCount', label: 'Wave Count', tooltip: 'Density and count of rolling ocean swells.', min: 1, max: 8, step: 1, value: waveCountVal, displayValue: `${waveCountVal}` },
-                    { id: 'swashSurge', label: 'Surge Reach', tooltip: 'Dynamic swash surging onto coastal banks or islands.', min: 0, max: 60, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
-                    { id: 'surfFoam', label: 'Shoreline Foam', tooltip: 'Density of aerated cellular froth, surf wash, and shoreline bubbles.', min: 0, max: 100, step: 1, value: surfFoamVal, displayValue: `${surfFoamVal}%` },
-                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
-                    { id: 'speed', label: 'Animation Speed', tooltip: 'Propagation velocity of rolling open-ocean swells.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
-                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Width of the transparent fade into islands and coastlines (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
-                    { id: 'flowAngle', label: 'Flow Direction', tooltip: 'Bearing of ocean winds and traveling swells.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-wind' }
+                    { id: 'waveEnergy', label: game.i18n.localize('IonriftWaterline.hero.ocean.waveEnergyLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.ocean.waveEnergyTooltip'), min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'waveCount', label: game.i18n.localize('IonriftWaterline.hero.ocean.waveCountLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.ocean.waveCountTooltip'), min: 1, max: 8, step: 1, value: waveCountVal, displayValue: `${waveCountVal}` },
+                    { id: 'swashSurge', label: game.i18n.localize('IonriftWaterline.hero.ocean.swashSurgeLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.ocean.swashSurgeTooltip'), min: 0, max: 60, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
+                    { id: 'surfFoam', label: game.i18n.localize('IonriftWaterline.hero.ocean.surfFoamLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.ocean.surfFoamTooltip'), min: 0, max: 100, step: 1, value: surfFoamVal, displayValue: `${surfFoamVal}%` },
+                    { id: 'distortion', label: game.i18n.localize('IonriftWaterline.hero.ocean.distortionLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.ocean.distortionTooltip'), min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'speed', label: game.i18n.localize('IonriftWaterline.hero.ocean.speedLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.ocean.speedTooltip'), min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'fadeWidth', label: game.i18n.localize('IonriftWaterline.hero.ocean.fadeWidthLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.ocean.fadeWidthTooltip'), min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
+                    { id: 'flowAngle', label: game.i18n.localize('IonriftWaterline.hero.ocean.flowAngleLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.ocean.flowAngleTooltip'), min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-wind' }
                 ];
             }
             case 'coast': {
@@ -1563,15 +1563,15 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 const angleVal = Math.round(fx.flowAngle) % 360;
                 return [
-                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Turbulence, swells, and foam density of incoming breakers.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
-                    { id: 'waveCount', label: 'Wave Count', tooltip: 'Number of incoming wave crests rolling and breaking toward the shore.', min: 1, max: 8, step: 1, value: waveCountVal, displayValue: `${waveCountVal}` },
-                    { id: 'waveScale', label: 'Wave Scale', tooltip: 'Physical size, breadth, and offshore reach of incoming coastal breakers.', min: 40, max: 350, step: 5, value: waveScaleVal, displayValue: `${waveScaleVal}px` },
-                    { id: 'swashSurge', label: 'Surge Reach', tooltip: 'How far wave wash surges onto dry sand/rock.', min: 0, max: 60, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
-                    { id: 'surfFoam', label: 'Shoreline Foam', tooltip: 'Density of aerated cellular froth, surf wash, and shoreline bubbles.', min: 0, max: 100, step: 1, value: surfFoamVal, displayValue: `${surfFoamVal}%` },
-                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
-                    { id: 'speed', label: 'Animation Speed', tooltip: 'Arrival tempo of incoming shoreline sets.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
-                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Width of the transparent fade into dry terrain (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
-                    { id: 'flowAngle', label: 'Flow Direction', tooltip: 'Angle of incoming coastal breakers.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-compass' }
+                    { id: 'waveEnergy', label: game.i18n.localize('IonriftWaterline.hero.coast.waveEnergyLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.coast.waveEnergyTooltip'), min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'waveCount', label: game.i18n.localize('IonriftWaterline.hero.coast.waveCountLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.coast.waveCountTooltip'), min: 1, max: 8, step: 1, value: waveCountVal, displayValue: `${waveCountVal}` },
+                    { id: 'waveScale', label: game.i18n.localize('IonriftWaterline.hero.coast.waveScaleLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.coast.waveScaleTooltip'), min: 40, max: 350, step: 5, value: waveScaleVal, displayValue: `${waveScaleVal}px` },
+                    { id: 'swashSurge', label: game.i18n.localize('IonriftWaterline.hero.coast.swashSurgeLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.coast.swashSurgeTooltip'), min: 0, max: 60, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
+                    { id: 'surfFoam', label: game.i18n.localize('IonriftWaterline.hero.coast.surfFoamLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.coast.surfFoamTooltip'), min: 0, max: 100, step: 1, value: surfFoamVal, displayValue: `${surfFoamVal}%` },
+                    { id: 'distortion', label: game.i18n.localize('IonriftWaterline.hero.coast.distortionLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.coast.distortionTooltip'), min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'speed', label: game.i18n.localize('IonriftWaterline.hero.coast.speedLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.coast.speedTooltip'), min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'fadeWidth', label: game.i18n.localize('IonriftWaterline.hero.coast.fadeWidthLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.coast.fadeWidthTooltip'), min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
+                    { id: 'flowAngle', label: game.i18n.localize('IonriftWaterline.hero.coast.flowAngleLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.coast.flowAngleTooltip'), min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-compass' }
                 ];
             }
             case 'lake': {
@@ -1586,14 +1586,14 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 const angleVal = Math.round(fx.flowAngle) % 360;
                 return [
-                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Surface wave relief, wind ruffles, and edge chop.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
-                    { id: 'waveScale', label: 'Wave Scale', tooltip: 'Physical size and wavelength of wind-driven lake ripples and swells.', min: 40, max: 300, step: 5, value: waveScaleVal, displayValue: `${waveScaleVal}px` },
-                    { id: 'swashSurge', label: 'Surge Reach', tooltip: 'Dynamic swash surging onto the banks.', min: 0, max: 25, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
-                    { id: 'waterClarity', label: 'Water Clarity', tooltip: 'Transparency revealing submerged lakebed and sunken terrain.', min: 0, max: 100, step: 1, value: clarityVal, displayValue: `${clarityVal}%` },
-                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
-                    { id: 'speed', label: 'Animation Speed', tooltip: 'Pace of open-water breeze ripples and shore lapping.', min: 0.1, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
-                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Width of the transparent fade into the bank (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
-                    { id: 'flowAngle', label: 'Flow Direction', tooltip: 'Surface wind drift bearing driving waves and downwind shore wash.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-wind' }
+                    { id: 'waveEnergy', label: game.i18n.localize('IonriftWaterline.hero.lake.waveEnergyLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.lake.waveEnergyTooltip'), min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'waveScale', label: game.i18n.localize('IonriftWaterline.hero.lake.waveScaleLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.lake.waveScaleTooltip'), min: 40, max: 300, step: 5, value: waveScaleVal, displayValue: `${waveScaleVal}px` },
+                    { id: 'swashSurge', label: game.i18n.localize('IonriftWaterline.hero.lake.swashSurgeLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.lake.swashSurgeTooltip'), min: 0, max: 25, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
+                    { id: 'waterClarity', label: game.i18n.localize('IonriftWaterline.hero.lake.waterClarityLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.lake.waterClarityTooltip'), min: 0, max: 100, step: 1, value: clarityVal, displayValue: `${clarityVal}%` },
+                    { id: 'distortion', label: game.i18n.localize('IonriftWaterline.hero.lake.distortionLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.lake.distortionTooltip'), min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'speed', label: game.i18n.localize('IonriftWaterline.hero.lake.speedLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.lake.speedTooltip'), min: 0.1, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'fadeWidth', label: game.i18n.localize('IonriftWaterline.hero.lake.fadeWidthLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.lake.fadeWidthTooltip'), min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
+                    { id: 'flowAngle', label: game.i18n.localize('IonriftWaterline.hero.lake.flowAngleLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.lake.flowAngleTooltip'), min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-wind' }
                 ];
             }
             case 'river': {
@@ -1608,14 +1608,14 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 const angleVal = Math.round(fx.flowAngle) % 360;
                 return [
-                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Density and presence of downstream riffles, rapids, and crest foam.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
-                    { id: 'waveScale', label: 'Wave Scale', tooltip: 'Physical size and breadth of downstream river boils, riffles, and rapid swells.', min: 30, max: 250, step: 5, value: waveScaleVal, displayValue: `${waveScaleVal}px` },
-                    { id: 'swashSurge', label: 'Surge Reach', tooltip: 'Dynamic swash and wave wash surging onto the banks.', min: 0, max: 40, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
-                    { id: 'shoreFoam', label: 'Shore Foam', tooltip: 'Density of downstream white-water riffles, crest froth, and bank wash.', min: 0, max: 100, step: 1, value: shoreFoamVal, displayValue: `${shoreFoamVal}%` },
-                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
-                    { id: 'speed', label: 'Animation Speed', tooltip: 'Downstream flow velocity: lazy brook to roaring rapids.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
-                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Feathering width where current meets riverbank (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
-                    { id: 'flowAngle', label: 'Flow Direction', tooltip: 'Bearing of water current.', min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-location-arrow' }
+                    { id: 'waveEnergy', label: game.i18n.localize('IonriftWaterline.hero.river.waveEnergyLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.river.waveEnergyTooltip'), min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'waveScale', label: game.i18n.localize('IonriftWaterline.hero.river.waveScaleLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.river.waveScaleTooltip'), min: 30, max: 250, step: 5, value: waveScaleVal, displayValue: `${waveScaleVal}px` },
+                    { id: 'swashSurge', label: game.i18n.localize('IonriftWaterline.hero.river.swashSurgeLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.river.swashSurgeTooltip'), min: 0, max: 40, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
+                    { id: 'shoreFoam', label: game.i18n.localize('IonriftWaterline.hero.river.shoreFoamLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.river.shoreFoamTooltip'), min: 0, max: 100, step: 1, value: shoreFoamVal, displayValue: `${shoreFoamVal}%` },
+                    { id: 'distortion', label: game.i18n.localize('IonriftWaterline.hero.river.distortionLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.river.distortionTooltip'), min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'speed', label: game.i18n.localize('IonriftWaterline.hero.river.speedLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.river.speedTooltip'), min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'fadeWidth', label: game.i18n.localize('IonriftWaterline.hero.river.fadeWidthLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.river.fadeWidthTooltip'), min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` },
+                    { id: 'flowAngle', label: game.i18n.localize('IonriftWaterline.hero.river.flowAngleLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.river.flowAngleTooltip'), min: 0, max: 359, step: 1, value: angleVal, displayValue: `${angleVal}°`, isDirection: true, icon: 'fas fa-location-arrow' }
                 ];
             }
             case 'pond': {
@@ -1630,14 +1630,14 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 const marginVal = Math.round(fx.fadeWidth ?? 45);
                 const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 return [
-                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Surface wave relief and micro-ripples across the pool.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
-                    { id: 'swashSurge', label: 'Bank Lapping', tooltip: 'Gentle water movement lapping against the pond edges.', min: 0, max: 20, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
-                    { id: 'waterClarity', label: 'Water Clarity', tooltip: 'Transparency revealing submerged flora and bottom sediments.', min: 0, max: 100, step: 1, value: clarityVal, displayValue: `${clarityVal}%` },
-                    { id: 'dropRipples', label: 'Drop Ripples', tooltip: 'Concentric disturbance rings from falling droplets, falling leaves, or rising fish (0% to silence).', min: 0, max: 100, step: 1, value: dropRipplesVal, displayValue: `${dropRipplesVal}%` },
-                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
-                    { id: 'sunShimmer', label: 'Sun Shimmer', tooltip: 'Specular highlights glinting off surface tremors and ripples.', min: 0, max: 100, step: 1, value: shimmerVal, displayValue: `${shimmerVal}%` },
-                    { id: 'speed', label: 'Animation Speed', tooltip: 'Pace of gentle surface ripples and shoreline lapping.', min: 0.1, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
-                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Soft blend into reeds, mossy banks, or masonry (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` }
+                    { id: 'waveEnergy', label: game.i18n.localize('IonriftWaterline.hero.pond.waveEnergyLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.pond.waveEnergyTooltip'), min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'swashSurge', label: game.i18n.localize('IonriftWaterline.hero.pond.swashSurgeLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.pond.swashSurgeTooltip'), min: 0, max: 20, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
+                    { id: 'waterClarity', label: game.i18n.localize('IonriftWaterline.hero.pond.waterClarityLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.pond.waterClarityTooltip'), min: 0, max: 100, step: 1, value: clarityVal, displayValue: `${clarityVal}%` },
+                    { id: 'dropRipples', label: game.i18n.localize('IonriftWaterline.hero.pond.dropRipplesLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.pond.dropRipplesTooltip'), min: 0, max: 100, step: 1, value: dropRipplesVal, displayValue: `${dropRipplesVal}%` },
+                    { id: 'distortion', label: game.i18n.localize('IonriftWaterline.hero.pond.distortionLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.pond.distortionTooltip'), min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'sunShimmer', label: game.i18n.localize('IonriftWaterline.hero.pond.sunShimmerLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.pond.sunShimmerTooltip'), min: 0, max: 100, step: 1, value: shimmerVal, displayValue: `${shimmerVal}%` },
+                    { id: 'speed', label: game.i18n.localize('IonriftWaterline.hero.pond.speedLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.pond.speedTooltip'), min: 0.1, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'fadeWidth', label: game.i18n.localize('IonriftWaterline.hero.pond.fadeWidthLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.pond.fadeWidthTooltip'), min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` }
                 ];
             }
             case 'puddle': {
@@ -1650,12 +1650,12 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 const marginVal = Math.round(fx.fadeWidth);
                 const marginSliderVal = WaterlineStudioApp.fadeWidthToSlider(marginVal, maxMargin);
                 return [
-                    { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Edge micro-ripple intensity along puddle boundaries.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
-                    { id: 'dropRipples', label: 'Drop Ripples', tooltip: 'Concentric disturbance rings from falling droplets (0% to silence).', min: 0, max: 100, step: 1, value: dropRipplesVal, displayValue: `${dropRipplesVal}%` },
-                    { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
-                    { id: 'speed', label: 'Animation Speed', tooltip: 'Vibration pace of surface tremors.', min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
-                    { id: 'waveRegularity', label: 'Wave Regularity', tooltip: 'Micro-ripple regularity: organic rain jitter to crisp rings.', min: 0, max: 100, step: 1, value: regularityVal, displayValue: `${regularityVal}%` },
-                    { id: 'fadeWidth', label: 'Shoreline Margin', tooltip: 'Tight damp rim blending puddle into terrain (0px for crisp edge).', min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` }
+                    { id: 'waveEnergy', label: game.i18n.localize('IonriftWaterline.hero.puddle.waveEnergyLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.puddle.waveEnergyTooltip'), min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'dropRipples', label: game.i18n.localize('IonriftWaterline.hero.puddle.dropRipplesLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.puddle.dropRipplesTooltip'), min: 0, max: 100, step: 1, value: dropRipplesVal, displayValue: `${dropRipplesVal}%` },
+                    { id: 'distortion', label: game.i18n.localize('IonriftWaterline.hero.puddle.distortionLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.puddle.distortionTooltip'), min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
+                    { id: 'speed', label: game.i18n.localize('IonriftWaterline.hero.puddle.speedLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.puddle.speedTooltip'), min: 0.2, max: 2.0, step: 0.05, value: fx.speed, displayValue: `${speedVal}x` },
+                    { id: 'waveRegularity', label: game.i18n.localize('IonriftWaterline.hero.puddle.waveRegularityLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.puddle.waveRegularityTooltip'), min: 0, max: 100, step: 1, value: regularityVal, displayValue: `${regularityVal}%` },
+                    { id: 'fadeWidth', label: game.i18n.localize('IonriftWaterline.hero.puddle.fadeWidthLabel'), tooltip: game.i18n.localize('IonriftWaterline.hero.puddle.fadeWidthTooltip'), min: 0, max: 100, step: 1, value: marginSliderVal, displayValue: `${marginVal}px` }
                 ];
             }
             default:
@@ -1871,7 +1871,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         this.activePreset = key;
         this.showPresetPrompt = false;
         this.render();
-        ui.notifications.info(`Waterline | Saved ${WATER_ARCHETYPES[this.activeArchetype]?.label || ''} preset "${name}".`);
+        ui.notifications.info(game.i18n.format('IonriftWaterline.studio.notifyWaterPresetSaved', { label: WATER_ARCHETYPES[this.activeArchetype]?.label || '', name }));
     }
 
     #deleteCustomWaterPreset(key) {
@@ -1994,7 +1994,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             this.#autoSaveTimer = null;
         }
         if (!this.activeRegionId) {
-            if (!this.#silentSave) ui.notifications?.warn('Waterline | No waterbody selected.');
+            if (!this.#silentSave) ui.notifications?.warn(game.i18n.localize('IonriftWaterline.studio.warnNoWaterbodySelected'));
             return;
         }
 
@@ -2058,7 +2058,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 if (!beh) {
                     await r.createEmbeddedDocuments('RegionBehavior', [{
                         type: behaviorType,
-                        name: 'Water FX',
+                        name: game.i18n.localize('IonriftWaterline.behavior.defaultName'),
                         flags: {
                             [MODULE_ID]: {
                                 configured: true,
@@ -2106,16 +2106,16 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         if (updated === 0) {
             this.hasUnsavedChanges = true;
-            if (!this.#silentSave) ui.notifications?.warn('Waterline | Could not save these water settings.');
+            if (!this.#silentSave) ui.notifications?.warn(game.i18n.localize('IonriftWaterline.studio.warnCouldNotSave'));
             return;
         }
 
         this.hasUnsavedChanges = false;
         if (!this.#silentSave) {
             if (updated > 1) {
-                ui.notifications?.info(`Waterline | Saved settings to ${updated} ${WATER_ARCHETYPES[this.activeArchetype]?.label || ''} bodies.`);
+                ui.notifications?.info(game.i18n.format('IonriftWaterline.studio.notifySavedManyBodies', { count: updated, label: WATER_ARCHETYPES[this.activeArchetype]?.label || '' }));
             } else {
-                ui.notifications?.info(`Waterline | Saved settings for "${activeRegion.name}".`);
+                ui.notifications?.info(game.i18n.format('IonriftWaterline.studio.notifySavedSingleBody', { name: activeRegion.name }));
             }
         }
     }
@@ -2210,9 +2210,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             } else if (matchedWater) {
                 this.#stopRegionPick();
                 this.loadRegion(matchedWater.id);
-                ui.notifications?.info(`Waterline | Selected existing waterbody "${matchedWater.name}".`);
+                ui.notifications?.info(game.i18n.format('IonriftWaterline.studio.notifySelectedExisting', { name: matchedWater.name }));
             } else {
-                ui.notifications?.warn('Waterline | No drawn scene region found at that point.');
+                ui.notifications?.warn(game.i18n.localize('IonriftWaterline.studio.warnNoRegionAtPoint'));
             }
         };
 
@@ -2225,7 +2225,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         canvas.stage?.on?.('pointerdown', this.#regionPickClickHandler);
         document.addEventListener('keydown', this.#regionPickKeyHandler);
-        ui.notifications?.info('Waterline | Click a drawn region on the canvas to convert it into a waterbody.');
+        ui.notifications?.info(game.i18n.localize('IonriftWaterline.studio.notifyPickRegionHint'));
     }
 
     #stopRegionPick() {
@@ -2292,7 +2292,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
 
         await region.createEmbeddedDocuments('RegionBehavior', [{
             type: `${MODULE_ID}.waterFX`,
-            name: 'Water FX',
+            name: game.i18n.localize('IonriftWaterline.behavior.defaultName'),
             flags: {
                 [MODULE_ID]: { configured: true }
             },
@@ -2317,7 +2317,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         this.#liveUpdateFX(false);
         WaterlineStudioApp.syncRegionOverlays(true);
         this.render();
-        ui.notifications?.info(`Waterline | Added "${region.name}".`);
+        ui.notifications?.info(game.i18n.format('IonriftWaterline.studio.notifyAddedRegion', { name: region.name }));
         return region;
     }
 
@@ -2338,7 +2338,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
         const loaded = await this.sampler.loadRegionForEditing(regionId, {
             onCandidate: () => this.render(),
             onClear: () => this.render(),
-            onStatus: (msg) => ui.notifications.info(`Waterline | ${msg}`)
+            onStatus: (msg) => ui.notifications.info(game.i18n.format('IonriftWaterline.studio.notifyStatus', { message: msg }))
         });
 
         if (loaded) {

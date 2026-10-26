@@ -2,116 +2,116 @@
     <summary class="wc-drawer-summary">
         <div class="summary-left">
             <i class="fas fa-sliders-h"></i>
-            <span>Advanced Shader Levers</span>
+            <span>{{localize 'IonriftWaterline.drawer.heading'}}</span>
         </div>
         <i class="fas fa-chevron-down drawer-chevron"></i>
     </summary>
 
     <div class="wc-drawer-content">
         <!-- Subsection A: Wave & Mesh Dynamics -->
-        <div class="drawer-group-title"><i class="fas fa-wave-square"></i> Wave & Texture Dynamics</div>
+        <div class="drawer-group-title"><i class="fas fa-wave-square"></i> {{{localize 'IonriftWaterline.drawer.groupWaveDynamics'}}}</div>
         <div class="drawer-grid-2col">
             <div class="form-group-compact">
-                <label title="Base texture pattern scale">Scale</label>
+                <label title="{{localize 'IonriftWaterline.drawer.scaleTitle'}}">{{localize 'IonriftWaterline.drawer.scaleLabel'}}</label>
                 <input type="range" name="scale" min="30" max="400" value="{{fx.scale}}" step="5" />
                 <span class="range-val">{{fx.scale}}</span>
             </div>
             <div class="form-group-compact">
-                <label title="Background refraction distortion strength">Distortion</label>
+                <label title="{{localize 'IonriftWaterline.drawer.distortionTitle'}}">{{localize 'IonriftWaterline.drawer.distortionLabel'}}</label>
                 <input type="range" name="distortion" min="0.0" max="0.05" value="{{fx.distortion}}" step="0.001" />
                 <span class="range-val">{{numberFormat fx.distortion decimals=3}}</span>
             </div>
             <div class="form-group-compact">
-                <label title="Base animation speed">Speed</label>
+                <label title="{{localize 'IonriftWaterline.drawer.speedTitle'}}">{{localize 'IonriftWaterline.drawer.speedLabel'}}</label>
                 <input type="range" name="speed" min="0.05" max="3.0" value="{{fx.speed}}" step="0.05" />
                 <span class="range-val">{{numberFormat fx.speed decimals=2}}</span>
             </div>
             <div class="form-group-compact">
-                <label title="Caustic brightness and prominence">Intensity</label>
+                <label title="{{localize 'IonriftWaterline.drawer.intensityTitle'}}">{{localize 'IonriftWaterline.drawer.intensityLabel'}}</label>
                 <input type="range" name="intensity" min="0.0" max="2.0" value="{{fx.intensity}}" step="0.05" />
                 <span class="range-val">{{numberFormat fx.intensity decimals=2}}</span>
             </div>
         </div>
 
         <!-- Subsection B: Shoreline & Swash Physics -->
-        <div class="drawer-group-title"><i class="fas fa-umbrella-beach"></i> Shoreline & Swash Physics</div>
+        <div class="drawer-group-title"><i class="fas fa-umbrella-beach"></i> {{{localize 'IonriftWaterline.drawer.groupShoreline'}}}</div>
         <div class="drawer-grid-2col">
             <div class="form-group-compact">
-                <label title="Width of the transparent edge blend in pixels">Edge Fade</label>
+                <label title="{{localize 'IonriftWaterline.drawer.fadeWidthTitle'}}">{{localize 'IonriftWaterline.drawer.fadeWidthLabel'}}</label>
                 <input type="range" name="fadeWidth" min="0" max="200" value="{{fx.fadeWidth}}" step="5" />
                 <span class="range-val">{{fx.fadeWidth}}px</span>
             </div>
             <div class="form-group-compact">
-                <label title="Breaking shore wave foam intensity">Shore Waves</label>
+                <label title="{{localize 'IonriftWaterline.drawer.shoreWavesTitle'}}">{{localize 'IonriftWaterline.drawer.shoreWavesLabel'}}</label>
                 <input type="range" name="shoreWaves" min="0.0" max="1.0" value="{{fx.shoreWaves}}" step="0.05" />
                 <span class="range-val">{{numberFormat fx.shoreWaves decimals=2}}</span>
             </div>
             <div class="form-group-compact">
-                <label title="Number of incoming wave crests rolling and breaking toward the shore">Wave Count</label>
+                <label title="{{localize 'IonriftWaterline.drawer.waveCountTitle'}}">{{localize 'IonriftWaterline.drawer.waveCountLabel'}}</label>
                 <input type="range" name="waveCount" min="1" max="8" value="{{fx.waveCount}}" step="1" />
                 <span class="range-val">{{fx.waveCount}}</span>
             </div>
             <div class="form-group-compact">
-                <label title="Breaks continuous waves into traveling sets">Wave Breakup</label>
+                <label title="{{localize 'IonriftWaterline.drawer.waveSegmentTitle'}}">{{localize 'IonriftWaterline.drawer.waveSegmentLabel'}}</label>
                 <input type="range" name="waveSegment" min="0.0" max="1.0" value="{{fx.waveSegment}}" step="0.05" />
                 <span class="range-val">{{numberFormat fx.waveSegment decimals=2}}</span>
             </div>
             <div class="form-group-compact">
-                <label title="Distance waves lap past shoreline onto dry land">Surge Reach</label>
+                <label title="{{localize 'IonriftWaterline.drawer.swashSurgeTitle'}}">{{localize 'IonriftWaterline.drawer.swashSurgeLabel'}}</label>
                 <input type="range" name="swashSurge" min="0" max="60" value="{{fx.swashSurge}}" step="2" />
                 <span class="range-val">{{fx.swashSurge}}px</span>
             </div>
             <div class="form-group-compact">
-                <label title="Density of shoreline froth, cellular bubbles, and surf wash">Shoreline Foam</label>
+                <label title="{{localize 'IonriftWaterline.drawer.surfFoamTitle'}}">{{localize 'IonriftWaterline.drawer.surfFoamLabel'}}</label>
                 <input type="range" name="surfFoam" min="0.0" max="1.0" value="{{fx.surfFoam}}" step="0.05" />
                 <span class="range-val">{{numberFormat fx.surfFoam decimals=2}}</span>
             </div>
         </div>
 
         <!-- Subsection C: Open Sea & Aeration -->
-        <div class="drawer-group-title"><i class="fas fa-water"></i> Open Sea & Foam Aeration</div>
+        <div class="drawer-group-title"><i class="fas fa-water"></i> {{{localize 'IonriftWaterline.drawer.groupOpenSea'}}}</div>
         <div class="drawer-grid-2col">
             <div class="form-group-compact">
-                <label title="Multi-directional chop across open water">Open Sea Chop</label>
+                <label title="{{localize 'IonriftWaterline.drawer.choppySeasTitle'}}">{{localize 'IonriftWaterline.drawer.choppySeasLabel'}}</label>
                 <input type="range" name="choppySeas" min="0.0" max="1.5" value="{{fx.choppySeas}}" step="0.05" />
                 <span class="range-val">{{numberFormat fx.choppySeas decimals=2}}</span>
             </div>
             <div class="form-group-compact">
-                <label title="Aerated foam crests on swells">Whitecaps</label>
+                <label title="{{localize 'IonriftWaterline.drawer.whitecapsTitle'}}">{{localize 'IonriftWaterline.drawer.whitecapsLabel'}}</label>
                 <input type="range" name="whitecaps" min="0.0" max="1.5" value="{{fx.whitecaps}}" step="0.05" />
                 <span class="range-val">{{numberFormat fx.whitecaps decimals=2}}</span>
             </div>
             <div class="form-group-compact">
-                <label title="Sun highlights on wave crests">Sun Glint</label>
+                <label title="{{localize 'IonriftWaterline.drawer.sunGlintTitle'}}">{{localize 'IonriftWaterline.drawer.sunGlintLabel'}}</label>
                 <input type="range" name="sunGlint" min="0.0" max="2.0" value="{{fx.sunGlint}}" step="0.05" />
                 <span class="range-val">{{numberFormat fx.sunGlint decimals=2}}</span>
             </div>
             <div class="form-group-compact">
-                <label title="Water flow direction in degrees">Flow Direction</label>
+                <label title="{{localize 'IonriftWaterline.drawer.flowAngleTitle'}}">{{localize 'IonriftWaterline.drawer.flowAngleLabel'}}</label>
                 <input type="range" name="flowAngle" min="0" max="355" value="{{fx.flowAngle}}" step="5" />
                 <span class="range-val">{{fx.flowAngle}}&deg;</span>
             </div>
             <div class="form-group-compact checkbox-compact-group">
-                <label title="Foam wakes trailing behind traveling crests">
-                    <input type="checkbox" name="spindriftWake" {{#if fx.spindriftWake}}checked{{/if}} /> Trailing Wake
+                <label title="{{localize 'IonriftWaterline.drawer.spindriftWakeTitle'}}">
+                    <input type="checkbox" name="spindriftWake" {{#if fx.spindriftWake}}checked{{/if}} /> {{localize 'IonriftWaterline.drawer.spindriftWakeLabel'}}
                 </label>
-                <label title="Confines foam strictly to crest summits">
-                    <input type="checkbox" name="crestBound" {{#if fx.crestBound}}checked{{/if}} /> Crest-Locked
+                <label title="{{localize 'IonriftWaterline.drawer.crestBoundTitle'}}">
+                    <input type="checkbox" name="crestBound" {{#if fx.crestBound}}checked{{/if}} /> {{localize 'IonriftWaterline.drawer.crestBoundLabel'}}
                 </label>
             </div>
         </div>
 
         <!-- Subsection D: Color & Tint -->
-        <div class="drawer-group-title"><i class="fas fa-palette"></i> Color & Opacity</div>
+        <div class="drawer-group-title"><i class="fas fa-palette"></i> {{{localize 'IonriftWaterline.drawer.groupColor'}}}</div>
         <div class="drawer-color-row">
             <div class="color-picker-wrap">
                 <input type="color" name="colorOverride" value="{{fx.colorOverride}}" {{#if fx.autoColor}}disabled{{/if}} />
                 <label class="color-auto-label">
-                    <input type="checkbox" name="autoColor" {{#if fx.autoColor}}checked{{/if}} /> Auto Sample Map
+                    <input type="checkbox" name="autoColor" {{#if fx.autoColor}}checked{{/if}} /> {{localize 'IonriftWaterline.drawer.autoSampleMap'}}
                 </label>
             </div>
             <div class="form-group-compact opacity-compact">
-                <label title="Water overlay tint opacity">Opacity</label>
+                <label title="{{localize 'IonriftWaterline.drawer.opacityTitle'}}">{{localize 'IonriftWaterline.drawer.opacityLabel'}}</label>
                 <input type="range" name="opacity" min="0.05" max="0.5" value="{{fx.opacity}}" step="0.01" />
                 <span class="range-val">{{numberFormat fx.opacity decimals=2}}</span>
             </div>
