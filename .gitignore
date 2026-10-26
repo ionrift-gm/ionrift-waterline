@@ -31,3 +31,5 @@ scripts/tests/
 tests/
 
 *.lock
+.audit/
+ionrift_debug/

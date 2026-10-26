@@ -8,6 +8,7 @@ export const SHORELINE_CHUNK = `
     float computeShoreWaves(float smoothDist, float cornerness, vec2 worldPos, vec2 flow, vec2 shoreNormal, float tWave, float tAnim) {
         float countMul = clamp(uWaveCount, 1.0, 8.0);
         float isRiver = clamp(uRiverWaves * 2.5 * (1.0 - uCoastSurf), 0.0, 1.0);
+        float isLake = clamp(uLakeWaves * 2.5 * (1.0 - uCoastSurf), 0.0, 1.0);
 
         // Spatial scale factor for coastal/ocean breakers (1.0 baseline at uScale = 100px; rivers stay tight to bank)
         float shoreScale = mix(clamp(uScale / 100.0, 0.40, 3.50), 1.0, isRiver);
@@ -15,10 +16,12 @@ export const SHORELINE_CHUNK = `
         // Nearshore shelf approach distance:
         // Ocean/Coast: wide surf shelf scaled by shoreScale up to SDF distance ceiling.
         // River: tight 16-28px near-bank littoral zone so wavelets never intrude into mid-stream.
+        // Lake: compact 22-36px nearshore zone so shore lapping stays near the bank and islands.
         float baseApproach = mix(50.0 + countMul * 3.0, 16.0 + countMul * 1.5, isRiver);
         float maxApproach = mix(50.0 + countMul * 3.0, 16.0 + countMul * 1.5, isRiver);
         float sdfCap = (uSdfMaxDist > 1.0) ? (uSdfMaxDist * 0.92) : 200.0;
         maxApproach = min(maxApproach * shoreScale, max(maxApproach, sdfCap));
+        maxApproach = mix(maxApproach, (22.0 + countMul * 1.8) * clamp(shoreScale, 0.65, 1.25), isLake);
         if (smoothDist >= maxApproach || smoothDist <= 0.0) return 0.0;
 
         float approachScale = maxApproach / max(baseApproach, 1.0);
@@ -31,12 +34,13 @@ export const SHORELINE_CHUNK = `
         vec2 downBankTang = (flowAlongBank >= 0.0) ? shoreTangent : -shoreTangent;
         float bankFacing = dot(flow, -shoreNormal);
 
-        // Drop-off in consideration of main stream direction:
-        // Leeward shores (water flowing away from bank) gracefully drop off to calm water.
-        // Parallel riverbanks maintain clean, graceful bank lapping.
-        // Headlands facing oncoming torrent maintain full wave impact.
+        // Drop-off in consideration of main stream / wind direction:
+        // Leeward shores (water/wind moving away from bank) drop off to calm sheltered water.
+        // On lakes, upwind shores (bankFacing < 0) have zero fetch and must not emit waves marching into the wind.
+        // Receiving downwind shores and windward rock faces (bankFacing > 0) receive full wave impact.
         float flowExposure = smoothstep(-0.40, 0.15, bankFacing);
-        float streamDropOff = mix(1.0, flowExposure, isRiver);
+        float lakeWindFetch = smoothstep(-0.08, 0.45, bankFacing);
+        float streamDropOff = mix(1.0, flowExposure, isRiver) * mix(1.0, lakeWindFetch, isLake);
         if (streamDropOff <= 0.001) return 0.0;
 
         float reg = clamp(uWaveRegularity, 0.0, 1.0);
@@ -97,14 +101,16 @@ export const SHORELINE_CHUNK = `
                     float packetTargetDist = maxApproach - cellSpeed * age;
                     if (packetTargetDist < 0.0 || packetTargetDist > maxApproach) continue;
 
-                    // In river mode: packet physically drifts downstream with the river current as it travels
-                    vec2 packetCenter = seedPos + isRiver * downBankTang * (age * (waveSpeedPx * 1.5 + uSpeed * 8.0));
+                    // In river/lake mode: packet physically drifts downstream/downwind as it travels
+                    vec2 packetCenter = seedPos + max(isRiver, isLake * 0.45) * downBankTang * (age * (waveSpeedPx * 1.5 + uSpeed * 8.0));
                     vec2 toFrag = worldPos - packetCenter;
-                    float distToSeed = length(toFrag);
 
                     // Packet lateral span scaled by shoreScale
-                    float spanRadius = mix(22.0, 36.0, h.y) * mix(shoreScale, 0.85, isRiver);
-                    if (distToSeed > spanRadius * 1.25) continue;
+                    float spanRadius = mix(22.0, 36.0, h.y) * mix(shoreScale, 0.85, max(isRiver, isLake * 0.65));
+                    float maxSpan = spanRadius * 1.25;
+                    if (abs(toFrag.x) > maxSpan || abs(toFrag.y) > maxSpan) continue;
+                    float distToSeed = length(toFrag);
+                    if (distToSeed > maxSpan) continue;
 
                     // Lateral envelope: smooth bell curve tapering gracefully to 0 at both tips
                     float normDist = distToSeed / spanRadius;
@@ -120,7 +126,7 @@ export const SHORELINE_CHUNK = `
                     // Downstream shear & wrapping:
                     // Tilts the wave crest so it wraps along the riverbank in the downstream direction
                     float distAlongDown = dot(toFrag, downBankTang);
-                    float streamShear = distAlongDown * (0.38 * isRiver * smoothstep(0.0, 0.35, bankParallel));
+                    float streamShear = distAlongDown * (0.38 * isRiver * smoothstep(0.0, 0.35, bankParallel) + 0.22 * isLake * smoothstep(0.0, 0.40, bankParallel));
 
                     // Distance from current pixel to the advancing curved packet crest
                     float curvedTargetDist = packetTargetDist - crestBow + slant + meander - streamShear;
@@ -151,20 +157,20 @@ export const SHORELINE_CHUNK = `
 
         // Shelf approach fade: gracefully transitions to open water offshore
         float approachFade = 1.0 - smoothstep(maxApproach * 0.70, maxApproach, smoothDist);
-        // Waterline surf landing fade: smoothly hands off to beach surf wash
-        float surfLanding = mix(smoothstep(2.0 * shoreScale, 14.0 * shoreScale, smoothDist), smoothstep(1.5, 8.0, smoothDist), isRiver);
+        // Waterline surf landing fade: smoothly hands off to beach surf wash (and feathers out before the bank on lakes/rivers)
+        float surfLanding = mix(smoothstep(2.0 * shoreScale, 14.0 * shoreScale, smoothDist), smoothstep(4.0, 16.0, smoothDist), max(isRiver, isLake));
 
-        // River overall presence scaling and emergent directional drop-off
-        float riverPresence = mix(1.0, 0.60, isRiver);
+        // River/lake overall presence scaling and emergent directional drop-off
+        float riverPresence = mix(1.0, 0.60, isRiver) * mix(1.0, 0.58, isLake);
         float waveFoam = totalCrest * approachFade * surfLanding * cornerBreak * uWaveSegment * streamDropOff * riverPresence;
 
-        // Waterline contact wash: pulses downstream with river current
+        // Waterline contact wash: pulses downstream with river current (suppressed on lakes to avoid shoreline rim seams)
         float edgeNoise = noise21(worldPos / (60.0 * shoreScale) - vec2(tAnim * 0.07, -tAnim * 0.05));
         float edgeWash = (1.0 - smoothstep(0.0, 5.0 * shoreScale, smoothDist)) * smoothstep(0.35, 0.65, edgeNoise) * 0.25;
         float streamCoord = dot(worldPos, flow);
         float riverEdgePulse = sin(streamCoord * 0.045 - tWave * 2.8) * 0.5 + 0.5;
         float edgePulse = mix(sin((worldPos.x * 0.018 + worldPos.y * 0.022) / shoreScale - tAnim * 1.4) * 0.5 + 0.5, riverEdgePulse, isRiver);
-        float edgeFoam = edgeWash * edgePulse * mix(1.0, 0.5, cornerness) * foamScale * streamDropOff;
+        float edgeFoam = edgeWash * edgePulse * mix(1.0, 0.5, cornerness) * foamScale * streamDropOff * (1.0 - isLake);
 
         return waveFoam + edgeFoam;
     }

@@ -302,7 +302,7 @@ export const COMPOSITE_CHUNK = `
         vec3 foamTint = vec3(0.98, 0.99, 1.0);
         float foamOpacity = 0.0;
         if (totalWave > 0.001 || ar.undercurrentFoam > 0.001) {
-            float riverFoamMode = (1.0 - isCoastSurf) * step(0.001, uRiverWaves);
+            float riverFoamMode = (1.0 - isCoastSurf) * step(0.001, uRiverWaves + uLakeWaves);
             vec3 bgCalm = texture2D(uBackground, clamp(vBgUv + (dispPx * 0.08) / uSceneDims.zw, 0.0, 1.0)).rgb;
             vec3 cleanSeaBase = mix(bgCalm, uWaterColor * depth, max(uOpacity, 0.85));
             vec3 seaInfluencedTint = mix(
@@ -342,9 +342,18 @@ export const COMPOSITE_CHUNK = `
         }
 
         // ─── Meniscus & Edge Output ───
+        // Soft fluid meniscus edge fade (full uFadeWidth honored across all archetypes)
+        float fadeDist = max(0.001, uFadeWidth);
+        float effectiveFadeDist = fadeDist;
+        float fade = (uFadeWidth <= 0.5) ? ((waterReach > 0.0) ? 1.0 : 0.0) : smoothstep(0.0, effectiveFadeDist, max(0.0, waterReach));
+        fade = mix(1.0, fade, shoreIsNatural);
+
+        // Suppress synthetic edge rims and ground soak as Shoreline Margin (uFadeWidth) increases so seams can be fully feathered out
+        float rimSuppression = 1.0 - smoothstep(15.0, 65.0, uFadeWidth);
+
         // Swash / intertidal ground wetting: darkens and moistens shore where waves reach and recede
         float wetMargin = mix(24.0 + uSwashSurge * 0.75, 16.0 + uSwashSurge * 0.40, isCoastSurf);
-        float swashWetness = smoothstep(-wetMargin, 6.0, waterReach + bankSlosh * 0.5);
+        float swashWetness = smoothstep(-wetMargin, 6.0, waterReach + bankSlosh * 0.5) * mix(fade * rimSuppression, 1.0, isCoastSurf);
 
         // At edges, sample undistorted background
         vec3 bgOriginal = texture2D(uBackground, clamp(vBgUv, 0.0, 1.0)).rgb;
@@ -353,11 +362,6 @@ export const COMPOSITE_CHUNK = `
         float soakDarken = mix(0.76, 0.90, isCoastSurf);
         vec3 soakedBg = bgOriginal * mix(1.0, soakDarken, swashWetness);
 
-        // Soft fluid meniscus edge fade
-        float fadeDist = max(0.001, uFadeWidth);
-        float effectiveFadeDist = mix(min(fadeDist, 18.0 + fadeDist * 0.30), fadeDist, isCoastSurf);
-        float fade = (uFadeWidth <= 0.5) ? ((waterReach > 0.0) ? 1.0 : 0.0) : smoothstep(0.0, effectiveFadeDist, max(0.0, waterReach));
-        fade = mix(1.0, fade, shoreIsNatural);
         color = mix(soakedBg, color, fade);
 
         // Coastal white surf wash and leading edge froth (coast/ocean only)
@@ -489,27 +493,6 @@ export const COMPOSITE_CHUNK = `
                 color = mix(color, overSwashTint, clamp(max(overWash, leadFroth), 0.0, 1.0) * 0.82 * foamCap);
             }
         }
-
-        // Foam punch-through for inland bodies
-        if (isCoastSurf <= 0.5 && totalWave > 0.001 && waterReach > -2.0) {
-            float foamPunch = smoothstep(-2.0, 4.0, waterReach) * clamp(uSurfFoam * 1.25, 0.0, 1.0);
-            color = mix(color, foamTint, foamPunch * foamOpacity);
-        }
-
-        // Lacustrine shore wash & lapping edge for inland bodies (lakes / ponds)
-        if (isCoastSurf <= 0.5 && waterReach > 0.0) {
-            float lapEdge = smoothstep(0.0, 2.5, waterReach) * smoothstep(8.0, 1.5, waterReach);
-            float shoreLace = noise21(vWorldPos / 18.0 + vec2(tAnim * 0.20, -tAnim * 0.15));
-            float lapFoam = lapEdge * clamp(uSurfFoam * 1.35, 0.0, 1.2) * (0.50 + 0.50 * shoreLace);
-            vec3 lakeWashTint = mix(uWaterColor * 1.25 + vec3(0.12, 0.18, 0.22), vec3(0.96, 0.98, 1.0), 0.70);
-            color = mix(color, lakeWashTint, clamp(lapFoam, 0.0, 1.0) * 0.65 * mapEdgeMask);
-        }
-
-        // Contact tension meniscus highlight along the undulating waterline
-        float contactRidge = smoothstep(0.0, 2.0, waterReach) * smoothstep(5.0, 1.8, waterReach);
-        float contactFleck = hash21(floor(vWorldPos * 0.45));
-        float contactHighlight = contactRidge * (0.65 + 0.35 * contactFleck) * (0.45 + 0.45 * uSunGlint) * mapEdgeMask;
-        color += vec3(0.95, 0.98, 1.0) * contactHighlight * fade;
 
         // Subpixel anti-aliasing at the advancing waterline (only on natural shores)
         float edgeAa = smoothstep(0.0, 1.5, max(0.0, waterReach));

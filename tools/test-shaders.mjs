@@ -233,6 +233,10 @@ describe('Lake / Pond Shader (LAKE_POND_CHUNK)', () => {
   it('computes lacustrine wind ruffles with trochoidal steepening and elevation clamping', () => {
     assert.match(LAKE_POND_CHUNK, /float\s+waveSteep\s*=\s*\(rawWave\s*>\s*0\.0\)\s*\?\s*pow\(rawWave,\s*1\.35\)\s*:\s*-pow\(-rawWave,\s*0\.85\);/, 'Trochoidal steepening formula must preserve sharp crests and wide troughs');
     assert.match(LAKE_POND_CHUNK, /float\s+ruffleElev\s*=\s*clamp\(surfaceWaves\s*\*\s*0\.55,\s*-0\.5,\s*0\.85\)\s*\*\s*smoothstep\(0\.0,\s*25\.0,\s*softBankDist\);/, 'Ruffle elevation must be clamped to [-0.5, 0.85] and tapered at bank');
+    assert.match(LAKE_POND_CHUNK, /float\s+scaleFactor\s*=\s*clamp\(uScale\s*\/\s*100\.0,\s*0\.40,\s*3\.00\);/, 'Lake waves must scale with uScale via scaleFactor');
+    assert.match(LAKE_POND_CHUNK, /float\s+fetchEnvelope\s*=\s*smoothstep\(requiredFetchDist\s*\*\s*0\.15,\s*requiredFetchDist,\s*softBankDist\);/, 'Lake waves must enforce upwind fetch sheltering');
+    assert.match(LAKE_POND_CHUNK, /float\s+singleCrest\s*=\s*smoothstep\(0\.06,\s*0\.58,\s*surfaceWaves\)\s*\*\s*\(0\.35\s*\+\s*0\.65\s*\*\s*downwindFace\);/, 'Lake highlights must gate on single-sided downwind crests');
+    assert.match(LAKE_POND_CHUNK, /lakeGlint\s*=\s*clamp\(rawGlint,\s*0\.0,\s*0\.24\);/, 'Lake specular glint must be strictly capped');
     assert.match(LAKE_POND_CHUNK, /lakeDisplacement\s*=\s*\(-lakeNormal\.xy\)\s*\*\s*\(uDistortion\s*\*\s*2\.2\s*\*\s*uLakeWaves\);/, 'Refraction displacement must be derived from lakeNormal');
   });
 
@@ -244,6 +248,7 @@ describe('Lake / Pond Shader (LAKE_POND_CHUNK)', () => {
   });
 
   it('evaluates 4 concentric drop rings with expanding radius and exponential decay', () => {
+    assert.match(LAKE_POND_CHUNK, /if\s*\(hash21\(cellCoord\s*\*\s*1\.9\s*\+\s*cycleSeed\)\s*<\s*0\.62\)\s*continue;/, 'Drop rings must be sparse (38% active probability per cycle)');
     assert.match(LAKE_POND_CHUNK, /for\s*\(int\s+i\s*=\s*0;\s*i\s*<\s*4;\s*i\+\+\)/, 'Drop rings must iterate across 4 oscillators');
     assert.match(LAKE_POND_CHUNK, /float\s+ringRadius\s*=\s*phase\s*\*\s*75\.0;/, 'Drop ring radius must expand to 75px');
     assert.match(LAKE_POND_CHUNK, /exp\(-ringDist\s*\*\s*0\.16\)/, 'Drop rings must attenuate exponentially with distance');
@@ -289,6 +294,7 @@ describe('River Flow Shader (RIVER_FLOW_CHUNK)', () => {
 
   it('calibrates normal slope gain, whitewater foam threshold, and benthic refraction displacement', () => {
     // Slope gain for 35-45 degree water mound tilt and rich 3D light/shadow
+    assert.match(RIVER_FLOW_CHUNK, /float\s+scaleFactor\s*=\s*clamp\(uScale\s*\/\s*90\.0,\s*0\.33,\s*2\.80\);/, 'River boils and riffles must scale with uScale via scaleFactor');
     assert.match(RIVER_FLOW_CHUNK, /const\s+float\s+kSlopeGain\s*=\s*14\.0;/, 'kSlopeGain must be 14.0 for tabletop relief');
     // Gradient steepness calculation
     assert.match(RIVER_FLOW_CHUNK, /float\s+steepness\s*=\s*length\(worldGrad\);/, 'Steepness must be derived from length(worldGrad)');
@@ -350,7 +356,7 @@ describe('Composite Shader & Presets Contract', () => {
     assert.match(COMPOSITE_CHUNK, /if\s*\(isCoastSurf\s*>\s*0\.5\s*&&\s*uIntensity\s*>\s*0\.001\)/, 'Caustic shimmer sparkle must only execute on shores and oceans');
     assert.match(COMPOSITE_CHUNK, /if\s*\(isCoastSurf\s*<\s*0\.5\s*&&\s*\(uLakeWaves\s*>\s*0\.001\s*\|\|\s*uLakeRings\s*>\s*0\.001\)\)/, 'applyLakeArchetype must only execute for inland bodies');
     assert.match(COMPOSITE_CHUNK, /if\s*\(isCoastSurf\s*>\s*0\.5\s*&&\s*waterReach\s*>\s*0\.0\s*&&\s*uSurfFoam\s*>\s*0\.001\)/, 'Coastal surf wash must only execute when isCoastSurf is true');
-    assert.match(COMPOSITE_CHUNK, /if\s*\(isCoastSurf\s*<=\s*0\.5\s*&&\s*totalWave\s*>\s*0\.001\s*&&\s*waterReach\s*>\s*-2\.0\)/, 'Foam punch-through must preserve inland body wave visibility');
+    assert.match(COMPOSITE_CHUNK, /float\s+effectiveFadeDist\s*=\s*fadeDist;/, 'Shoreline Margin must honor full fadeDist without artificial inland clamping');
   });
 
   it('archetype strategy struct plumbs displacement, foam, glint through pipeline', () => {
@@ -462,6 +468,8 @@ describe('Waterline Studio Hero Sliders Contract', () => {
 
     // Lake hero sliders
     assert.ok(studioSrc.includes("case 'lake':"), 'Missing lake slider case');
+    assert.match(studioSrc, /case\s+'lake':[\s\S]*?id:\s*'waveScale',\s*label:\s*'Wave Scale'/, 'Lake must expose Wave Scale hero slider');
+    assert.match(studioSrc, /case\s+'river':[\s\S]*?id:\s*'waveScale',\s*label:\s*'Wave Scale'/, 'River must expose Wave Scale hero slider');
     assert.match(studioSrc, /id:\s*'waterClarity',\s*label:\s*'Water Clarity'/);
 
     // River hero sliders
@@ -712,8 +720,10 @@ describe('Composite Shader Archetype Gating', () => {
 
   it('gates inland foam punch-through behind isCoastSurf check', () => {
     assert.match(COMPOSITE_CHUNK,
-      /if\s*\(\s*isCoastSurf\s*<=\s*0\.5\s*&&\s*totalWave\s*>\s*0\.001/,
-      'Inland foam punch-through must be gated behind isCoastSurf <= 0.5');
+      /float\s+effectiveFadeDist\s*=\s*fadeDist;/,
+      'Inland bodies must honor full fadeDist without post-fade white rim seams');
+    assert.ok(!COMPOSITE_CHUNK.includes('lapFoam'), 'Inland bodies must not draw unfeathered lapFoam white rims after fade');
+    assert.ok(!COMPOSITE_CHUNK.includes('contactHighlight'), 'Inland bodies must not draw post-fade contactHighlight seams');
   });
 
   it('ocean dispatch via strategy wrapper with early-exit gate in chunk', () => {
@@ -887,6 +897,10 @@ describe('Scene Background Resolution & Fallbacks Contract', () => {
     const scene = { backgroundColor: '#111922' };
     assert.equal(WaterManager.resolveSceneBackgroundSrc(scene), null);
     assert.equal(WaterManager.resolveSceneBackgroundSrc(null), null);
+    const waterMgrSrc = readFileSync(join(process.cwd(), 'scripts/water/WaterManager.js'), 'utf8');
+    const wakeMgrSrc = readFileSync(join(process.cwd(), 'scripts/water/WakeManager.js'), 'utf8');
+    assert.match(waterMgrSrc, /let\s+topBound\s*=\s*0;/, 'Default region topBound must be 0 so null top elevation does not default to +Infinity');
+    assert.match(wakeMgrSrc, /effectiveElevation\s*<=\s*0\s*&&\s*WaterManager\.isPointInWater/, 'WakeManager must suppress ripples and wakes when token elevation > 0');
   });
 });
 

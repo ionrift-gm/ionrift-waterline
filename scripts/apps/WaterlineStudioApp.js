@@ -59,6 +59,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
     #autoSaveTimer = null;
     /** @type {boolean} Suppress toast notifications during background auto-save */
     #silentSave = false;
+    /** @type {boolean} True while persisting FX updates so updateRegion hook does not re-render open controls */
+    isSavingFX = false;
     /** @type {string|null} Previously active region ID before entering New Waterbody pick mode */
     #previousRegionId = null;
     /** @type {boolean} Scroll active waterbody card into view on next render */
@@ -1019,9 +1021,23 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 updateColorUIState(this.fx.colorOverride, false);
                 this.#liveUpdateFX();
             };
-            colorInput.addEventListener('input', applyColorInput);
+            colorInput.addEventListener('input', (ev) => {
+                if (this.#autoSaveTimer) {
+                    clearTimeout(this.#autoSaveTimer);
+                    this.#autoSaveTimer = null;
+                }
+                this.fx.colorOverride = ev.target.value || '#0d2e4d';
+                this.fx.autoColor = false;
+                this.hasUnsavedChanges = true;
+                updateColorUIState(this.fx.colorOverride, false);
+                this.#liveUpdateFX(false);
+            });
             colorInput.addEventListener('change', applyColorInput);
             colorInput.addEventListener('click', () => {
+                if (this.#autoSaveTimer) {
+                    clearTimeout(this.#autoSaveTimer);
+                    this.#autoSaveTimer = null;
+                }
                 if (this.fx.autoColor) {
                     this.fx.colorOverride = colorInput.value || '#0d2e4d';
                     this.fx.autoColor = false;
@@ -1515,7 +1531,6 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             case 'ocean': {
                 const waveEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.choppySeas / 1.2) * 100)));
                 const waveCountVal = Math.round(fx.waveCount ?? 4);
-                const waveScaleVal = Math.round(fx.scale ?? 135);
                 const surgeVal = Math.round(fx.swashSurge);
                 const surfFoamVal = Math.round(Math.min(100, Math.max(0, (fx.surfFoam ?? 0.70) * 100)));
                 const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
@@ -1537,8 +1552,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             }
             case 'coast': {
                 const waveEnergyVal = Math.round(Math.min(100, Math.max(0, ((fx.shoreWaves - 0.05) / 0.90) * 100)));
+                const waveScaleVal = Math.round(Math.min(350, Math.max(40, fx.scale ?? 135)));
                 const waveCountVal = Math.round(fx.waveCount ?? 4);
-                const waveScaleVal = Math.round(fx.scale ?? 135);
                 const surgeVal = Math.round(fx.swashSurge);
                 const surfFoamVal = Math.round(Math.min(100, Math.max(0, (fx.surfFoam ?? 0.85) * 100)));
                 const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
@@ -1561,6 +1576,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             }
             case 'lake': {
                 const waveEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.lakeWaves ?? 0.08) * 100)));
+                const waveScaleVal = Math.round(Math.min(300, Math.max(40, fx.scale ?? 110)));
                 const surgeVal = Math.round(fx.swashSurge ?? 5.0);
                 const clarityVal = Math.round(Math.min(100, Math.max(0, ((0.38 - (fx.opacity ?? 0.15)) / 0.26) * 100)));
                 const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
@@ -1571,6 +1587,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 const angleVal = Math.round(fx.flowAngle) % 360;
                 return [
                     { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Surface wave relief, wind ruffles, and edge chop.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'waveScale', label: 'Wave Scale', tooltip: 'Physical size and wavelength of wind-driven lake ripples and swells.', min: 40, max: 300, step: 5, value: waveScaleVal, displayValue: `${waveScaleVal}px` },
                     { id: 'swashSurge', label: 'Surge Reach', tooltip: 'Dynamic swash surging onto the banks.', min: 0, max: 25, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
                     { id: 'waterClarity', label: 'Water Clarity', tooltip: 'Transparency revealing submerged lakebed and sunken terrain.', min: 0, max: 100, step: 1, value: clarityVal, displayValue: `${clarityVal}%` },
                     { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
@@ -1581,6 +1598,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             }
             case 'river': {
                 const waveEnergyVal = Math.round(Math.min(100, Math.max(0, (fx.riverWaves ?? 0.36) * 100)));
+                const waveScaleVal = Math.round(Math.min(250, Math.max(30, fx.scale ?? 90)));
                 const surgeVal = Math.round(fx.swashSurge ?? 16.0);
                 const shoreFoamVal = Math.round(Math.min(100, Math.max(0, ((fx.whitecaps ?? 0.14) / 0.65) * 100)));
                 const distortionVal = Math.round(Math.min(100, Math.max(0, ((fx.distortion ?? 0.025) / 0.050) * 100)));
@@ -1591,6 +1609,7 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                 const angleVal = Math.round(fx.flowAngle) % 360;
                 return [
                     { id: 'waveEnergy', label: 'Wave Energy', tooltip: 'Density and presence of downstream riffles, rapids, and crest foam.', min: 0, max: 100, step: 1, value: waveEnergyVal, displayValue: `${waveEnergyVal}%` },
+                    { id: 'waveScale', label: 'Wave Scale', tooltip: 'Physical size and breadth of downstream river boils, riffles, and rapid swells.', min: 30, max: 250, step: 5, value: waveScaleVal, displayValue: `${waveScaleVal}px` },
                     { id: 'swashSurge', label: 'Surge Reach', tooltip: 'Dynamic swash and wave wash surging onto the banks.', min: 0, max: 40, step: 1, value: surgeVal, displayValue: `${surgeVal}px` },
                     { id: 'shoreFoam', label: 'Shore Foam', tooltip: 'Density of downstream white-water riffles, crest froth, and bank wash.', min: 0, max: 100, step: 1, value: shoreFoamVal, displayValue: `${shoreFoamVal}%` },
                     { id: 'distortion', label: 'Lens Distortion', tooltip: 'Optical refraction and benthic lens distortion of submerged terrain.', min: 0, max: 100, step: 1, value: distortionVal, displayValue: `${distortionVal}%` },
@@ -2031,6 +2050,8 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             || (this.activeArchetype === 'puddle' ? '#38bdf8' : WATER_ARCHETYPES[this.activeArchetype]?.accentColor)
             || '#2a6496';
 
+        this.isSavingFX = true;
+        try {
         for (const r of targetRegions) {
             const beh = this.#getRegionWaterBehavior(r);
             try {
@@ -2057,7 +2078,9 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
                         system: systemUpdate
                     });
                 }
-                await r.setFlag(MODULE_ID, 'configured', true);
+                if (!r.flags?.[MODULE_ID]?.configured) {
+                    await r.setFlag(MODULE_ID, 'configured', true);
+                }
                 if (presetChoice.customPreset) {
                     await r.setFlag(MODULE_ID, 'customPreset', presetChoice.customPreset);
                 } else if (r.unsetFlag) {
@@ -2075,6 +2098,10 @@ export class WaterlineStudioApp extends foundry.applications.api.ApplicationV2 {
             } catch (err) {
                 console.error(`Waterline | Failed to update water FX on ${r.name}:`, err);
             }
+        }
+
+        } finally {
+            this.isSavingFX = false;
         }
 
         if (updated === 0) {

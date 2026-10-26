@@ -154,9 +154,16 @@ Hooks.on('canvasReady', async () => {
 // ---------------------------------------------------------------
 // Region & Behavior Updates: Re-render water when anything changes
 // ---------------------------------------------------------------
-Hooks.on('updateRegion', () => {
-    WaterManager.debouncedRefresh();
-    WaterlineStudioApp._instance?.render();
+Hooks.on('updateRegion', (_regionDoc, changes) => {
+    const app = WaterlineStudioApp._instance;
+    if (app?.isSavingFX) return;
+    const isGeometryChange = Boolean(changes?.shapes || changes?.flags?.[MODULE_ID]?.holes);
+    if (isGeometryChange) {
+        WaterManager.debouncedRefresh();
+    }
+    if (changes?.name !== undefined || isGeometryChange) {
+        app?.render();
+    }
 });
 Hooks.on('createRegion', (regionDoc) => {
     WaterManager.debouncedRefresh();

@@ -563,7 +563,7 @@ Water Tuning API:
         // Extract region elevation bounds for multi-level maps
         let meshElevation = 0;
         let bottomBound = -Infinity;
-        let topBound = Infinity;
+        let topBound = 0;
 
         if (typeof regionDoc.elevation === 'number') {
             meshElevation = regionDoc.elevation;
@@ -573,6 +573,7 @@ Water Tuning API:
             bottomBound = regionDoc.elevation.bottom ?? -Infinity;
             topBound = regionDoc.elevation.top ?? Infinity;
             meshElevation = Number.isFinite(bottomBound) ? bottomBound : (Number.isFinite(topBound) ? topBound : 0);
+            if (!Number.isFinite(topBound)) topBound = meshElevation;
         }
 
         // Load background texture for distortion
@@ -955,7 +956,7 @@ Water Tuning API:
 
             if (elevation !== undefined && elevation !== null && bounds) {
                 const minEl = bounds.bottom ?? -Infinity;
-                const maxEl = bounds.top ?? Infinity;
+                const maxEl = Number.isFinite(bounds.top) ? bounds.top : (Number.isFinite(bounds.bottom) && bounds.bottom > 0 ? bounds.bottom : 0);
                 if (elevation < minEl || elevation > maxEl) continue;
             }
 
