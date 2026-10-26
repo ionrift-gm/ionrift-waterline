@@ -179,9 +179,17 @@ export class WaterDetector {
         const colorOverride = (fx.autoColor === false && fx.colorOverride) ? fx.colorOverride : (preset.colorOverride || '');
 
         let regionName = name;
-        if (!regionName || regionName === 'Water') {
+        const defaultWaterLabel = game.i18n.localize('IonriftWaterline.detector.defaultWaterName');
+        const defaultRegionLabel = game.i18n?.has?.('TYPES.Region') ? game.i18n.localize('TYPES.Region') : '';
+        const isDefaultName = !regionName
+            || regionName === 'Water'
+            || regionName === defaultWaterLabel
+            || (Boolean(defaultRegionLabel) && regionName === defaultRegionLabel)
+            || candidate?.hasCustomName === false;
+
+        if (isDefaultName) {
             const allRegions = Array.from(scene.regions?.values?.() ?? scene.regions?.contents ?? scene.regions ?? []);
-            const archLabel = WATER_ARCHETYPES[archetype]?.label || est?.archetypeLabel || 'Water';
+            const archLabel = WATER_ARCHETYPES[archetype]?.label || est?.archetypeLabel || defaultWaterLabel;
             const existingNames = new Set(allRegions.map(r => (r.name || '').trim().toLowerCase()));
             let nextIndex = allRegions.filter(r => {
                 const behaviors = Array.from(r.behaviors?.values?.() ?? r.behaviors?.contents ?? r.behaviors ?? []);
@@ -224,6 +232,7 @@ export class WaterDetector {
             flags: {
                 [MODULE_ID]: {
                     configured: true,
+                    hasCustomName: !isDefaultName,
                     ...(colorOverride ? { color: colorOverride } : {}),
                     ...(validHoles.length ? { holes: validHoles } : {})
                 }
@@ -285,7 +294,7 @@ export class WaterDetector {
 
         let count = 0;
         for (const candidate of candidates) {
-            const region = await WaterDetector.createRegionFromCandidate(candidate, `Water ${count + 1}`);
+            const region = await WaterDetector.createRegionFromCandidate(candidate, game.i18n.format('IonriftWaterline.detector.defaultNumberedWaterName', { index: count + 1 }));
             if (region) count++;
         }
 
