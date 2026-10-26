@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0] - 2026-10-26
+
+### Added
+- Wave Scale slider for Coastlines, Lakes, and Rivers.
+
+### Changed
+- Reworked Coastal shader.
+- Refined river and lake shaders.
+- Tweaked Shoreline Margin feathering.
+
+### Fixed
+- Elevated tokens above water no longer leave ripples or trails.
+- Color picker no longer closes while adjusting water tints.
+
 ## [1.1.0] - 2026-10-25
 
 ### Added
