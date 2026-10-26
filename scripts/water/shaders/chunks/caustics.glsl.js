@@ -15,7 +15,8 @@ export const CAUSTICS_CHUNK = `
                     cos(t * 0.14 + point.x * 6.2831)
                 );
                 point = 0.5 + 0.38 * jitter;
-                float d = length(neighbor + point - f);
+                vec2 diff = neighbor + point - f;
+                float d = dot(diff, diff);
                 if (d < minDist1) {
                     minDist2 = minDist1;
                     minDist1 = d;
@@ -24,7 +25,7 @@ export const CAUSTICS_CHUNK = `
                 }
             }
         }
-        return minDist2 - minDist1;
+        return sqrt(minDist2) - sqrt(minDist1);
     }
 
     // 2D distortion vector from noise

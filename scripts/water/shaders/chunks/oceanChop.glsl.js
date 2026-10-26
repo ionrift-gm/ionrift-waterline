@@ -98,12 +98,13 @@ export const OCEAN_CHOP_CHUNK = `
             float distToLip = abs(effDistAhead);
 
             float lipBand = smoothstep(lipThick, 0.3, distToLip);
-            float solidCore = smoothstep(lipThick * 0.58, 0.0, distToLip) * mix(0.45, 0.98, crestPower);
-
-            float crestTex = noise21(warpedP * 0.14 + clumpSeed.xy * 13.7 + t * 0.06) * 0.60
-                + noise21(warpedP * 0.30 - clumpSeed.zw * 19.1 - t * 0.08) * 0.40;
-            float crestBeads = smoothstep(0.28, 0.76, crestTex);
-            frontLip = lipBand * (solidCore * (0.68 + 0.32 * crestBeads) + crestBeads * 0.72);
+            if (lipBand > 0.001) {
+                float solidCore = smoothstep(lipThick * 0.58, 0.0, distToLip) * mix(0.45, 0.98, crestPower);
+                float crestTex = noise21(warpedP * 0.14 + clumpSeed.xy * 13.7 + t * 0.06) * 0.60
+                    + noise21(warpedP * 0.30 - clumpSeed.zw * 19.1 - t * 0.08) * 0.40;
+                float crestBeads = smoothstep(0.28, 0.76, crestTex);
+                frontLip = lipBand * (solidCore * (0.68 + 0.32 * crestBeads) + crestBeads * 0.72);
+            }
 
             // Fast O(1) 3-layer lane-indexed spray droplets: proportional to wave speed & scale, gentle detachment
             float sprayParticles = 0.0;
@@ -177,15 +178,17 @@ export const OCEAN_CHOP_CHUNK = `
         if (bodyLife > 0.001) {
             if (effDistAhead <= 0.0) {
                 float dBehind = -effDistAhead;
-                float rearWarp = (noise21(warpedP * 0.032 + vec2(t * 0.025, -t * 0.02) + clumpSeed.xy * 29.1) - 0.5) * 12.0;
-                float microFringe = (noise21(warpedP * 0.095 + clumpSeed.zw * 13.5 + vec2(-t * 0.01, t * 0.015)) - 0.5) * 4.0;
-                float effectiveDBehind = dBehind + rearWarp + microFringe;
                 float rearSkirt = mix(38.0, 58.0, clumpSeed.w) * scaleMul;
                 float rearStart = max(totalSpan * 0.55, totalSpan - 20.0 * scaleMul);
                 float rearFade = 1.0;
-                if (effectiveDBehind > rearStart) {
-                    float sRear = clamp((effectiveDBehind - rearStart) / max(rearSkirt, 1.0), 0.0, 1.0);
-                    rearFade = pow(max(0.0, 1.0 - sRear), 2.0);
+                if (dBehind > rearStart - 16.0) {
+                    float rearWarp = (noise21(warpedP * 0.032 + vec2(t * 0.025, -t * 0.02) + clumpSeed.xy * 29.1) - 0.5) * 12.0;
+                    float microFringe = (noise21(warpedP * 0.095 + clumpSeed.zw * 13.5 + vec2(-t * 0.01, t * 0.015)) - 0.5) * 4.0;
+                    float effectiveDBehind = dBehind + rearWarp + microFringe;
+                    if (effectiveDBehind > rearStart) {
+                        float sRear = clamp((effectiveDBehind - rearStart) / max(rearSkirt, 1.0), 0.0, 1.0);
+                        rearFade = pow(max(0.0, 1.0 - sRear), 2.0);
+                    }
                 }
                 float wakeAging = mix(1.0, 0.28, smoothstep(0.08, 0.85, wakeT)) * mix(1.0, 0.60, smoothstep(0.42, 0.90, a));
                 e0_body = rearFade * wakeAging * lateralMask * bodyLife;
@@ -204,49 +207,51 @@ export const OCEAN_CHOP_CHUNK = `
         float sat2Active = step(0.80, satSeed.y);
         float sat3Active = step(0.84, fract(satSeed.x * 3.7 + satSeed.y * 5.3));
 
-        float satCarve = (noise21(warpedP * 0.048 + clumpSeed.zw * 17.3 + t * 0.02) - 0.5) * 0.48
-            + (noise21(warpedP * 0.115 - clumpSeed.xy * 29.1 - t * 0.03) - 0.5) * 0.28;
-        float satSpread = 1.0 + 0.22 * smoothstep(0.32, 0.88, a);
-
         float e1 = 0.0;
-        if (sat1Active > 0.5 && satLife > 0.001) {
-            float dist1 = crestWidth * mix(0.38, 0.78, satSeed.y) * satSpread;
-            float alongWake1 = frontDist * mix(0.18, 0.58, clumpSeed.w);
-            vec2 c1 = center + waveDir * alongWake1 + waveTan * dist1;
-            vec2 dp1 = warpedP - c1;
-            float ang1 = (satSeed.x - 0.5) * 1.25;
-            vec2 sDir1 = waveTan * cos(ang1) + waveDir * sin(ang1);
-            vec2 sPerp1 = vec2(-sDir1.y, sDir1.x);
-            float u1 = dot(dp1, sDir1) / (patchScale * mix(0.26, 0.40, clumpSeed.z) * cohesionRelax);
-            float v1 = (dot(dp1, sPerp1) - (u1 * u1) * patchScale * 0.09) / (patchScale * mix(0.10, 0.16, satSeed.y));
-            float d1 = sqrt(u1 * u1 + v1 * v1) + satCarve;
-            e1 = pow(clamp(1.0 - d1, 0.0, 1.0), 2.1) * 0.58 * satLife;
-        }
-
         float e2 = 0.0;
-        if (sat2Active > 0.5 && satLife > 0.001) {
-            float dist2 = -crestWidth * mix(0.36, 0.76, satSeed.x) * satSpread;
-            float alongWake2 = frontDist * mix(0.22, 0.62, clumpSeed.z);
-            vec2 c2 = center + waveDir * alongWake2 + waveTan * dist2;
-            vec2 dp2 = warpedP - c2;
-            float ang2 = (satSeed.y - 0.5) * 1.25;
-            vec2 sDir2 = waveTan * cos(ang2) - waveDir * sin(ang2);
-            vec2 sPerp2 = vec2(-sDir2.y, sDir2.x);
-            float u2 = dot(dp2, sDir2) / (patchScale * mix(0.24, 0.38, clumpSeed.w) * cohesionRelax);
-            float v2 = (dot(dp2, sPerp2) + (u2 * u2) * patchScale * 0.08) / (patchScale * mix(0.09, 0.15, satSeed.x));
-            float d2 = sqrt(u2 * u2 + v2 * v2) + satCarve;
-            e2 = pow(clamp(1.0 - d2, 0.0, 1.0), 2.1) * 0.55 * satLife;
-        }
-
         float e3 = 0.0;
-        if (sat3Active > 0.5 && satLife > 0.001) {
-            float dist3 = (satSeed.x - 0.5) * crestWidth * 0.85;
-            vec2 c3 = center + waveDir * (rearFollow * 0.6 + frontDist * 0.15) + waveTan * dist3;
-            vec2 dp3 = warpedP - c3;
-            float u3 = dot(dp3, waveTan) / (patchScale * mix(0.22, 0.34, clumpSeed.x) * cohesionRelax);
-            float v3 = (dot(dp3, waveDir) - (u3 * u3) * patchScale * 0.07) / (patchScale * mix(0.09, 0.14, clumpSeed.y));
-            float d3 = sqrt(u3 * u3 + v3 * v3) + satCarve * 1.1;
-            e3 = pow(clamp(1.0 - d3, 0.0, 1.0), 2.1) * 0.52 * satLife;
+        if (satLife > 0.001 && (sat1Active + sat2Active + sat3Active) > 0.5) {
+            float satCarve = (noise21(warpedP * 0.048 + clumpSeed.zw * 17.3 + t * 0.02) - 0.5) * 0.48
+                + (noise21(warpedP * 0.115 - clumpSeed.xy * 29.1 - t * 0.03) - 0.5) * 0.28;
+            float satSpread = 1.0 + 0.22 * smoothstep(0.32, 0.88, a);
+
+            if (sat1Active > 0.5) {
+                float dist1 = crestWidth * mix(0.38, 0.78, satSeed.y) * satSpread;
+                float alongWake1 = frontDist * mix(0.18, 0.58, clumpSeed.w);
+                vec2 c1 = center + waveDir * alongWake1 + waveTan * dist1;
+                vec2 dp1 = warpedP - c1;
+                float ang1 = (satSeed.x - 0.5) * 1.25;
+                vec2 sDir1 = waveTan * cos(ang1) + waveDir * sin(ang1);
+                vec2 sPerp1 = vec2(-sDir1.y, sDir1.x);
+                float u1 = dot(dp1, sDir1) / (patchScale * mix(0.26, 0.40, clumpSeed.z) * cohesionRelax);
+                float v1 = (dot(dp1, sPerp1) - (u1 * u1) * patchScale * 0.09) / (patchScale * mix(0.10, 0.16, satSeed.y));
+                float d1 = sqrt(u1 * u1 + v1 * v1) + satCarve;
+                e1 = pow(clamp(1.0 - d1, 0.0, 1.0), 2.1) * 0.58 * satLife;
+            }
+
+            if (sat2Active > 0.5) {
+                float dist2 = -crestWidth * mix(0.36, 0.76, satSeed.x) * satSpread;
+                float alongWake2 = frontDist * mix(0.22, 0.62, clumpSeed.z);
+                vec2 c2 = center + waveDir * alongWake2 + waveTan * dist2;
+                vec2 dp2 = warpedP - c2;
+                float ang2 = (satSeed.y - 0.5) * 1.25;
+                vec2 sDir2 = waveTan * cos(ang2) - waveDir * sin(ang2);
+                vec2 sPerp2 = vec2(-sDir2.y, sDir2.x);
+                float u2 = dot(dp2, sDir2) / (patchScale * mix(0.24, 0.38, clumpSeed.w) * cohesionRelax);
+                float v2 = (dot(dp2, sPerp2) + (u2 * u2) * patchScale * 0.08) / (patchScale * mix(0.09, 0.15, satSeed.x));
+                float d2 = sqrt(u2 * u2 + v2 * v2) + satCarve;
+                e2 = pow(clamp(1.0 - d2, 0.0, 1.0), 2.1) * 0.55 * satLife;
+            }
+
+            if (sat3Active > 0.5) {
+                float dist3 = (satSeed.x - 0.5) * crestWidth * 0.85;
+                vec2 c3 = center + waveDir * (rearFollow * 0.6 + frontDist * 0.15) + waveTan * dist3;
+                vec2 dp3 = warpedP - c3;
+                float u3 = dot(dp3, waveTan) / (patchScale * mix(0.22, 0.34, clumpSeed.x) * cohesionRelax);
+                float v3 = (dot(dp3, waveDir) - (u3 * u3) * patchScale * 0.07) / (patchScale * mix(0.09, 0.14, clumpSeed.y));
+                float d3 = sqrt(u3 * u3 + v3 * v3) + satCarve * 1.1;
+                e3 = pow(clamp(1.0 - d3, 0.0, 1.0), 2.1) * 0.52 * satLife;
+            }
         }
 
         float coreEnergy = (max(e0_body, frontLip * 0.55) + (e1 + e2 + e3)) * clusterFade;
@@ -563,7 +568,6 @@ export const OCEAN_CHOP_CHUNK = `
                     noise21(rawCellCenter / 160.0 + vec2(tSetAnim * 0.08, -tSetAnim * 0.06)) - 0.5,
                     noise21(rawCellCenter / 160.0 - vec2(tSetAnim * 0.07, tSetAnim * 0.09) + 39.4) - 0.5
                 ) * 24.0;
-                vec2 warpedClumpPos = clumpWorldPos + clumpTurbWarp;
 
                 vec2 setBirthPos = rawCellCenter + flow * (tSetAnim * 10.0) + clumpDir1 * (mix(0.0, 20.0, uCrestBound)) + clumpTurbWarp;
                 float clumpSetPhase1 = dot(setBirthPos, clumpDir1) * (k1 * 0.08) - tSetWave * (spd1 * 0.18);
@@ -573,16 +577,17 @@ export const OCEAN_CHOP_CHUNK = `
                 float setPulseClump = sin(clumpSetPhase1 + clumpSetInterf * 1.2) * 0.5 + 0.5;
                 float dynamicSetEnergy = smoothstep(0.18, 0.75, setNoiseA * 0.50 + setPulseClump * 0.50);
 
+                float cellThreshold = mix(0.15, 0.85, rnd.x);
+                float setActivation = smoothstep(cellThreshold - 0.18, cellThreshold + 0.18, dynamicSetEnergy * uWhitecaps * (1.15 + highCountBoost * 0.15));
+                if (setActivation <= 0.001) continue;
+
+                vec2 warpedClumpPos = clumpWorldPos + clumpTurbWarp;
                 float phiClump1 = dot(warpedClumpPos, clumpDir1) * k1 - tWave * (spd1 * 1.05);
                 float phiClump2 = dot(warpedClumpPos, clumpDir2) * k2 - tWave * (spd2 * 1.05) + 27.3;
                 float phiClump3 = dot(warpedClumpPos, clumpDir3) * k3 - tWave * (spd3 * 1.05) + 61.8;
 
                 float clumpCrossMod = sin(phiClump2) * 0.20 + cos(phiClump3) * 0.10;
                 float coupledPhaseAtClump = phiClump1 + clumpCrossMod - 1.5708;
-
-                float cellThreshold = mix(0.15, 0.85, rnd.x);
-                float setActivation = smoothstep(cellThreshold - 0.18, cellThreshold + 0.18, dynamicSetEnergy * uWhitecaps * (1.15 + highCountBoost * 0.15));
-                if (setActivation <= 0.001) continue;
 
                 float stochasticDelay = (rnd2.x - 0.5) * 0.80;
                 float waveAge = fract((-coupledPhaseAtClump + stochasticDelay) / 6.28318);
@@ -622,136 +627,148 @@ export const OCEAN_CHOP_CHUNK = `
             }
         }
 
-        float blendedAge = rawEnergy > 0.001 ? (weightedAge / rawEnergy) : 0.0;
-        float smoothElev = clamp(macroElevation, 0.0, 1.25);
-        float channelNoise = noise21(bodyDriftPos / 140.0 + flow * (tAnim * 0.05));
-        float convergence = (channelNoise - 0.5) * 0.25;
-        float depthModulator = mix(0.85, 1.15, clamp(convergence + 0.5, 0.0, 1.0));
+        oceanFoam = 0.0;
+        undercurrentFoam = 0.0;
+        aeratedBase = 0.0;
+        float outerEnvelope = 0.0;
+        float voroMacro = 0.5;
 
-        float waveInfluence = 1.0;
-        float modulatedEnergy = rawEnergy * depthModulator * waveInfluence;
+        if (rawEnergy > 0.001 || rawFront > 0.001) {
+            float blendedAge = rawEnergy > 0.001 ? (weightedAge / rawEnergy) : 0.0;
+            float channelNoise = noise21(bodyDriftPos / 140.0 + flow * (tAnim * 0.05));
+            float convergence = (channelNoise - 0.5) * 0.25;
+            float depthModulator = mix(0.85, 1.15, clamp(convergence + 0.5, 0.0, 1.0));
 
-        vec2 tendrilCoord = bodyDriftPos / 75.0 + vec2(tAnim * 0.02, -tAnim * 0.015);
-        float tNoise = noise21(tendrilCoord) * 0.65 + noise21(tendrilCoord * 1.8 + 23.4) * 0.35;
-        float softTendril = smoothstep(0.36, 0.82, tNoise);
-        float tendrilSprout = smoothstep(0.12, 0.38, modulatedEnergy) * (1.0 - smoothstep(0.55, 0.85, modulatedEnergy));
-        float tendrilProjection = softTendril * tendrilSprout * 0.45;
+            float waveInfluence = 1.0;
+            float modulatedEnergy = rawEnergy * depthModulator * waveInfluence;
 
-        float breakupNoise = noise21(bodyDriftPos / 32.0 + vec2(tAnim * 0.025, -tAnim * 0.02));
-        float breakupFissure = smoothstep(0.36, 0.72, breakupNoise) * smoothstep(0.38, 0.85, blendedAge) * 0.42;
+            vec2 tendrilCoord = bodyDriftPos / 75.0 + vec2(tAnim * 0.02, -tAnim * 0.015);
+            float tNoise = noise21(tendrilCoord) * 0.65 + noise21(tendrilCoord * 1.8 + 23.4) * 0.35;
+            float softTendril = smoothstep(0.36, 0.82, tNoise);
+            float tendrilSprout = smoothstep(0.12, 0.38, modulatedEnergy) * (1.0 - smoothstep(0.55, 0.85, modulatedEnergy));
+            float tendrilProjection = softTendril * tendrilSprout * 0.45;
 
-        float totalEnergy = clamp(modulatedEnergy + tendrilProjection - breakupFissure, 0.0, 2.5);
-        float outerEnvelope = smoothstep(0.04, 0.28, totalEnergy);
+            float breakupNoise = noise21(bodyDriftPos / 32.0 + vec2(tAnim * 0.025, -tAnim * 0.02));
+            float breakupFissure = smoothstep(0.36, 0.72, breakupNoise) * smoothstep(0.38, 0.85, blendedAge) * 0.42;
 
-        float foamScale = pow(clamp(uScale / 80.0, 0.5, 4.5), 0.35);
-        vec2 texturePos = bodyDriftPos - localFlow * (tAnim * 1.5);
+            float totalEnergy = clamp(modulatedEnergy + tendrilProjection - breakupFissure, 0.0, 2.5);
+            outerEnvelope = smoothstep(0.04, 0.28, totalEnergy);
 
-        const float BUBBLE_FREQ = 0.094;
-        vec2 foamUv = (texturePos * BUBBLE_FREQ) / foamScale;
-        vec2 foamSwirl = vec2(
-            sin(foamUv.y * 1.1 + tAnim * 0.16) * 0.04 + cos(foamUv.x * 0.9 - tAnim * 0.13) * 0.03,
-            cos(foamUv.x * 1.1 - tAnim * 0.15) * 0.04 + sin(foamUv.y * 0.9 + tAnim * 0.12) * 0.03
-        );
-        vec2 foamWarp = (vec2(
-            noise21(foamUv * 1.3 + vec2(tAnim * 0.04, -tAnim * 0.03)),
-            noise21(foamUv * 1.3 - vec2(tAnim * 0.03, tAnim * 0.035) + 27.4)
-        ) - 0.5) * 0.045;
+            float foamScale = pow(clamp(uScale / 80.0, 0.5, 4.5), 0.35);
+            vec2 texturePos = bodyDriftPos - localFlow * (tAnim * 1.5);
 
-        vec2 voroField = voronoiBubbleField(foamUv + foamSwirl + foamWarp, tAnim * 0.45);
-        float voroDist = voroField.x;
-        float voroMeso = voroField.y;
-        float voroMacro = noise21(foamUv * 0.45 + vec2(tAnim * 0.015, -tAnim * 0.01));
-        float voroMicro = noise21(texturePos / 7.2 + tAnim * 0.02);
+            const float BUBBLE_FREQ = 0.094;
+            vec2 foamUv = (texturePos * BUBBLE_FREQ) / foamScale;
+            vec2 foamSwirl = vec2(
+                sin(foamUv.y * 1.1 + tAnim * 0.16) * 0.04 + cos(foamUv.x * 0.9 - tAnim * 0.13) * 0.03,
+                cos(foamUv.x * 1.1 - tAnim * 0.15) * 0.04 + sin(foamUv.y * 0.9 + tAnim * 0.12) * 0.03
+            );
+            vec2 foamWarp = (vec2(
+                noise21(foamUv * 1.3 + vec2(tAnim * 0.04, -tAnim * 0.03)),
+                noise21(foamUv * 1.3 - vec2(tAnim * 0.03, tAnim * 0.035) + 27.4)
+            ) - 0.5) * 0.045;
 
-        // Secondary sheared/lagging Voronoi lattice for overlapping & underlapping wake sub-meshes
-        vec2 shearDrift = localPerp * (sin(dot(bodyDriftPos, localFlow) * 0.028 + tAnim * 0.18) * 4.5);
-        vec2 texturePos2 = bodyDriftPos + localFlow * (tAnim * 0.8) + shearDrift + vec2(41.7, -28.3);
-        const float BUBBLE_FREQ_2 = 0.112;
-        vec2 foamUv2 = (texturePos2 * BUBBLE_FREQ_2) / foamScale;
-        vec2 warpedFoamUv2 = foamUv2 - foamSwirl * 0.85 + foamWarp * 1.15 + vec2(13.9, -8.4);
-        vec2 voroField2 = voronoiBubbleField(warpedFoamUv2, tAnim * 0.38 + 17.3);
-        float voroDist2 = voroField2.x;
-        float voroMeso2 = voroField2.y;
+            vec2 voroField = voronoiBubbleField(foamUv + foamSwirl + foamWarp, tAnim * 0.45);
+            float voroDist = voroField.x;
+            float voroMeso = voroField.y;
+            voroMacro = noise21(foamUv * 0.45 + vec2(tAnim * 0.015, -tAnim * 0.01));
+            float voroMicro = noise21(texturePos / 7.2 + tAnim * 0.02);
 
-        // Scalloped sub-mesh lobe segmentation across the wave wake
-        vec2 pTrail = bodyDriftPos / (foamScale * 38.0);
-        float lobeN1 = noise21(pTrail + vec2(tAnim * 0.06, -tAnim * 0.04)) * 0.60
-            + noise21(pTrail * 2.1 - vec2(tAnim * 0.08, tAnim * 0.05) + 19.7) * 0.40;
-        float lobeN2 = noise21(pTrail * 0.92 - vec2(tAnim * 0.05, tAnim * 0.07) + 53.1) * 0.60
-            + noise21(pTrail * 1.95 + vec2(tAnim * 0.07, -tAnim * 0.06) + 87.4) * 0.40;
-        float wakeCarve = smoothstep(0.12, 0.56, blendedAge);
-        float trailLobe1 = mix(1.0, smoothstep(0.24, 0.66, lobeN1), wakeCarve * 0.88);
-        float trailLobe2 = smoothstep(0.22, 0.64, lobeN2);
+            // Scalloped sub-mesh lobe segmentation across the wave wake
+            vec2 pTrail = bodyDriftPos / (foamScale * 38.0);
+            float lobeN1 = noise21(pTrail + vec2(tAnim * 0.06, -tAnim * 0.04)) * 0.60
+                + noise21(pTrail * 2.1 - vec2(tAnim * 0.08, tAnim * 0.05) + 19.7) * 0.40;
+            float lobeN2 = noise21(pTrail * 0.92 - vec2(tAnim * 0.05, tAnim * 0.07) + 53.1) * 0.60
+                + noise21(pTrail * 1.95 + vec2(tAnim * 0.07, -tAnim * 0.06) + 87.4) * 0.40;
+            float wakeCarve = smoothstep(0.12, 0.56, blendedAge);
+            float trailLobe1 = mix(1.0, smoothstep(0.24, 0.66, lobeN1), wakeCarve * 0.88);
+            float trailLobe2 = smoothstep(0.22, 0.64, lobeN2);
 
-        float holeMask = smoothstep(0.38, 0.68, voroMeso * 0.65 + voroMacro * 0.35);
-        float perforateProgress = smoothstep(0.26, 0.78, blendedAge);
+            float holeMask = smoothstep(0.38, 0.68, voroMeso * 0.65 + voroMacro * 0.35);
+            float perforateProgress = smoothstep(0.26, 0.78, blendedAge);
 
-        float edgeNoise = (noise21(texturePos / 8.5 + vec2(tAnim * 0.08, -tAnim * 0.06)) - 0.5) * 0.065;
-        float softMeso = voroMeso + edgeNoise;
+            float edgeNoise = (noise21(texturePos / 8.5 + vec2(tAnim * 0.08, -tAnim * 0.06)) - 0.5) * 0.065;
+            float softMeso = voroMeso + edgeNoise;
 
-        float subEnv1 = outerEnvelope * trailLobe1;
-        float wallWidth = mix(0.38, 0.12, smoothstep(0.12, 0.80, blendedAge));
-        wallWidth *= mix(0.35, 1.0, smoothstep(0.0, 0.68, subEnv1));
-        float cavityOpening = mix(0.030, 0.012, smoothstep(0.18, 0.85, blendedAge));
-        float filamentLace = 1.0 - smoothstep(cavityOpening * 0.50, wallWidth * 1.50, softMeso);
-        float softHalo = (1.0 - smoothstep(0.0, wallWidth * 2.0, softMeso)) * 0.22;
-        filamentLace = clamp(filamentLace * 0.80 + softHalo, 0.0, 1.0);
-        filamentLace = smoothstep(0.08, 0.90, filamentLace);
+            float subEnv1 = outerEnvelope * trailLobe1;
+            float wallWidth = mix(0.38, 0.12, smoothstep(0.12, 0.80, blendedAge));
+            wallWidth *= mix(0.35, 1.0, smoothstep(0.0, 0.68, subEnv1));
+            float cavityOpening = mix(0.030, 0.012, smoothstep(0.18, 0.85, blendedAge));
+            float filamentLace = 1.0 - smoothstep(cavityOpening * 0.50, wallWidth * 1.50, softMeso);
+            float softHalo = (1.0 - smoothstep(0.0, wallWidth * 2.0, softMeso)) * 0.22;
+            filamentLace = clamp(filamentLace * 0.80 + softHalo, 0.0, 1.0);
+            filamentLace = smoothstep(0.08, 0.90, filamentLace);
 
-        float domeCurve = sqrt(clamp(1.0 - pow(voroDist / 0.56, 2.0), 0.0, 1.0));
-        float domeIntegrity = 1.0 - smoothstep(0.16, 0.72, blendedAge);
-        float bubbleDome = domeCurve * (0.14 + 0.16 * domeIntegrity);
-        float cellVolume = clamp(filamentLace * 0.88 + bubbleDome, 0.0, 1.0);
-        float detailedLace = cellVolume * (voroMicro * 0.32 + 0.68);
+            float domeCurve = sqrt(clamp(1.0 - pow(voroDist / 0.56, 2.0), 0.0, 1.0));
+            float domeIntegrity = 1.0 - smoothstep(0.16, 0.72, blendedAge);
+            float bubbleDome = domeCurve * (0.14 + 0.16 * domeIntegrity);
+            float cellVolume = clamp(filamentLace * 0.88 + bubbleDome, 0.0, 1.0);
+            float detailedLace = cellVolume * (voroMicro * 0.32 + 0.68);
 
-        // Crisp cellular froth at formation (never a flat blurred matte-white cloud)
-        float earlyCloud = mix(0.78, 1.0, smoothstep(0.15, 0.75, voroMacro))
-            * clamp(filamentLace * 1.15 + bubbleDome * 1.30, 0.0, 1.0) * (voroMicro * 0.38 + 0.62);
-        float foamBody = mix(earlyCloud, detailedLace, smoothstep(0.20, 0.52, blendedAge));
+            // Crisp cellular froth at formation (never a flat blurred matte-white cloud)
+            float earlyCloud = mix(0.78, 1.0, smoothstep(0.15, 0.75, voroMacro))
+                * clamp(filamentLace * 1.15 + bubbleDome * 1.30, 0.0, 1.0) * (voroMicro * 0.38 + 0.62);
+            float foamBody = mix(earlyCloud, detailedLace, smoothstep(0.20, 0.52, blendedAge));
 
-        foamBody = clamp(foamBody - holeMask * perforateProgress * 0.70, 0.0, 1.0);
-        foamBody = max(foamBody, filamentLace * 0.35 * (voroMicro * 0.3 + 0.7));
+            foamBody = clamp(foamBody - holeMask * perforateProgress * 0.70, 0.0, 1.0);
+            foamBody = max(foamBody, filamentLace * 0.35 * (voroMicro * 0.3 + 0.7));
 
-        float crumbNoise = noise21(texturePos / 18.0 + vec2(tAnim * 0.02, -tAnim * 0.015));
-        float dissolveCutoff = smoothstep(0.46, 0.96, blendedAge) * 0.58;
-        float crumbPersistence = smoothstep(dissolveCutoff, dissolveCutoff + 0.28, crumbNoise);
+            float crumbNoise = noise21(texturePos / 18.0 + vec2(tAnim * 0.02, -tAnim * 0.015));
+            float dissolveCutoff = smoothstep(0.46, 0.96, blendedAge) * 0.58;
+            float crumbPersistence = smoothstep(dissolveCutoff, dissolveCutoff + 0.28, crumbNoise);
 
-        float edgeFeather = smoothstep(0.04, 0.28, totalEnergy);
-        float subMesh1 = foamBody * subEnv1 * crumbPersistence * edgeFeather;
+            float edgeFeather = smoothstep(0.04, 0.28, totalEnergy);
+            float subMesh1 = foamBody * subEnv1 * crumbPersistence * edgeFeather;
 
-        // Secondary sub-mesh: feathers at lobe extremities and weaves under & over the primary wake
-        float totalEnergy2 = clamp(modulatedEnergy * mix(0.75, 1.28, lobeN2) + (1.0 - softTendril) * tendrilSprout * 0.50 - breakupFissure * 0.68, 0.0, 2.5);
-        float outerEnvelope2 = smoothstep(0.03, 0.25, totalEnergy2);
-        float subEnv2 = outerEnvelope2 * trailLobe2;
-        float softMeso2 = max(0.0, voroMeso2 - edgeNoise * 0.85);
-        float wallWidth2 = mix(0.34, 0.10, smoothstep(0.10, 0.82, blendedAge)) * mix(0.32, 1.0, smoothstep(0.0, 0.68, subEnv2));
-        float filamentLace2 = 1.0 - smoothstep(cavityOpening * 0.55, wallWidth2 * 1.45, softMeso2);
-        filamentLace2 = smoothstep(0.10, 0.90, filamentLace2);
-        float domeCurve2 = sqrt(clamp(1.0 - pow(voroDist2 / 0.54, 2.0), 0.0, 1.0));
-        float cellVolume2 = clamp(filamentLace2 * 0.86 + domeCurve2 * (0.12 + 0.14 * domeIntegrity), 0.0, 1.0);
-        float crumbNoise2 = noise21(texturePos2 / 19.0 - vec2(tAnim * 0.02, tAnim * 0.015) + 31.4);
-        float crumbPersist2 = smoothstep(dissolveCutoff * 0.92, dissolveCutoff * 0.92 + 0.28, crumbNoise2);
-        float subMesh2 = cellVolume2 * (voroMicro * 0.34 + 0.66) * subEnv2 * crumbPersist2;
+            // Secondary sub-mesh: feathers at lobe extremities and weaves under & over the primary wake
+            float totalEnergy2 = clamp(modulatedEnergy * mix(0.75, 1.28, lobeN2) + (1.0 - softTendril) * tendrilSprout * 0.50 - breakupFissure * 0.68, 0.0, 2.5);
+            float outerEnvelope2 = smoothstep(0.03, 0.25, totalEnergy2);
+            float subEnv2 = outerEnvelope2 * trailLobe2;
+            float subMesh2 = 0.0;
+            if (subEnv2 > 0.001) {
+                vec2 shearDrift = localPerp * (sin(dot(bodyDriftPos, localFlow) * 0.028 + tAnim * 0.18) * 4.5);
+                vec2 texturePos2 = bodyDriftPos + localFlow * (tAnim * 0.8) + shearDrift + vec2(41.7, -28.3);
+                const float BUBBLE_FREQ_2 = 0.112;
+                vec2 foamUv2 = (texturePos2 * BUBBLE_FREQ_2) / foamScale;
+                vec2 warpedFoamUv2 = foamUv2 - foamSwirl * 0.85 + foamWarp * 1.15 + vec2(13.9, -8.4);
+                vec2 voroField2 = voronoiBubbleField(warpedFoamUv2, tAnim * 0.38 + 17.3);
+                float voroDist2 = voroField2.x;
+                float voroMeso2 = voroField2.y;
+                float softMeso2 = max(0.0, voroMeso2 - edgeNoise * 0.85);
+                float wallWidth2 = mix(0.34, 0.10, smoothstep(0.10, 0.82, blendedAge)) * mix(0.32, 1.0, smoothstep(0.0, 0.68, subEnv2));
+                float filamentLace2 = 1.0 - smoothstep(cavityOpening * 0.55, wallWidth2 * 1.45, softMeso2);
+                filamentLace2 = smoothstep(0.10, 0.90, filamentLace2);
+                float domeCurve2 = sqrt(clamp(1.0 - pow(voroDist2 / 0.54, 2.0), 0.0, 1.0));
+                float cellVolume2 = clamp(filamentLace2 * 0.86 + domeCurve2 * (0.12 + 0.14 * domeIntegrity), 0.0, 1.0);
+                float crumbNoise2 = noise21(texturePos2 / 19.0 - vec2(tAnim * 0.02, tAnim * 0.015) + 31.4);
+                float crumbPersist2 = smoothstep(dissolveCutoff * 0.92, dissolveCutoff * 0.92 + 0.28, crumbNoise2);
+                subMesh2 = cellVolume2 * (voroMicro * 0.34 + 0.66) * subEnv2 * crumbPersist2;
+            }
 
-        float overMesh2 = subMesh2 * smoothstep(0.38, 0.78, trailLobe2) * 0.76;
-        float cellularSpindrift = max(subMesh1, overMesh2) + min(subMesh1, overMesh2) * 0.32;
+            float overMesh2 = subMesh2 * smoothstep(0.38, 0.78, trailLobe2) * 0.76;
+            float cellularSpindrift = max(subMesh1, overMesh2) + min(subMesh1, overMesh2) * 0.32;
 
-        float crestPresence = clamp(uWhitecaps * 1.55, 0.58, 1.0) * clamp(uChoppySeas * 1.35, 0.65, 1.0);
-        float combinedFoam = clamp(cellularSpindrift * 0.90 + rawFront * 1.25, 0.0, 2.0);
-        oceanFoam = combinedFoam * crestPresence;
+            float crestPresence = clamp(uWhitecaps * 1.55, 0.58, 1.0) * clamp(uChoppySeas * 1.35, 0.65, 1.0);
+            float combinedFoam = clamp(cellularSpindrift * 0.90 + rawFront * 1.25, 0.0, 2.0);
+            oceanFoam = combinedFoam * crestPresence;
 
-        // Subsurface undercurrent churn & under-lapping secondary wake mesh
-        vec2 churnDriftPos = texturePos - flow * 12.0 + flowPerp * (sin(texturePos.x * 0.018 + tAnim * 0.12) * 3.0);
-        const float CHURN_BUBBLE_FREQ = 0.108;
-        vec2 churnUv = (churnDriftPos * CHURN_BUBBLE_FREQ) / foamScale;
-        float churnVoro = voronoiBubbles(churnUv, tAnim);
-        float churnLace = 1.0 - smoothstep(0.035, 0.28, churnVoro);
-        float churnMicro = noise21(churnDriftPos / 8.8 - tAnim * 0.03);
-        float churnEnvelope = smoothstep(0.06, 0.30, modulatedEnergy);
-        float churnBody = churnLace * (churnMicro * 0.38 + 0.62) * churnEnvelope;
-        undercurrentFoam = clamp((subMesh2 * 0.88 + churnBody * 0.38) * crestPresence, 0.0, 1.35);
+            // Subsurface undercurrent churn & under-lapping secondary wake mesh
+            float churnEnvelope = smoothstep(0.06, 0.30, modulatedEnergy);
+            float churnBody = 0.0;
+            if (churnEnvelope > 0.001) {
+                vec2 churnDriftPos = texturePos - flow * 12.0 + flowPerp * (sin(texturePos.x * 0.018 + tAnim * 0.12) * 3.0);
+                const float CHURN_BUBBLE_FREQ = 0.108;
+                vec2 churnUv = (churnDriftPos * CHURN_BUBBLE_FREQ) / foamScale;
+                float churnVoro = voronoiBubbles(churnUv, tAnim);
+                float churnLace = 1.0 - smoothstep(0.035, 0.28, churnVoro);
+                float churnMicro = noise21(churnDriftPos / 8.8 - tAnim * 0.03);
+                churnBody = churnLace * (churnMicro * 0.38 + 0.62) * churnEnvelope;
+            }
+            undercurrentFoam = clamp((subMesh2 * 0.88 + churnBody * 0.38) * crestPresence, 0.0, 1.35);
 
-        aeratedBase = modulatedEnergy * outerEnvelope * 0.55 * uWhitecaps * uChoppySeas;
+            aeratedBase = modulatedEnergy * outerEnvelope * 0.55 * uWhitecaps * uChoppySeas;
+        }
+
         crestBody = smoothstep(mix(0.18, 0.14, highCountBoost), 0.85, macroElevation) * mix(0.45, 0.52, highCountBoost);
 
         // Trochoidal horizontal compression and kinetic forward surge

@@ -121,7 +121,8 @@ export const COMMON_CHUNK = `
                 );
                 float amp = mix(0.16, 0.26, fract(h.x * 31.7 + h.y * 19.1));
                 vec2 o = basePos + orbit * amp;
-                float d = length(g + o - f);
+                vec2 diff = g + o - f;
+                float d = dot(diff, diff);
                 if (d < d1) {
                     d2 = d1;
                     d1 = d;
@@ -130,6 +131,8 @@ export const COMMON_CHUNK = `
                 }
             }
         }
+        d1 = sqrt(d1);
+        d2 = sqrt(d2);
         return vec2(d1, d2 - d1);
     }
 
