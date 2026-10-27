@@ -5,6 +5,8 @@
 ![Foundry Version](https://img.shields.io/badge/Foundry-v13%20%7C%20v14-333333?style=flat&logo=foundryvirtualtabletop)
 ![Systems](https://img.shields.io/badge/systems-all-blue)
 
+![Tokens wading into a river with Ionrift Waterline](assets/media/waterline-hero-W1.webp)
+
 **Animated water shaders and fluid dynamics for Foundry VTT.**
 
 > Documentation, setup guides, and troubleshooting: **[Ionrift Wiki](https://github.com/ionrift-gm/ionrift-library/wiki)**
