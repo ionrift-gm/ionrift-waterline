@@ -461,30 +461,30 @@ describe('Waterline Studio Hero Sliders Contract', () => {
   it('builds curated hero sliders for all tabletop archetypes', () => {
     // Ocean hero sliders
     assert.ok(studioSrc.includes("case 'ocean':"), 'Missing ocean slider case');
-    assert.match(studioSrc, /id:\s*'waveEnergy',\s*label:\s*'Wave Energy'/);
-    assert.match(studioSrc, /id:\s*'waveCount',\s*label:\s*'Wave Count'/);
-    assert.match(studioSrc, /id:\s*'surfFoam',\s*label:\s*'Shoreline Foam'/);
-    assert.match(studioSrc, /case\s+'coast':[\s\S]*?id:\s*'waveScale',\s*label:\s*'Wave Scale'/, 'Coastline must expose Wave Scale hero slider');
+    assert.match(studioSrc, /id:\s*'waveEnergy',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.ocean\.waveEnergyLabel'\)/);
+    assert.match(studioSrc, /id:\s*'waveCount',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.ocean\.waveCountLabel'\)/);
+    assert.match(studioSrc, /id:\s*'surfFoam',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.ocean\.surfFoamLabel'\)/);
+    assert.match(studioSrc, /case\s+'coast':[\s\S]*?id:\s*'waveScale',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.coast\.waveScaleLabel'\)/, 'Coastline must expose Wave Scale hero slider');
 
     // Lake hero sliders
     assert.ok(studioSrc.includes("case 'lake':"), 'Missing lake slider case');
-    assert.match(studioSrc, /case\s+'lake':[\s\S]*?id:\s*'waveScale',\s*label:\s*'Wave Scale'/, 'Lake must expose Wave Scale hero slider');
-    assert.match(studioSrc, /case\s+'river':[\s\S]*?id:\s*'waveScale',\s*label:\s*'Wave Scale'/, 'River must expose Wave Scale hero slider');
-    assert.match(studioSrc, /id:\s*'waterClarity',\s*label:\s*'Water Clarity'/);
+    assert.match(studioSrc, /case\s+'lake':[\s\S]*?id:\s*'waveScale',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.lake\.waveScaleLabel'\)/, 'Lake must expose Wave Scale hero slider');
+    assert.match(studioSrc, /case\s+'river':[\s\S]*?id:\s*'waveScale',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.river\.waveScaleLabel'\)/, 'River must expose Wave Scale hero slider');
+    assert.match(studioSrc, /id:\s*'waterClarity',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.lake\.waterClarityLabel'\)/);
 
     // River hero sliders
     assert.ok(studioSrc.includes("case 'river':"), 'Missing river slider case');
-    assert.match(studioSrc, /id:\s*'(?:shoreFoam|rapidsFoam)',\s*label:\s*'Shore Foam'/);
+    assert.match(studioSrc, /id:\s*'(?:shoreFoam|rapidsFoam)',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.river\.shoreFoamLabel'\)/);
 
     // Pond hero sliders
     assert.ok(studioSrc.includes("case 'pond':"), 'Missing pond slider case');
-    assert.match(studioSrc, /id:\s*'sunShimmer',\s*label:\s*'Sun Shimmer'/);
+    assert.match(studioSrc, /id:\s*'sunShimmer',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.pond\.sunShimmerLabel'\)/);
 
     // Lens distortion hero slider across archetypes
-    assert.match(studioSrc, /id:\s*'distortion',\s*label:\s*'Lens Distortion'/);
+    assert.match(studioSrc, /id:\s*'distortion',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.ocean\.distortionLabel'\)/);
 
     // Lake animation speed dynamic range (0.1x - 2.0x)
-    assert.match(studioSrc, /case\s+'lake':[\s\S]*?id:\s*'speed',\s*label:\s*'Animation Speed'[\s\S]*?min:\s*0\.1,\s*max:\s*2\.0/);
+    assert.match(studioSrc, /case\s+'lake':[\s\S]*?id:\s*'speed',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.lake\.speedLabel'\)[\s\S]*?min:\s*0\.1,\s*max:\s*2\.0/);
   });
 
   it('maps hero slider inputs strictly without cross-archetype corruption', () => {
@@ -511,7 +511,7 @@ describe('Waterline Studio Hero Sliders Contract', () => {
 
   it('provides high-resolution low-end control (0-20px) and diminishing fidelity towards max on shoreline margin', () => {
     // Shoreline margin slider declaration uses min:0, max:100, step:1
-    assert.match(studioSrc, /id:\s*'fadeWidth',\s*label:\s*'Shoreline Margin'[\s\S]*?min:\s*0,\s*max:\s*100,\s*step:\s*1/);
+    assert.match(studioSrc, /id:\s*'fadeWidth',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.ocean\.fadeWidthLabel'\)[\s\S]*?min:\s*0,\s*max:\s*100,\s*step:\s*1/);
 
     const archetypes = [
       { name: 'ocean', max: 150 },
@@ -551,8 +551,8 @@ describe('Waterline Studio Hero Sliders Contract', () => {
   });
 
   it('declares dropRipples hero slider for pond and puddle with zero silence capability', () => {
-    assert.match(studioSrc, /case\s+'pond':[\s\S]*?id:\s*'dropRipples',\s*label:\s*'Drop Ripples'/);
-    assert.match(studioSrc, /case\s+'puddle':[\s\S]*?id:\s*'dropRipples',\s*label:\s*'Drop Ripples'/);
+    assert.match(studioSrc, /case\s+'pond':[\s\S]*?id:\s*'dropRipples',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.pond\.dropRipplesLabel'\)/);
+    assert.match(studioSrc, /case\s+'puddle':[\s\S]*?id:\s*'dropRipples',\s*label:\s*game\.i18n\.localize\('IonriftWaterline\.hero\.puddle\.dropRipplesLabel'\)/);
     assert.match(studioSrc, /case\s+'(?:dropRipples|lakeRings)':[\s\S]*?this\.fx\.lakeRings\s*=\s*\+\(x\)\.toFixed\(2\);/);
     assert.match(LAKE_POND_CHUNK, /smoothstep\(0\.0,\s*20\.0,\s*softBankDist\)\s*\*\s*uLakeRings;/, 'Drop ring amplitude must scale by uLakeRings');
   });

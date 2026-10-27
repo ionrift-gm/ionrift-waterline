@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Stub minimal Foundry global namespace for Node testing environment
+globalThis.game = { i18n: { localize: k => k, format: k => k } };
 globalThis.foundry = {
   data: {
     regionBehaviors: {
