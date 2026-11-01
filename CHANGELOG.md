@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.0] - 2026-11-01
+
+### Added
+- Localized interface labels, settings, and controls for translation support.
+
+### Fixed
+- Water shaders remain aligned with drawn regions on maps configured with padding.
+- Shoreline tracing now stays within the sampled area around piers and complex coastal geometry instead of flooding adjacent land.
+- Water detection now samples maps cleanly when the scene background is a video.
+
 ## [1.2.0] - 2026-10-26
 
 ### Added
