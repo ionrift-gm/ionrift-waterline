@@ -1,3 +1,4 @@
+import { MODULE_ID } from '../data/moduleId.js';
 /**
  * Animated water overlay using PIXI.Mesh + PIXI.Shader.
  * Voronoi caustics with background texture distortion (refraction).
@@ -7,7 +8,7 @@ import { ShoreSdfGenerator } from './ShoreSdfGenerator.js';
 import { MapBorderDetector } from './MapBorderDetector.js';
 import { createWaterShader } from './shaders/WaterShader.js';
 
-const LOG = (...args) => { try { if (game.settings?.get?.('ionrift-waterline', 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
+const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
 
 
 export class WaterMesh {

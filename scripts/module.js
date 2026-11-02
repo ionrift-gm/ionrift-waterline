@@ -2,8 +2,8 @@ import { WaterManager } from './water/WaterManager.js';
 import { WakeManager } from './water/WakeManager.js';
 import { WAKE_TUNING_DEFAULTS } from './water/WakeTuning.js';
 import { WaterlineStudioApp } from './apps/WaterlineStudioApp.js';
-
-const MODULE_ID = 'ionrift-waterline';
+import { MODULE_ID } from './data/moduleId.js';
+import { createWaterlineContext } from './composition/createWaterlineContext.js';
 
 // ---------------------------------------------------------------
 // Register the Water FX behavior type at module load time.
@@ -26,6 +26,7 @@ globalThis.WakeManager = WakeManager;
 // Init: Register settings and remaining hooks
 // ---------------------------------------------------------------
 Hooks.once('init', async () => {
+    createWaterlineContext();
     // Register Handlebars template for studio and partials
     const loader = foundry.applications?.handlebars?.loadTemplates ?? globalThis.loadTemplates;
     if (loader) {
@@ -95,7 +96,7 @@ Hooks.once('init', async () => {
 });
 
 // GM-local change (dialog fires this hook after every slider adjustment)
-Hooks.on('ionrift-waterline.wakeTuningChanged', () => WakeManager.onWakeTuningChanged());
+Hooks.on(`${MODULE_ID}.wakeTuningChanged`, () => WakeManager.onWakeTuningChanged());
 
 // World-setting sync: fires on ALL clients when the GM saves wakeTuning to the server.
 // Ensures players automatically adopt the GM's tuning without any action on their part.
@@ -149,6 +150,13 @@ Hooks.on('canvasReady', async () => {
     WaterManager.init();
     await WaterManager.refreshAll();
     WakeManager.init();
+});
+
+Hooks.on('canvasTearDown', () => {
+    WaterlineStudioApp.closeIfOpen();
+    WakeManager.destroy();
+    WaterManager.destroyAll();
+    WaterManager.clearSampledColorCache?.();
 });
 
 // ---------------------------------------------------------------

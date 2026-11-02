@@ -1,7 +1,7 @@
 import { WaterMesh } from './WaterMesh.js';
 import { warmWaterShader } from './shaders/WaterShader.js';
 
-const MODULE_ID = 'ionrift-waterline';
+import { MODULE_ID } from '../data/moduleId.js';
 const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
 
 import { WATER_ARCHETYPES, WATER_PRESETS } from './WaterPresets.js';

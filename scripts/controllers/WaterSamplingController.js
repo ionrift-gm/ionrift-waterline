@@ -1,3 +1,4 @@
+import { MODULE_ID } from '../data/moduleId.js';
 import { WaterDetector } from '../water/WaterDetector.js';
 import { MapBorderDetector } from '../water/MapBorderDetector.js';
 import { WaterShapeEstimator } from '../water/WaterShapeEstimator.js';
@@ -179,8 +180,8 @@ export class WaterSamplingController {
         let rawHoles = shapes
             .filter(s => Boolean(s.hole) && ((s.points?.length >= 6) || (s.coordinates?.length >= 6)))
             .map(s => Array.from(s.points ?? s.coordinates ?? []));
-        if (!rawHoles.length && Array.isArray(region.flags?.['ionrift-waterline']?.holes)) {
-            rawHoles = region.flags['ionrift-waterline'].holes
+        if (!rawHoles.length && Array.isArray(region.flags?.[MODULE_ID]?.holes)) {
+            rawHoles = region.flags[MODULE_ID].holes
                 .filter(h => Array.isArray(h) && h.length >= 6)
                 .map(h => Array.from(h));
         }
@@ -217,7 +218,7 @@ export class WaterSamplingController {
         candidate.maskData = maskData;
         const baseEst = WaterShapeEstimator.estimate(candidate, canvas.dimensions ?? canvas.scene?.dimensions);
         const behaviors = Array.from(region.behaviors?.values?.() ?? region.behaviors?.contents ?? region.behaviors ?? []);
-        const beh = behaviors.find(b => b.type === 'ionrift-waterline.waterFX');
+        const beh = behaviors.find(b => b.type === `${MODULE_ID}.waterFX`);
         const configuredArch = beh?.system?.archetype;
         if (configuredArch && WATER_ARCHETYPES[configuredArch]) {
             const archMeta = WATER_ARCHETYPES[configuredArch];
@@ -293,7 +294,7 @@ export class WaterSamplingController {
                 const updateData = {
                     shapes,
                     flags: {
-                        'ionrift-waterline': {
+                        [MODULE_ID]: {
                             holes: validHoles
                         }
                     }

@@ -1,3 +1,4 @@
+import { MODULE_ID } from '../../data/moduleId.js';
 /**
  * Off-thread shader preparation for large water programs.
  *
@@ -10,7 +11,7 @@
  * to PIXI's own generateProgram so PIXI never compiles it itself.
  */
 
-const LOG = (...args) => { try { if (game.settings?.get?.('ionrift-waterline', 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
+const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
 
 const GLSL3_RE = /^[ \t]*#[ \t]*version[ \t]+300[ \t]+es[ \t]*$/m;
 

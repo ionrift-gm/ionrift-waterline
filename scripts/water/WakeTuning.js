@@ -1,4 +1,4 @@
-const MODULE_ID = 'ionrift-waterline';
+import { MODULE_ID } from '../data/moduleId.js';
 
 /**
  * Client-side wake tuning defaults (merged with saved settings).

@@ -3,7 +3,7 @@ import { MapBorderDetector } from './MapBorderDetector.js';
 import { WATER_ARCHETYPES, WATER_PRESETS, WaterManager } from './WaterManager.js';
 import { RasterContourTracer } from './detection/RasterContourTracer.js';
 
-const MODULE_ID = 'ionrift-waterline';
+import { MODULE_ID } from '../data/moduleId.js';
 const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args); } catch { /* setting not yet registered */ } };
 
 /**

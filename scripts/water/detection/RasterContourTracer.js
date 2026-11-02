@@ -1,6 +1,6 @@
 import { MapBorderDetector } from '../MapBorderDetector.js';
 
-const MODULE_ID = 'ionrift-waterline';
+import { MODULE_ID } from '../../data/moduleId.js';
 const LOG = (...args) => {
     try {
         if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline |', ...args);

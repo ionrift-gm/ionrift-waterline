@@ -4,7 +4,7 @@ import { WaterManager } from './WaterManager.js';
 import { WakeTuning } from './WakeTuning.js';
 import { WakeTuningDialog } from './WakeTuningDialog.js';
 
-const MODULE_ID = 'ionrift-waterline';
+import { MODULE_ID } from '../data/moduleId.js';
 const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) console.log('Waterline | Wake |', ...args); } catch { /* setting not yet registered */ } };
 
 /**

@@ -3,7 +3,7 @@ import { WATER_PRESETS, WATER_ARCHETYPES, WaterManager } from '../water/WaterMan
 import { WaterShapeEstimator } from '../water/WaterShapeEstimator.js';
 import { RasterContourTracer } from '../water/detection/RasterContourTracer.js';
 import { WakeTuning } from '../water/WakeTuning.js';
-const MODULE_ID = 'ionrift-waterline';
+import { MODULE_ID } from '../data/moduleId.js';
 
 /**
  * Unified Waterline UI (ApplicationV2).
