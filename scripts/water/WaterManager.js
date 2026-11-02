@@ -6,6 +6,8 @@ const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) c
 
 import { WATER_ARCHETYPES, WATER_PRESETS } from './WaterPresets.js';
 import { WaterBehaviorType } from './WaterBehaviorType.js';
+import { WaterColorSampler } from './WaterColorSampler.js';
+import { createWaterTuneApi, registerBehaviorSheetHook } from './WaterTuneApi.js';
 
 export { WATER_ARCHETYPES, WATER_PRESETS, WaterBehaviorType };
 
@@ -126,196 +128,10 @@ export class WaterManager {
             }
         };
 
-        game.ionrift.waterTune = {
-            /** Cycle blend mode on water meshes: waterTune.blend('SCREEN', regionId) */
-            blend: (mode, regionId) => {
-                forMeshes(regionId, m => m.setBlendMode(mode));
-                LOG(`Blend mode set to: ${mode}`);
-            },
-            /** Set opacity: waterTune.opacity(0.4, regionId) */
-            opacity: (val, regionId) => {
-                forMeshes(regionId, m => m.setOpacity(val));
-                LOG(`Opacity set to: ${val}`);
-            },
-            /** Set intensity: waterTune.intensity(1.0, regionId) */
-            intensity: (val, regionId) => {
-                forMeshes(regionId, m => m.setIntensity(val));
-                LOG(`Intensity set to: ${val}`);
-            },
-            /** Set speed: waterTune.speed(0.8, regionId) */
-            speed: (val, regionId) => {
-                forMeshes(regionId, m => m.setSpeed(val));
-                LOG(`Speed set to: ${val}`);
-            },
-            /** Set distortion: waterTune.distortion(0.01, regionId) */
-            distortion: (val, regionId) => {
-                forMeshes(regionId, m => m.setDistortion(val));
-                LOG(`Distortion set to: ${val}`);
-            },
-            /** Set fadeWidth: waterTune.fadeWidth(50, regionId) */
-            fadeWidth: (val, regionId) => {
-                forMeshes(regionId, m => m.setFadeWidth(val));
-                LOG(`FadeWidth set to: ${val}`);
-            },
-            /** Set scale: waterTune.scale(150, regionId) */
-            scale: (val, regionId) => {
-                forMeshes(regionId, m => m.setScale(val));
-                LOG(`Scale set to: ${val}`);
-            },
-            /** Set flow angle in degrees: waterTune.flowAngle(90, regionId) */
-            flowAngle: (deg, regionId) => {
-                forMeshes(regionId, m => m.setFlowAngle(deg));
-                LOG(`Flow angle set to: ${deg}°`);
-            },
-            /** Set shore wave intensity: waterTune.shoreWaves(0.5, regionId) */
-            shoreWaves: (val, regionId) => {
-                forMeshes(regionId, m => m.setShoreWaves(val));
-                LOG(`Shore waves set to: ${val}`);
-            },
-            /** Set wave packet breakup: waterTune.waveSegment(0.85, regionId) */
-            waveSegment: (val, regionId) => {
-                forMeshes(regionId, m => m.setWaveSegment(val));
-                LOG(`Wave breakup set to: ${val}`);
-            },
-            /** Set wave regularity: waterTune.waveRegularity(0.60, regionId) */
-            waveRegularity: (val, regionId) => {
-                forMeshes(regionId, m => m.setWaveRegularity(val));
-                LOG(`Wave regularity set to: ${val}`);
-            },
-            /** Set swash surge reach: waterTune.swashSurge(24, regionId) */
-            swashSurge: (val, regionId) => {
-                forMeshes(regionId, m => m.setSwashSurge(val));
-                LOG(`Surge reach set to: ${val}`);
-            },
-            /** Set shoreline foam intensity: waterTune.surfFoam(0.70, regionId) */
-            surfFoam: (val, regionId) => {
-                forMeshes(regionId, m => m.setSurfFoam(val));
-                LOG(`Shoreline foam set to: ${val}`);
-            },
-            /** Set open sea chop intensity: waterTune.choppySeas(0.85, regionId) */
-            choppySeas: (val, regionId) => {
-                forMeshes(regionId, m => m.setChoppySeas(val));
-                LOG(`Open sea chop set to: ${val}`);
-            },
-            /** Set river waves intensity: waterTune.riverWaves(0.65, regionId) */
-            riverWaves: (val, regionId) => {
-                forMeshes(regionId, m => m.setRiverWaves(val));
-                LOG(`River waves set to: ${val}`);
-            },
-            /** Set lake waves intensity: waterTune.lakeWaves(0.65, regionId) */
-            lakeWaves: (val, regionId) => {
-                forMeshes(regionId, m => m.setLakeWaves(val));
-                LOG(`Lake waves set to: ${val}`);
-            },
-            /** Toggle drop rings: waterTune.lakeRings(true, regionId) */
-            lakeRings: (val, regionId) => {
-                forMeshes(regionId, m => m.setLakeRings(val));
-                LOG(`Lake rings set to: ${val}`);
-            },
-            /** Set whitecaps intensity: waterTune.whitecaps(0.65, regionId) */
-            whitecaps: (val, regionId) => {
-                forMeshes(regionId, m => m.setWhitecaps(val));
-                LOG(`Whitecaps set to: ${val}`);
-            },
-            /** Set sun glint intensity: waterTune.sunGlint(0.80, regionId) */
-            sunGlint: (val, regionId) => {
-                forMeshes(regionId, m => m.setSunGlint(val));
-                LOG(`Sun glint set to: ${val}`);
-            },
-            /** Toggle or set wave-triggered wake: waterTune.spindriftWake(true, regionId) */
-            spindriftWake: (val, regionId) => {
-                forMeshes(regionId, m => m.setSpindriftWake(val));
-                LOG(`Spindrift wake set to: ${val}`);
-            },
-            /** Toggle or set crest-locked foam: waterTune.crestBound(true, regionId) */
-            crestBound: (val, regionId) => {
-                forMeshes(regionId, m => m.setCrestBound(val));
-                LOG(`Crest-locked foam set to: ${val}`);
-            },
-            /** List available blend modes */
-            modes: () => {
-                const modes = ['NORMAL','ADD','MULTIPLY','SCREEN','OVERLAY','DARKEN',
-                               'LIGHTEN','COLOR_DODGE','COLOR_BURN','HARD_LIGHT',
-                               'SOFT_LIGHT','DIFFERENCE','EXCLUSION','HUE',
-                               'SATURATION','COLOR','LUMINOSITY'];
-                console.table(modes.map(m => ({
-                    mode: m,
-                    value: PIXI.BLEND_MODES[m] ?? '?'
-                })));
-                return modes;
-            },
-            /** Quick help */
-            help: () => {
-                console.log(`
-Water Tuning API:
-  game.ionrift.waterTune.blend('SCREEN', regionId)
-  game.ionrift.waterTune.opacity(0.35, regionId)
-  game.ionrift.waterTune.intensity(0.8, regionId)
-  game.ionrift.waterTune.speed(0.5, regionId)
-  game.ionrift.waterTune.distortion(0.01, regionId)
-  game.ionrift.waterTune.flowAngle(90, regionId)
-  game.ionrift.waterTune.shoreWaves(0.5, regionId)
-  game.ionrift.waterTune.modes()
-                `);
-            }
-        };
+        game.ionrift.waterTune = createWaterTuneApi(forMeshes, LOG);
         LOG('Water tuning API available: game.ionrift.waterTune.help()');
 
-        // Wire up preset dropdown in region behavior config sheets
-        Hooks.on('renderRegionBehaviorConfig', (app, html) => {
-            const typeKey = `${MODULE_ID}.waterFX`;
-            const doc = app.document;
-            if (doc?.type !== typeKey) return;
-
-            // V12 ApplicationV2 passes HTMLElement, V1 AppV1 passes jQuery
-            const root = html instanceof HTMLElement ? html
-                : html?.[0] instanceof HTMLElement ? html[0]
-                : null;
-            if (!root) return;
-
-            const select = root.querySelector('select[name="system.waterType"]');
-            if (!select) {
-                LOG('Preset select not found in behavior config');
-                return;
-            }
-
-            select.addEventListener('change', () => {
-                const preset = WATER_PRESETS[select.value];
-                if (!preset || select.value === 'custom') return;
-
-                const fieldMap = {
-                    'system.speed': preset.speed,
-                    'system.intensity': preset.intensity,
-                    'system.opacity': preset.opacity,
-                    'system.distortion': preset.distortion,
-                    'system.fadeWidth': preset.fadeWidth,
-                    'system.scale': preset.scale,
-                    'system.shoreWaves': preset.shoreWaves,
-                    'system.waveSegment': preset.waveSegment ?? 0.85,
-                    'system.waveRegularity': preset.waveRegularity ?? 0.60,
-                    'system.swashSurge': preset.swashSurge ?? 24.0,
-                    'system.surfFoam': preset.surfFoam ?? 0.70,
-                    'system.choppySeas': preset.choppySeas ?? 0.0,
-                    'system.riverWaves': preset.riverWaves ?? 0.0,
-                    'system.lakeWaves': preset.lakeWaves ?? 0.0,
-                    'system.lakeRings': preset.lakeRings ?? false,
-                    'system.whitecaps': preset.whitecaps ?? 0.5,
-                    'system.sunGlint': preset.sunGlint ?? 0.6,
-                    'system.colorOverride': preset.colorOverride ?? ''
-                };
-
-                for (const [name, val] of Object.entries(fieldMap)) {
-                    const input = root.querySelector(`[name="${name}"]`);
-                    if (input) {
-                        input.value = val;
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                }
-                LOG(`Preset applied: ${select.value}`);
-            });
-            LOG('Preset dropdown wired');
-        });
+        registerBehaviorSheetHook(LOG);
     }
 
     static async refreshAll() {
@@ -446,50 +262,22 @@ Water Tuning API:
 
     /**
      * Resolves the background image path for a scene across Foundry v11, v12, v13, and v14+.
-     * Properly handles v14 SceneLevel embedded documents and legacy scene.background.src.
      * @param {Scene} [scene=canvas?.scene]
      * @returns {string|null}
      */
     static resolveSceneBackgroundSrc(scene = canvas?.scene) {
-        if (!scene) return null;
-        const level = scene.firstLevel ?? scene.levels?.contents?.[0] ?? null;
-        return (level?.background?.src || scene._source?.background?.src || scene.background?.src || scene.img) || null;
+        return WaterColorSampler.resolveSceneBackgroundSrc(scene);
     }
 
-    static #solidBgTexture = null;
-    static #solidBgColor = null;
-
     /**
-     * Creates or returns a cached solid-color texture matching the scene background color.
-     * Used when the scene has no background artwork, preventing water from rendering as solid white.
-     * @returns {PIXI.Texture}
+     * Clear cached background colors (e.g. on scene change).
      */
-    static #getSolidBgTexture() {
-        const hex = canvas.scene?.backgroundColor || '#111922';
-        if (WaterManager.#solidBgTexture && WaterManager.#solidBgColor === hex) {
-            return WaterManager.#solidBgTexture;
-        }
-        try {
-            if (typeof document !== 'undefined') {
-                const canvasEl = document.createElement('canvas');
-                canvasEl.width = 4;
-                canvasEl.height = 4;
-                const ctx = canvasEl.getContext('2d');
-                ctx.fillStyle = hex;
-                ctx.fillRect(0, 0, 4, 4);
-                WaterManager.#solidBgTexture?.destroy?.(true);
-                WaterManager.#solidBgTexture = PIXI.Texture.from(canvasEl);
-                WaterManager.#solidBgColor = hex;
-                return WaterManager.#solidBgTexture;
-            }
-        } catch {
-            // Fallback silent ignore
-        }
-        return PIXI.Texture.WHITE;
+    static clearSampledColorCache() {
+        WaterColorSampler.clearSampledColorCache();
     }
 
     static async #renderWater(regionDoc, config, generation = WaterManager.#generation) {
-        const allPoints = WaterManager.#extractPoints(regionDoc);
+        const allPoints = WaterColorSampler.extractPoints(regionDoc);
         LOG(`  Extracted ${allPoints.length} point sets`);
         if (!allPoints.length) return;
 
@@ -538,7 +326,7 @@ Water Tuning API:
         }
 
         // Auto-sample background (cached per region) and shift toward blue
-        const bgColor = await WaterManager.#sampleBackgroundColor(allPoints, regionDoc.id);
+        const bgColor = await WaterColorSampler.sampleBackgroundColor(allPoints, regionDoc.id);
         const autoSampledColor = [
             bgColor[0] * 0.7,
             bgColor[1] * 0.85,
@@ -547,7 +335,6 @@ Water Tuning API:
 
         let waterColor;
         if (colorHex) {
-            // Parse hex color override
             const hex = colorHex.replace('#', '');
             waterColor = [
                 parseInt(hex.slice(0, 2), 16) / 255,
@@ -590,7 +377,7 @@ Water Tuning API:
             }
         }
         if (!bgTexture) {
-            bgTexture = WaterManager.#getSolidBgTexture();
+            bgTexture = WaterColorSampler.getSolidBgTexture();
         }
 
         // Meshes must not draw until the shader is ready, or the renderer compiles it synchronously
@@ -661,272 +448,6 @@ Water Tuning API:
         }
     }
 
-    static #shapeToPolygonPoints(shape) {
-        const shapeType = shape.type ?? shape.constructor?.name ?? '';
-
-        if (shapeType === 'polygon' || shapeType === 'PolygonShapeData') {
-            const pts = shape.points ?? shape.coordinates ?? [];
-            if (pts.length >= 6) return Array.from(pts);
-        }
-
-        if (shapeType === 'rectangle' || shapeType === 'RectangleShapeData') {
-            const x = shape.x ?? 0, y = shape.y ?? 0;
-            const w = shape.width ?? 0, h = shape.height ?? 0;
-            if (w > 0 && h > 0) {
-                return [x, y, x + w, y, x + w, y + h, x, y + h];
-            }
-        }
-
-        if (shapeType === 'ellipse' || shapeType === 'circle' || shapeType === 'EllipseShapeData' || shapeType === 'CircleShapeData') {
-            const rx = shape.radiusX ?? shape.radius ?? 0;
-            const ry = shape.radiusY ?? shape.radius ?? 0;
-            const cx = (shape.x ?? 0) + rx;
-            const cy = (shape.y ?? 0) + ry;
-            if (rx > 0 && ry > 0) {
-                const pts = [];
-                for (let i = 0; i < 24; i++) {
-                    const a = (i / 24) * Math.PI * 2;
-                    pts.push(Math.round(cx + rx * Math.cos(a)), Math.round(cy + ry * Math.sin(a)));
-                }
-                return pts;
-            }
-        }
-
-        if (shape.points?.length >= 6) return Array.from(shape.points);
-
-        if (typeof shape.toObject === 'function') {
-            const plain = shape.toObject();
-            if (plain.points?.length >= 6) return Array.from(plain.points);
-        }
-
-        return null;
-    }
-
-    static #extractPoints(regionDoc) {
-        const results = [];
-        const holePolys = [];
-        const shapes = regionDoc.shapes?.contents ?? regionDoc.shapes ?? [];
-
-        for (const shape of shapes) {
-            const pts = WaterManager.#shapeToPolygonPoints(shape);
-            if (!pts) continue;
-            if (Boolean(shape.hole)) {
-                holePolys.push(pts);
-            } else {
-                results.push(pts);
-            }
-        }
-
-        if (!holePolys.length && Array.isArray(regionDoc.flags?.[MODULE_ID]?.holes)) {
-            for (const h of regionDoc.flags[MODULE_ID].holes) {
-                if (Array.isArray(h) && h.length >= 6) {
-                    holePolys.push(Array.from(h));
-                }
-            }
-        }
-
-        if (results.length && holePolys.length) {
-            if (results.length === 1) {
-                results[0].holes = holePolys;
-            } else {
-                for (const outerPts of results) {
-                    const matched = holePolys.filter(h => WaterManager.#pointInPolygon(h[0], h[1], outerPts));
-                    if (matched.length) outerPts.holes = matched;
-                }
-            }
-        }
-
-        return results;
-    }
-
-    static #sampledColorCache = new Map();
-    static #bgThumbnailCache = new Map();
-
-    /**
-     * Clear cached background colors (e.g. on scene change).
-     */
-    static clearSampledColorCache() {
-        WaterManager.#sampledColorCache.clear();
-        WaterManager.#bgThumbnailCache.clear();
-        try {
-            WaterManager.#solidBgTexture?.destroy?.(true);
-        } catch { /* ignore */ }
-        WaterManager.#solidBgTexture = null;
-        WaterManager.#solidBgColor = null;
-    }
-
-    /**
-     * Retrieves or generates a downsampled thumbnail of the scene background image.
-     * Prevents multi-megabyte canvas allocations and main-thread freezes on high-res battlemaps.
-     * @param {string} bgPath
-     * @returns {Promise<{ data: Uint8ClampedArray, width: number, height: number } | null>}
-     */
-    static #getSceneThumbnail(bgPath) {
-        if (!bgPath) return Promise.resolve(null);
-        if (!WaterManager.#bgThumbnailCache.has(bgPath)) {
-            const pending = WaterManager.#buildSceneThumbnail(bgPath).then(thumb => {
-                if (!thumb && WaterManager.#bgThumbnailCache.get(bgPath) === pending) {
-                    WaterManager.#bgThumbnailCache.delete(bgPath);
-                }
-                return thumb;
-            });
-            WaterManager.#bgThumbnailCache.set(bgPath, pending);
-        }
-        return WaterManager.#bgThumbnailCache.get(bgPath);
-    }
-
-    static async #buildSceneThumbnail(bgPath) {
-        try {
-            const img = await new Promise((resolve, reject) => {
-                const i = new Image();
-                i.crossOrigin = 'anonymous';
-                i.onload = () => resolve(i);
-                i.onerror = reject;
-                i.src = bgPath;
-            });
-            // Decode off the main thread so drawImage below does not stall on large maps
-            try { await img.decode?.(); } catch { /* drawImage will decode */ }
-
-            const maxDim = 384;
-            const rawW = img.naturalWidth || img.width || 1000;
-            const rawH = img.naturalHeight || img.height || 1000;
-            let targetW = rawW;
-            let targetH = rawH;
-            if (targetW > maxDim || targetH > maxDim) {
-                if (targetW >= targetH) {
-                    targetH = Math.max(1, Math.round(rawH * (maxDim / rawW)));
-                    targetW = maxDim;
-                } else {
-                    targetW = Math.max(1, Math.round(rawW * (maxDim / rawH)));
-                    targetH = maxDim;
-                }
-            }
-
-            const offscreen = document.createElement('canvas');
-            offscreen.width = targetW;
-            offscreen.height = targetH;
-            const ctx = offscreen.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(img, 0, 0, targetW, targetH);
-
-            return {
-                data: ctx.getImageData(0, 0, targetW, targetH).data,
-                width: targetW,
-                height: targetH
-            };
-        } catch (err) {
-            LOG('  Background thumbnail generation failed:', err);
-            return null;
-        }
-    }
-
-    /**
-     * Samples the average background color under the given polygons.
-     * Uses IQR filtering to discard terrain bleed from imperfect borders.
-     * Results are cached per region to guarantee rock-solid color stability across saves.
-     * Returns [r, g, b] normalized to 0-1 range.
-     * @param {number[][]} pointSets
-     * @param {string} [regionId]
-     */
-    static async #sampleBackgroundColor(pointSets, regionId) {
-        const fallback = [0.05, 0.15, 0.25];
-
-        const bgPath = WaterManager.resolveSceneBackgroundSrc();
-        if (!bgPath) return fallback;
-
-        const cacheKey = `${regionId || 'anon'}-${bgPath}`;
-        if (WaterManager.#sampledColorCache.has(cacheKey)) {
-            return WaterManager.#sampledColorCache.get(cacheKey);
-        }
-
-        try {
-            const thumb = await WaterManager.#getSceneThumbnail(bgPath);
-            if (!thumb) return fallback;
-
-            const dims = canvas.dimensions;
-            if (!dims?.sceneWidth || !dims?.sceneHeight) return fallback;
-
-            const scaleX = thumb.width / dims.sceneWidth;
-            const scaleY = thumb.height / dims.sceneHeight;
-            const fullImageData = thumb.data;
-
-            // Collect individual samples with luminance
-            const pixelSamples = [];
-
-            for (const points of pointSets) {
-                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                for (let i = 0; i < points.length; i += 2) {
-                    minX = Math.min(minX, points[i]);
-                    minY = Math.min(minY, points[i + 1]);
-                    maxX = Math.max(maxX, points[i]);
-                    maxY = Math.max(maxY, points[i + 1]);
-                }
-
-                const span = Math.max(maxX - minX, maxY - minY);
-                const step = Math.max(16, Math.round(span / 30));
-
-                for (let sy = minY; sy <= maxY; sy += step) {
-                    for (let sx = minX; sx <= maxX; sx += step) {
-                        if (!WaterManager.#pointInPolygon(sx, sy, points)) continue;
-                        if (points.holes?.some(h => WaterManager.#pointInPolygon(sx, sy, h))) continue;
-                        const imgX = Math.round((sx - dims.sceneX) * scaleX);
-                        const imgY = Math.round((sy - dims.sceneY) * scaleY);
-                        if (imgX < 0 || imgX >= thumb.width || imgY < 0 || imgY >= thumb.height) continue;
-
-                        const pIdx = (imgY * thumb.width + imgX) * 4;
-                        const r = fullImageData[pIdx] / 255;
-                        const g = fullImageData[pIdx + 1] / 255;
-                        const b = fullImageData[pIdx + 2] / 255;
-                        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-
-                        // Compute saturation (HSL)
-                        const max = Math.max(r, g, b);
-                        const min = Math.min(r, g, b);
-                        const sat = (max === 0) ? 0 : (max - min) / max;
-
-                        pixelSamples.push({ r, g, b, lum, sat });
-                    }
-                }
-            }
-
-            if (!pixelSamples.length) return fallback;
-
-            // Pass 1: Discard warm shore/mud bleed when cool/neutral water samples exist inside polygon
-            const waterHued = pixelSamples.filter(s => s.b >= s.r * 0.85);
-            LOG(`  Water-hue filter: ${pixelSamples.length} total, ${waterHued.length} cool/neutral`);
-
-            // Use water-hued samples if enough exist, otherwise fall back to all in-polygon samples
-            const pool = waterHued.length >= 5 ? waterHued : pixelSamples;
-
-            // Pass 2: IQR on luminance to remove remaining outliers
-            pool.sort((a, b) => a.lum - b.lum);
-            const q1 = Math.floor(pool.length * 0.25);
-            const q3 = Math.ceil(pool.length * 0.75);
-            const filtered = pool.slice(q1, q3);
-
-            if (!filtered.length) return fallback;
-
-            let totalR = 0, totalG = 0, totalB = 0;
-            for (const s of filtered) {
-                totalR += s.r;
-                totalG += s.g;
-                totalB += s.b;
-            }
-
-            LOG(`  Final color pool: ${filtered.length} samples after IQR`);
-
-            const result = [
-                totalR / filtered.length,
-                totalG / filtered.length,
-                totalB / filtered.length
-            ];
-            WaterManager.#sampledColorCache.set(cacheKey, result);
-            return result;
-        } catch (err) {
-            LOG('  Background sampling failed:', err);
-            return fallback;
-        }
-    }
-
     static destroyAll() {
         for (const [, mesh] of WaterManager.#zones) {
             try {
@@ -941,9 +462,6 @@ Water Tuning API:
 
     /**
      * Test whether a world-space point is inside any active water zone.
-     * Uses ray-casting point-in-polygon on the stored flat point arrays,
-     * matching elevation against region bounds if provided.
-     *
      * @param {number} px - World X
      * @param {number} py - World Y
      * @param {number} [elevation] - Optional elevation to match against region vertical bounds
@@ -965,9 +483,9 @@ Water Tuning API:
                 continue;
             }
 
-            if (WaterManager.#pointInPolygon(px, py, pts)) {
+            if (WaterColorSampler.pointInPolygon(px, py, pts)) {
                 const holes = entry?.holes ?? pts?.holes;
-                if (holes?.length && holes.some(h => WaterManager.#pointInPolygon(px, py, h))) {
+                if (holes?.length && holes.some(h => WaterColorSampler.pointInPolygon(px, py, h))) {
                     continue;
                 }
                 return true;
@@ -1000,30 +518,7 @@ Water Tuning API:
     }
 
     /**
-     * Ray-casting point-in-polygon test for a flat [x,y,x,y,...] array.
-     * @param {number} px
-     * @param {number} py
-     * @param {number[]} flatPoints
-     * @returns {boolean}
-     */
-    static #pointInPolygon(px, py, flatPoints) {
-        const n = flatPoints.length / 2;
-        let inside = false;
-        for (let i = 0, j = n - 1; i < n; j = i++) {
-            const xi = flatPoints[i * 2],     yi = flatPoints[i * 2 + 1];
-            const xj = flatPoints[j * 2],     yj = flatPoints[j * 2 + 1];
-            if (((yi > py) !== (yj > py)) &&
-                (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
-                inside = !inside;
-            }
-        }
-        return inside;
-    }
-
-    /**
      * Returns the best canvas layer for water placement.
-     * Ideal: canvas.primary (above map, below effects/weather).
-     * Falls back to effects, then interface.
      */
     static #getTargetLayer() {
         const candidates = [
@@ -1041,4 +536,3 @@ Water Tuning API:
         return canvas.stage;
     }
 }
-
