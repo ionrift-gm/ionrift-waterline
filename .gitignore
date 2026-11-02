@@ -33,3 +33,7 @@ tests/
 *.lock
 .audit/
 ionrift_debug/
+
+# Engineering protocol hygiene guards
+vitest.config.*
+tools/
