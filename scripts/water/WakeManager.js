@@ -161,18 +161,24 @@ Token wake (client):
 
         const tokenElevation = tokenDoc.elevation ?? 0;
         const effectiveElevation = Number(changes?.elevation ?? tokenElevation ?? 0) || 0;
-        const inWater = effectiveElevation <= 0 && WaterManager.isPointInWater(newX, newY, effectiveElevation);
+        const canInteract = WaterManager.canTokenInteractWithWater(tokenDoc, changes);
+        const inWater = canInteract && effectiveElevation <= 0 && WaterManager.isPointInWater(newX, newY, effectiveElevation);
         if (!inWater) {
             WakeManager.#idleTimers.delete(tokenId);
             const vs = WakeManager.#velState.get(tokenId);
             if (vs) { vs.vx = 0; vs.vy = 0; vs.lastStampX = NaN; vs.lastStampY = NaN; }
-            if (effectiveElevation > 0) {
+            if (!canInteract || effectiveElevation > 0) {
                 for (const r of WakeManager.#ripples) {
                     if (r.tokenId === tokenId) r.beginFastFade?.();
                 }
             }
         }
         WakeManager.#debugWetChange(tokenId, inWater, 'updateToken');
+
+        if (!canInteract) {
+            WakeManager.#lastPositions.set(tokenId, { x: newX, y: newY });
+            return;
+        }
 
         if (!game.settings.get(MODULE_ID, 'enableTokenWake')) return;
 
@@ -215,7 +221,7 @@ Token wake (client):
         if (oldPos && moveDist > tu.longMoveMidPx * gridScale) {
             const midX = (oldPos.x + newX) / 2;
             const midY = (oldPos.y + newY) / 2;
-            if (WaterManager.isPointInWater(midX, midY, tokenElevation)) {
+            if (WaterManager.isPointInWater(midX, midY, effectiveElevation)) {
                 WakeManager.#spawnRipple(midX, midY, { tokenId, dirX, dirY, tokenRadiusPx: tokR });
             }
         }
@@ -243,16 +249,24 @@ Token wake (client):
 
         const tokenElevation = token.document?.elevation ?? 0;
         const effectiveElevation = Number(tokenElevation ?? 0) || 0;
-        const inWater = effectiveElevation <= 0 && WaterManager.isPointInWater(cx, cy, effectiveElevation);
+        const canInteract = WaterManager.canTokenInteractWithWater(token.document ?? token);
+        const inWater = canInteract && effectiveElevation <= 0 && WaterManager.isPointInWater(cx, cy, effectiveElevation);
         if (!inWater) {
             WakeManager.#idleTimers.delete(tokenId);
-            if (effectiveElevation > 0) {
+            if (!canInteract || effectiveElevation > 0) {
+                const vs = WakeManager.#velState.get(tokenId);
+                if (vs) { vs.vx = 0; vs.vy = 0; vs.lastStampX = NaN; vs.lastStampY = NaN; }
                 for (const r of WakeManager.#ripples) {
                     if (r.tokenId === tokenId) r.beginFastFade?.();
                 }
             }
         }
         WakeManager.#debugWetChange(tokenId, inWater, 'refreshToken');
+
+        if (!canInteract) {
+            WakeManager.#lastPositions.set(tokenId, { x: cx, y: cy });
+            return;
+        }
 
         if (!game.settings.get(MODULE_ID, 'enableTokenWake')) return;
 
@@ -509,7 +523,10 @@ Token wake (client):
             if (n >= 4) break;
             const tid = token.document?.id ?? token.id;
             const tokenElevation = Number(token.document?.elevation ?? token.elevation ?? 0) || 0;
-            if (tokenElevation > 0) { WakeManager.#lastWet.set(tid, false); continue; }
+            if (tokenElevation > 0 || !WaterManager.canTokenInteractWithWater(token.document ?? token)) {
+                WakeManager.#lastWet.set(tid, false);
+                continue;
+            }
             if (!WakeManager.#lastWet.get(tid)) continue;
             if (token.document?.getFlag?.(MODULE_ID, 'noRipple')) continue;
             if (WakeManager.#isGmHiddenFromPlayers(token.document)) continue;
@@ -542,6 +559,11 @@ Token wake (client):
         for (const token of (canvas.tokens?.placeables ?? [])) {
             const tokenId = token.document?.id ?? token.id;
 
+            if (!WaterManager.canTokenInteractWithWater(token.document ?? token)) {
+                WakeManager.#idleTimers.delete(tokenId);
+                WakeManager.#lastWet.set(tokenId, false);
+                continue;
+            }
             if (token.document?.getFlag?.(MODULE_ID, 'noRipple'))  { WakeManager.#idleTimers.delete(tokenId); continue; }
             if (WakeManager.#isGmHiddenFromPlayers(token.document)) {
                 WakeManager.#idleTimers.delete(tokenId);
@@ -740,8 +762,10 @@ Token wake (client):
         WakeManager.#lastWet.clear();
         for (const [id, pos] of WakeManager.#lastPositions) {
             const token = canvas.tokens?.placeables?.find(t => (t.document?.id ?? t.id) === id);
+            const tokenDoc = token?.document ?? token;
+            const canInteract = tokenDoc ? WaterManager.canTokenInteractWithWater(tokenDoc) : true;
             const tokenElevation = token?.document?.elevation ?? 0;
-            WakeManager.#lastWet.set(id, (Number(tokenElevation) || 0) <= 0 && WaterManager.isPointInWater(pos.x, pos.y, tokenElevation));
+            WakeManager.#lastWet.set(id, canInteract && (Number(tokenElevation) || 0) <= 0 && WaterManager.isPointInWater(pos.x, pos.y, tokenElevation));
         }
     }
 

@@ -7,9 +7,10 @@ const LOG = (...args) => { try { if (game.settings?.get?.(MODULE_ID, 'debug')) c
 import { WATER_ARCHETYPES, WATER_PRESETS } from './WaterPresets.js';
 import { WaterBehaviorType } from './WaterBehaviorType.js';
 import { WaterColorSampler } from './WaterColorSampler.js';
+import { WaterTokenPolicy } from './WaterTokenPolicy.js';
 import { createWaterTuneApi, registerBehaviorSheetHook } from './WaterTuneApi.js';
 
-export { WATER_ARCHETYPES, WATER_PRESETS, WaterBehaviorType };
+export { WATER_ARCHETYPES, WATER_PRESETS, WaterBehaviorType, WaterTokenPolicy };
 
 /**
  * Manages water FX overlays using PIXI.Mesh + custom shaders.
@@ -458,6 +459,60 @@ export class WaterManager {
         }
         WaterManager.#zones.clear();
         WaterManager.#polygons = [];
+    }
+
+    /**
+     * Whether WaterManager currently holds active water polygons or meshes.
+     * @returns {boolean}
+     */
+    static get hasActiveZones() {
+        return WaterManager.#zones.size > 0 || WaterManager.#polygons.length > 0;
+    }
+
+    /**
+     * Determine whether a token or token document represents an airborne or flying creature.
+     * @param {Token|TokenDocument|Actor|object|null|undefined} tokenOrDoc
+     * @param {object|null} [changes=null]
+     * @returns {boolean}
+     */
+    static isTokenAirborne(tokenOrDoc, changes = null) {
+        return WaterTokenPolicy.isTokenAirborne(tokenOrDoc, changes);
+    }
+
+    /**
+     * Canonical gate determining whether a token is eligible to interact with water bodies
+     * (wakes, ripples, idle wavelets, and water movement foley).
+     * @param {Token|TokenDocument|object|null|undefined} tokenOrDoc
+     * @param {object|null} [changes=null]
+     * @returns {boolean}
+     */
+    static canTokenInteractWithWater(tokenOrDoc, changes = null) {
+        return WaterTokenPolicy.canTokenInteractWithWater(tokenOrDoc, changes);
+    }
+
+    /**
+     * Test whether a token is eligible to interact with water AND its world-space point is in water.
+     * Flying / airborne creatures immediately return false without evaluating polygon geometry.
+     * @param {Token|TokenDocument|object} tokenOrDoc
+     * @param {number} px - World X
+     * @param {number} py - World Y
+     * @param {number} [elevation] - Optional elevation override
+     * @param {object|null} [changes=null] - Optional pending token changes
+     * @returns {boolean}
+     */
+    static isTokenInWater(tokenOrDoc, px, py, elevation = undefined, changes = null) {
+        if (!WaterManager.canTokenInteractWithWater(tokenOrDoc, changes)) return false;
+        const tokenDoc = tokenOrDoc?.document ?? tokenOrDoc;
+        const effectiveElevation = Number(
+            elevation
+            ?? changes?.elevation
+            ?? tokenDoc?.elevation
+            ?? tokenDoc?._source?.elevation
+            ?? tokenOrDoc?.elevation
+            ?? 0
+        ) || 0;
+        if (effectiveElevation > 0) return false;
+        return WaterManager.isPointInWater(px, py, effectiveElevation);
     }
 
     /**
