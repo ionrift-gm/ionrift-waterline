@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.1] - 2026-11-08
+
+### Fixed
+- Creatures with flying movement speeds or flight conditions no longer leave ripples or wakes when crossing water at ground elevation.
+
 ## [1.3.0] - 2026-11-01
 
 ### Added
