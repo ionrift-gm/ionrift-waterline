@@ -71,6 +71,9 @@ const NON_INNATE_ITEM_TYPES = new Set([
  */
 export class WaterTokenPolicy {
 
+    /** @type {WeakMap<object, { sig: string, value: boolean }>} */
+    static #airborneCache = new WeakMap();
+
     /**
      * Detect whether an actor has an innate or active fly/hover speed across D&D 5e, PF2e, SF2e, PF1e, and generic schemas.
      * @param {Actor|object|null|undefined} actor
@@ -206,10 +209,35 @@ export class WaterTokenPolicy {
         ).toLowerCase();
         if (moveAction && AIRBORNE_MOVEMENT_ACTIONS.has(moveAction)) return true;
 
+        // Fast per-token/actor cache when no transient pending changes are supplied
+        const cacheKeyObj = !changes && typeof tokenOrDoc === 'object' ? (tokenDoc ?? actor ?? tokenOrDoc) : null;
+        let cacheSig = null;
+        if (cacheKeyObj) {
+            const actorStatuses = actor?.statuses instanceof Set ? Array.from(actor.statuses).join(',') : '';
+            const tokenStatuses = tokenDoc?.statuses instanceof Set ? Array.from(tokenDoc.statuses).join(',') : '';
+            const actorEffLen = actor?.effects?.size ?? actor?.effects?.contents?.length ?? (Array.isArray(actor?.effects) ? actor.effects.length : 0);
+            const tokenEffLen = tokenDoc?.effects?.size ?? tokenDoc?.effects?.contents?.length ?? (Array.isArray(tokenDoc?.effects) ? tokenDoc.effects.length : 0);
+            const flagId = actor?.flags?.['ionrift-library']?.classification?.id ?? '';
+            const modTime = actor?._stats?.modifiedTime ?? 0;
+            cacheSig = `${elevation}|${moveAction}|${actorStatuses}|${tokenStatuses}|${actorEffLen}|${tokenEffLen}|${tokenDoc?.name ?? ''}|${actor?.name ?? ''}|${flagId}|${modTime}`;
+            const hit = WaterTokenPolicy.#airborneCache.get(cacheKeyObj);
+            if (hit && hit.sig === cacheSig) {
+                return hit.value;
+            }
+        }
+
+        const result = WaterTokenPolicy.#computeIsTokenAirborne(tokenOrDoc, tokenDoc, actor, changes, elevation, moveAction);
+        if (cacheKeyObj && cacheSig) {
+            WaterTokenPolicy.#airborneCache.set(cacheKeyObj, { sig: cacheSig, value: result });
+        }
+        return result;
+    }
+
+    static #computeIsTokenAirborne(tokenOrDoc, tokenDoc, actor, changes, elevation, moveAction) {
         // 3. Delegate to Ionrift Library Kernel classifier if loaded
         const libIsFlying = globalThis.game?.ionrift?.library?.isFlyingCreature;
         if (typeof libIsFlying === 'function') {
-            if (libIsFlying(tokenOrDoc, { changes, elevation, movementAction: moveAction })) return true;
+            return Boolean(libIsFlying(tokenOrDoc, { changes, elevation, movementAction: moveAction }));
         }
 
         // 4. Active status effects / conditions
