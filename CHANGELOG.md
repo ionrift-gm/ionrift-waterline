@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.2] - 2026-11-16
+
+### Fixed
+- Performance improvements for token movement when checking water boundaries.
+
 ## [1.3.1] - 2026-11-08
 
 ### Fixed
